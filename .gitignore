@@ -141,5 +141,10 @@ Thumbs.db
 *.pt
 *.pth
 models/
+data/raw/*
+data/processed/*
+!data/processed/sample.csv
+data/interim/*
+data/external/*
 logs/
 outputs/
