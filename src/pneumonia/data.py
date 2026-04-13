@@ -8,10 +8,11 @@ from pathlib import Path
 import sys
 from sqlalchemy import create_engine
 from typing import Optional
+from pneumonia.utils import setup_logger
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 
 def get_db_engine(database_url: str):
