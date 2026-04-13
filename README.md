@@ -57,6 +57,33 @@ MODEL_STORAGE_PATH=models/
 LOG_PATH=logs/
 ```
 
+### 5. Verificar la Instalación
+
+Ejecutar un ejemplo básico para verificar que todo funciona correctamente:
+
+```bash
+# Cargar módulos y probar configuración
+python -m pneumonia.config
+
+# Cargar datos de entrenamiento desde PostgreSQL
+python -m pneumonia.data
+
+# Ejecutar tests
+pytest tests/ -v
+```
+
+**Ejemplo de uso en Python:**
+
+```python
+from pneumonia.data import load_training_data
+from pneumonia.config import DATABASE_URL
+
+# Cargar datos de entrenamiento
+df = load_training_data(table_name="training_data", limit=100)
+print(f"Datos cargados: {df.shape}")
+print(f"Columnas: {df.columns.tolist()}")
+```
+
 ## Estructura del Proyecto
 
 ```
