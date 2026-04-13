@@ -1,12 +1,12 @@
-# TeamB Pneumonia - Modelado de Datos
+# TeamA Pneumonia - Detección de Neumonía con Machine Learning
 
-Proyecto de machine learning para el desarrollo de pipelines de modelado escalables con almacenamiento centralizado de modelos y pesos en PostgreSQL.
+Proyecto de machine learning para el desarrollo de pipelines de modelado escalables con almacenamiento centralizado de datos y modelos en PostgreSQL. Enfocado en la detección automática de neumonía mediante técnicas de visión por computadora.
 
 ## Objetivos del Proyecto
 
 - **Desarrollar pipelines de modelado escalables**: Crear arquitecturas robustas y modulares para entrenamiento, validación e inferencia de modelos
 - **Gestionar datos de entrenamiento en PostgreSQL**: Cargar y procesar datos directamente desde la base de datos centralizada
-- **Almacenar modelos/pesos en base de datos centralizada**: Utilizar PostgreSQL como repositorio centralizado para versioning y gestión de artefactos de ML
+- **Almacenar modelos/pesos de forma centralizada**: Utilizar PostgreSQL como repositorio central para versioning y gestión de artefactos de ML
 - **Reproducibilidad**: Mantener tracking de experimentos y resultados
 - **Modularidad**: Código reutilizable y bien estructurado para facilitar colaboración
 
@@ -53,52 +53,43 @@ Crear un archivo `.env` en la raíz del proyecto:
 ```
 # Base de datos (datos de entrenamiento + modelos)
 DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/pneumonia
-PYTHONPATH=src/
-```
-
-### 5. Inicializar la Base de Datos
-
-```bash
-python scripts/init_database.py
+MODEL_STORAGE_PATH=models/
+LOG_PATH=logs/
 ```
 
 ## Estructura del Proyecto
 
 ```
-TeamB-pneumonia/
+TeamA-pneumonia/
+├── .env.example              # Plantilla de variables de entorno
 ├── .gitignore
 ├── README.md
-├── requirements.txt
-├── setup.py
-├── .env (crear localmente, no versionar)
+├── requirements.txt          # Dependencias del proyecto
 │
-├── src/
-│   └── pneumonia/
+├── pneumonia/                # Código principal del proyecto
+│   ├── __init__.py
+│   ├── config.py             # Configuración general del proyecto
+│   ├── data.py               # Funciones de carga de datos desde PostgreSQL
+│   ├── utils.py              # Funciones utilitarias (logging, etc.)
+│   └── pipelines/            # Pipelines de ML
 │       ├── __init__.py
-│       ├── config.py              # Configuración general del proyecto
-       ├── data.py                # Funciones de carga de datos desde PostgreSQL
-       ├── models.py              # Definición y gestión de modelos en PostgreSQL
-│       ├── utils.py               # Funciones utilitarias
-│       └── pipelines/
-│           ├── __init__.py
-│           ├── training_pipeline.py    # Pipeline de entrenamiento
-│           └── inference_pipeline.py   # Pipeline de inferencia
+│       └── (pipelines disponibles)
 │
-├── notebooks/
-│   ├── 01-exploratory-analysis.ipynb
-│   ├── 02-model-development.ipynb
-│   ├── prototype.ipynb
-│   └── archive/
+├── data/                     # Almacenamiento de datos
+│   ├── raw/                  # Datos sin procesar
+│   ├── processed/            # Datos procesados
+│   ├── interim/              # Datos intermedios
+│   └── external/             # Datos externos
 │
-├── scripts/
-│   ├── train_model.py
-│   ├── inference.py
-│   ├── init_database.py
-│   └── archive/
+├── models/                   # Modelos entrenados
 │
-└── tests/
+├── notebooks/                # Jupyter notebooks para análisis y experimentación
+│   ├── prototype.ipynb       # Prototipo inicial
+│   └── archive/              # Notebooks archivados
+│
+└── tests/                    # Tests unitarios
     ├── __init__.py
-    └── test_models.py
+    └── test_models.py        # Tests para modelos
 ```
 
 ## Gestión de Datos
@@ -144,13 +135,13 @@ python scripts/inference.py --model-id <model-id> --data data.csv
 
 ### Desarrollo y Experimentación
 
-Usar los notebooks en `notebooks/` para exploración y prototipado. Mover código probado a módulos en `src/pneumonia/`.
+Usar los notebooks en `notebooks/` para exploración y prototipado. Mover código probado a módulos en `pneumonia/`.
 
 
 
 ## Contribuir
 
 1. Crear una rama para tu feature: `git checkout -b feature/nombre-de-feature`
-2. Hacer commit de cambios: `git commit -m "descripción"`
+2. Hacer commit de cambios: `git commit -m "descripción"` (Conventional commits)
 3. Push a la rama: `git push origin feature/nombre`
-4. Abrir un Pull Request
+4. Abrir un Pull Request (Push a la rama main no es recomendado)
