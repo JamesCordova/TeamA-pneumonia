@@ -16,7 +16,9 @@ LOG_PATH = os.getenv("LOG_PATH", "logs/")
 
 # Data Configuration
 DATA_RAW_PATH = "data/raw/"
+DATA_EXTERNAL_PATH = "data/external/"
 DATA_PROCESSED_PATH = "data/processed/"
+DATA_INTERIM_PATH = "data/interim/"
 
 # Training Configuration
 RANDOM_SEED = 42
