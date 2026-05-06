@@ -21,7 +21,7 @@ from pneumonia.utils import setup_logger
 logger = setup_logger(__name__)
 
 # Data file paths
-CENSUS_INPUT_PATH = Path(DATA_INTERIM_PATH) / "department_census_by_year.xlsx"
+CENSUS_INPUT_PATH = Path(DATA_INTERIM_PATH) / "department_census_by_year.csv"
 POPULATION_OUTPUT_PATH = Path(DATA_EXTERNAL_PATH) / "department_population_interpolated.csv"
 
 # Year range for interpolation
@@ -33,12 +33,13 @@ OUTPUT_END_YEAR = 2023
 
 def load_census_data(census_file_path: Path) -> pd.DataFrame:
     """
-    Load census data from Excel file.
+    Load census data from CSV file.
 
-    Reads Excel file containing department census data with years as columns.
+    Reads CSV file containing department census data with years as columns.
+    Normalizes column names to lowercase for consistent handling.
 
     Args:
-        census_file_path: Path to census Excel file
+        census_file_path: Path to census CSV file
 
     Returns:
         DataFrame with census data
@@ -49,8 +50,13 @@ def load_census_data(census_file_path: Path) -> pd.DataFrame:
         logger.error(f"Census data file not found: {census_file_path}")
         raise FileNotFoundError(f"Census data file not found: {census_file_path}")
     
-    census_df = pd.read_excel(census_file_path)
+    census_df = pd.read_csv(census_file_path)
+    
+    # Normalize column names to lowercase
+    census_df.columns = census_df.columns.str.lower().str.strip()
+    
     logger.info(f"Loaded census data: {census_df.shape[0]} departments, {census_df.shape[1]} columns")
+    logger.info(f"Columns: {census_df.columns.tolist()}")
     
     return census_df
 
@@ -280,7 +286,7 @@ def reorder_and_select_columns(
     if output_columns is None:
         # Default column order
         output_columns = [col for col in df.columns if col in 
-                         ['ubigeo', 'department_id', 'department_name', 'year', 'population']]
+                         ['ubigeo', 'iddpto', 'department', 'year', 'population']]
     
     return df[output_columns]
 
@@ -303,11 +309,11 @@ def validate_interpolation_quality(df: pd.DataFrame) -> None:
     )
     
     # Department coverage
-    unique_departments = df.groupby(['ubigeo', 'department_name']).size()
+    unique_departments = df.groupby(['ubigeo', 'department']).size()
     logger.info(f"Unique departments: {len(unique_departments)}")
     
     # Year coverage per department
-    years_per_dept = df.groupby('department_id')['year'].count()
+    years_per_dept = df.groupby('iddpto')['year'].count()
     expected_years = df['year'].nunique()
     logger.info(
         f"Years per department: min={years_per_dept.min()}, "
@@ -387,6 +393,7 @@ def interpolate_and_save_population_data(
     logger.info("Starting population data interpolation pipeline...")
     logger.info(f"Configuration: Interpolation years {INTERPOLATION_START_YEAR}-{INTERPOLATION_END_YEAR}, "
                 f"Output years {OUTPUT_START_YEAR}-{OUTPUT_END_YEAR}")
+    logger.info(f"Input source: {census_file_path.name}")
     
     try:
         # Load data
@@ -396,14 +403,14 @@ def interpolate_and_save_population_data(
         year_columns = extract_year_columns(census_data)
         
         # Reshape to long format
-        id_columns = ['ubigeo', 'department_name', 'department_id']
+        id_columns = ['ubigeo', 'department', 'iddpto']
         df_long = prepare_long_format_data(census_data, year_columns, id_columns)
         
         # Create complete year grid
-        df_complete = create_complete_year_grid(df_long, 'department_id')
+        df_complete = create_complete_year_grid(df_long, 'iddpto')
         
         # Interpolate population values
-        df_interpolated = interpolate_population_values(df_complete, 'department_id')
+        df_interpolated = interpolate_population_values(df_complete, 'iddpto')
         
         # Filter to output year range
         df_filtered = filter_output_year_range(df_interpolated)
@@ -415,7 +422,7 @@ def interpolate_and_save_population_data(
         df_filtered = round_population_values(df_filtered)
         
         # Select and reorder columns
-        output_columns = ['ubigeo', 'department_id', 'department_name', 'year', 'population']
+        output_columns = ['ubigeo', 'iddpto', 'department', 'year', 'population']
         df_final = reorder_and_select_columns(df_filtered, output_columns)
         
         # Validate quality
