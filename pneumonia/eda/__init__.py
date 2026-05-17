@@ -25,6 +25,21 @@ from pneumonia.eda.regional_analysis import (
     run_regional_analysis,
 )
 
+from pneumonia.eda.seasonality_analysis import (
+    load_and_prepare_weekly_data as seasonality_load_weekly_data,
+    load_population_data as seasonality_load_population,
+    compute_incidence,
+    aggregate_to_monthly,
+    aggregate_to_monthly_by_department,
+    compute_monthly_summary_stats,
+    plot_national_seasonality_boxplots,
+    plot_national_seasonality_heatmaps,
+    plot_national_stl_decomposition,
+    plot_departmental_boxplots_grid,
+    plot_departmental_seasonality_comparison,
+    run_seasonality_analysis,
+)
+
 __all__ = [
     # Annual variation
     "load_disease_measures",
@@ -45,4 +60,17 @@ __all__ = [
     "decompose_time_series",
     "plot_regional_analysis_grid",
     "run_regional_analysis",
+    # Seasonality analysis
+    "seasonality_load_weekly_data",
+    "seasonality_load_population",
+    "compute_incidence",
+    "aggregate_to_monthly",
+    "aggregate_to_monthly_by_department",
+    "compute_monthly_summary_stats",
+    "plot_national_seasonality_boxplots",
+    "plot_national_seasonality_heatmaps",
+    "plot_national_stl_decomposition",
+    "plot_departmental_boxplots_grid",
+    "plot_departmental_seasonality_comparison",
+    "run_seasonality_analysis",
 ]
