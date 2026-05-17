@@ -40,6 +40,19 @@ from pneumonia.eda.seasonality_analysis import (
     run_seasonality_analysis,
 )
 
+from pneumonia.eda.outlier_detection import (
+    load_data as outlier_load_data,
+    detect_iqr_outliers,
+    fit_arima_departmental,
+    detect_arima_outliers,
+    detect_hybrid_outliers,
+    compute_outlier_severity,
+    plot_outlier_detection,
+    plot_outlier_comparison,
+    generate_outlier_report,
+    run_outlier_detection,
+)
+
 __all__ = [
     # Annual variation
     "load_disease_measures",
@@ -73,4 +86,15 @@ __all__ = [
     "plot_departmental_boxplots_grid",
     "plot_departmental_seasonality_comparison",
     "run_seasonality_analysis",
+    # Outlier detection
+    "outlier_load_data",
+    "detect_iqr_outliers",
+    "fit_arima_departmental",
+    "detect_arima_outliers",
+    "detect_hybrid_outliers",
+    "compute_outlier_severity",
+    "plot_outlier_detection",
+    "plot_outlier_comparison",
+    "generate_outlier_report",
+    "run_outlier_detection",
 ]
