@@ -133,11 +133,16 @@ class BaseForecaster(ABC):
         """
         Save fitted model to disk.
         
+        Saves two files:
+        1. Model pickle: {name}.pkl - The actual model object
+        2. Metadata JSON: {name}_metadata.json - Training info, timestamps, params
+        
         Args:
             filepath: Path to save model. If None, uses default path.
-            
+                     If filepath ends with .pkl, metadata saved as _metadata.json
+                     
         Returns:
-            Path where model was saved
+            Path where model was saved (the .pkl file)
         """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before saving")
@@ -150,11 +155,37 @@ class BaseForecaster(ABC):
             filepath = Path(filepath)
             filepath.parent.mkdir(parents=True, exist_ok=True)
         
+        # Ensure .pkl extension
+        if not str(filepath).endswith('.pkl'):
+            filepath = filepath.with_suffix('.pkl')
+        
         try:
+            # Save model pickle
             with open(filepath, 'wb') as f:
                 pickle.dump(self, f)
             logger.info(f"Model saved to {filepath}")
+            
+            # Save metadata JSON alongside the model
+            metadata_path = filepath.with_stem(filepath.stem + '_metadata')
+            metadata_path = metadata_path.with_suffix('.json')
+            
+            metadata_dict = {
+                "name": self.name,
+                "department": self.department,
+                "age_group": self.age_group,
+                "is_fitted": self.is_fitted,
+                "fitted_date": self.fitted_date,
+                "saved_date": datetime.now().isoformat(),
+                "model_file": str(filepath.name),
+                "metadata": self.metadata,
+            }
+            
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata_dict, f, indent=2, default=str)
+            logger.info(f"Metadata saved to {metadata_path}")
+            
             return filepath
+            
         except Exception as e:
             logger.error(f"Failed to save model: {str(e)}")
             raise
@@ -164,8 +195,10 @@ class BaseForecaster(ABC):
         """
         Load a fitted model from disk.
         
+        Loads the model pickle file. Optionally reads metadata JSON if present.
+        
         Args:
-            filepath: Path to saved model
+            filepath: Path to saved model (.pkl file)
             
         Returns:
             Loaded forecaster instance
@@ -179,7 +212,21 @@ class BaseForecaster(ABC):
             with open(filepath, 'rb') as f:
                 model = pickle.load(f)
             logger.info(f"Model loaded from {filepath}")
+            
+            # Try to load and log metadata if available
+            metadata_path = filepath.with_stem(filepath.stem + '_metadata')
+            metadata_path = metadata_path.with_suffix('.json')
+            
+            if metadata_path.exists():
+                try:
+                    with open(metadata_path, 'r') as f:
+                        metadata = json.load(f)
+                    logger.debug(f"Loaded metadata: {metadata.get('saved_date', 'unknown')}")
+                except Exception as e:
+                    logger.warning(f"Could not load metadata from {metadata_path}: {e}")
+            
             return model
+            
         except Exception as e:
             logger.error(f"Failed to load model: {str(e)}")
             raise

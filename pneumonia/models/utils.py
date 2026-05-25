@@ -7,10 +7,20 @@ Provides functions for data loading, preprocessing, and train/validation/test sp
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union, Literal
 import logging
 
-from pneumonia.config import DATA_RAW_PATH, DATA_PROCESSED_PATH
+from pneumonia.config import (
+    DATA_RAW_PATH,
+    DATA_PROCESSED_PATH,
+    TEMPORAL_SPLIT_STRATEGY,
+    DEFAULT_TRAIN_RATIO,
+    DEFAULT_VAL_RATIO,
+    DEFAULT_TEST_RATIO,
+    DEFAULT_TRAIN_YEARS,
+    DEFAULT_VAL_YEARS,
+    DEFAULT_TEST_YEARS,
+)
 from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -133,27 +143,148 @@ def get_departmental_data(
 
 def temporal_split(
     data: pd.Series,
-    train_years: Tuple[int, int] = (2000, 2019),
-    val_years: Tuple[int, int] = (2020, 2021),
-    test_years: Tuple[int, int] = (2022, 2023)
+    strategy: Optional[str] = None,
+    train_ratio: Optional[float] = None,
+    val_ratio: Optional[float] = None,
+    test_ratio: Optional[float] = None,
+    train_years: Optional[Tuple[int, int]] = None,
+    val_years: Optional[Tuple[int, int]] = None,
+    test_years: Optional[Tuple[int, int]] = None,
 ) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """
-    Split time series into train, validation, and test sets based on years.
+    Split time series into train, validation, and test sets.
+    
+    Supports two strategies:
+    1. 'dynamic': Splits based on ratios (train_ratio, val_ratio, test_ratio)
+       - Automatically calculates indices based on data length
+       - Useful for datasets with varying time ranges
+       
+    2. 'years': Splits based on year ranges (train_years, val_years, test_years)
+       - Uses fixed year boundaries (e.g., 2000-2019 for training)
+       - Better for consistent, reproducible splits
     
     Args:
         data: Time series data with DatetimeIndex
-        train_years: (start_year, end_year) for training
-        val_years: (start_year, end_year) for validation
-        test_years: (start_year, end_year) for testing
+        strategy: 'dynamic' or 'years'. Uses TEMPORAL_SPLIT_STRATEGY from config if None.
+        train_ratio: Fraction for training (0-1). Only used if strategy='dynamic'.
+        val_ratio: Fraction for validation (0-1). Only used if strategy='dynamic'.
+        test_ratio: Fraction for testing (0-1). Only used if strategy='dynamic'.
+        train_years: (start_year, end_year) for training. Only used if strategy='years'.
+        val_years: (start_year, end_year) for validation. Only used if strategy='years'.
+        test_years: (start_year, end_year) for testing. Only used if strategy='years'.
         
     Returns:
         Tuple of (train_data, val_data, test_data)
         
     Raises:
-        ValueError: If train set has fewer than MIN_WEEKS_FOR_TRAINING
+        ValueError: If ratios don't sum to 1.0, years are invalid, or training set is too small
+    """
+    # Use config defaults if not provided
+    if strategy is None:
+        strategy = TEMPORAL_SPLIT_STRATEGY
+    
+    if strategy == "dynamic":
+        return _temporal_split_dynamic(
+            data,
+            train_ratio or DEFAULT_TRAIN_RATIO,
+            val_ratio or DEFAULT_VAL_RATIO,
+            test_ratio or DEFAULT_TEST_RATIO,
+        )
+    elif strategy == "years":
+        return _temporal_split_years(
+            data,
+            train_years or DEFAULT_TRAIN_YEARS,
+            val_years or DEFAULT_VAL_YEARS,
+            test_years or DEFAULT_TEST_YEARS,
+        )
+    else:
+        raise ValueError(f"strategy must be 'dynamic' or 'years', got {strategy}")
+
+
+def _temporal_split_dynamic(
+    data: pd.Series,
+    train_ratio: float = 0.8,
+    val_ratio: float = 0.1,
+    test_ratio: float = 0.1,
+) -> Tuple[pd.Series, pd.Series, pd.Series]:
+    """
+    Split time series dynamically based on ratio of observations.
+    
+    Args:
+        data: Time series with DatetimeIndex
+        train_ratio: Fraction for training (e.g., 0.8 = 80%)
+        val_ratio: Fraction for validation (e.g., 0.1 = 10%)
+        test_ratio: Fraction for testing (e.g., 0.1 = 10%)
+        
+    Returns:
+        Tuple of (train, val, test) series
+        
+    Raises:
+        ValueError: If ratios don't sum to ~1.0 or training set is too small
+    """
+    # Validate ratios
+    total_ratio = train_ratio + val_ratio + test_ratio
+    if not abs(total_ratio - 1.0) < 0.01:
+        raise ValueError(f"Ratios must sum to 1.0, got {total_ratio}")
+    
+    n = len(data)
+    train_end = int(np.ceil(n * train_ratio))
+    val_end = train_end + int(np.ceil(n * val_ratio))
+    
+    train = data.iloc[:train_end]
+    val = data.iloc[train_end:val_end]
+    test = data.iloc[val_end:]
+    
+    # Validation
+    if len(train) < MIN_WEEKS_FOR_TRAINING:
+        raise ValueError(
+            f"Insufficient training data: {len(train)} weeks < {MIN_WEEKS_FOR_TRAINING} required. "
+            f"Consider increasing train_ratio (current: {train_ratio})"
+        )
+    
+    logger.info(
+        f"Temporal split (dynamic): "
+        f"Train={len(train)} weeks ({train_ratio*100:.0f}%), "
+        f"Val={len(val)} weeks ({val_ratio*100:.0f}%), "
+        f"Test={len(test)} weeks ({test_ratio*100:.0f}%)"
+    )
+    
+    return train, val, test
+
+
+def _temporal_split_years(
+    data: pd.Series,
+    train_years: Tuple[int, int] = (2000, 2019),
+    val_years: Tuple[int, int] = (2020, 2021),
+    test_years: Tuple[int, int] = (2022, 2023),
+) -> Tuple[pd.Series, pd.Series, pd.Series]:
+    """
+    Split time series based on year ranges.
+    
+    Args:
+        data: Time series with DatetimeIndex
+        train_years: (start_year, end_year) inclusive for training
+        val_years: (start_year, end_year) inclusive for validation
+        test_years: (start_year, end_year) inclusive for testing
+        
+    Returns:
+        Tuple of (train, val, test) series
+        
+    Raises:
+        ValueError: If years are invalid or training set is too small
     """
     # Extract years from index
     data_years = data.index.year
+    data_year_range = (data_years.min(), data_years.max())
+    
+    # Validate year ranges
+    all_years = list(train_years) + list(val_years) + list(test_years)
+    invalid_years = [y for y in all_years if y < data_year_range[0] or y > data_year_range[1]]
+    if invalid_years:
+        logger.warning(
+            f"Year range {invalid_years} outside data range {data_year_range}. "
+            f"Some sets may be empty."
+        )
     
     # Create masks
     train_mask = (data_years >= train_years[0]) & (data_years <= train_years[1])
@@ -167,11 +298,22 @@ def temporal_split(
     # Validation
     if len(train) < MIN_WEEKS_FOR_TRAINING:
         raise ValueError(
-            f"Insufficient training data: {len(train)} weeks < {MIN_WEEKS_FOR_TRAINING} required"
+            f"Insufficient training data: {len(train)} weeks < {MIN_WEEKS_FOR_TRAINING} required. "
+            f"Data available: {data_year_range}. "
+            f"Consider extending train_years (current: {train_years})"
         )
     
+    if len(val) == 0:
+        logger.warning(f"Validation set is empty. Val years {val_years} not in data range {data_year_range}")
+    
+    if len(test) == 0:
+        logger.warning(f"Test set is empty. Test years {test_years} not in data range {data_year_range}")
+    
     logger.info(
-        f"Temporal split: Train={len(train)} weeks, Val={len(val)} weeks, Test={len(test)} weeks"
+        f"Temporal split (years): "
+        f"Train={len(train)} weeks ({train_years[0]}-{train_years[1]}), "
+        f"Val={len(val)} weeks ({val_years[0]}-{val_years[1]}), "
+        f"Test={len(test)} weeks ({test_years[0]}-{test_years[1]})"
     )
     
     return train, val, test
@@ -179,7 +321,7 @@ def temporal_split(
 
 def handle_missing_values(
     data: pd.Series,
-    method: str = "interpolate"
+    method: str = "interpolate",
 ) -> pd.Series:
     """
     Handle missing values in time series.
@@ -190,25 +332,36 @@ def handle_missing_values(
         
     Returns:
         Time series with missing values handled
+        
+    Raises:
+        ValueError: If method is unknown
     """
     if data.isna().sum() == 0:
+        logger.debug("No missing values detected")
         return data
     
-    logger.info(f"Handling {data.isna().sum()} missing values with method={method}")
+    nan_count = data.isna().sum()
+    logger.info(f"Handling {nan_count} missing values ({nan_count/len(data)*100:.1f}%) with method={method}")
     
     data = data.copy()
     
     if method == "interpolate":
+        # Linear interpolation for missing values in the middle
         data = data.interpolate(method="linear", limit_direction="both")
     elif method == "forward_fill":
-        data = data.fillna(method="ffill").fillna(method="bfill")
+        # Forward fill then backward fill for edge cases
+        data = data.ffill().bfill()
     elif method == "backward_fill":
-        data = data.fillna(method="bfill").fillna(method="ffill")
+        # Backward fill then forward fill
+        data = data.bfill().ffill()
     else:
-        raise ValueError(f"Unknown method: {method}")
+        raise ValueError(f"Unknown method: {method}. Must be 'interpolate', 'forward_fill', or 'backward_fill'")
     
-    # Fill any remaining NaNs with 0
-    data = data.fillna(0)
+    # Fill any remaining NaNs at edges with 0
+    remaining_nans = data.isna().sum()
+    if remaining_nans > 0:
+        logger.warning(f"Filling {remaining_nans} remaining NaNs with 0")
+        data = data.fillna(0)
     
     return data
 
