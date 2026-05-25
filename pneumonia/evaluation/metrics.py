@@ -76,15 +76,23 @@ def mean_absolute_percentage_error(
     
     MAPE = (1/n) * Σ|actual - predicted| / |actual|
     
-    Excludes zero actuals to avoid division by zero.
+    WARNING: This metric is problematic when actual values are close to zero.
+    MAPE will exclude observations where |actual| <= epsilon to avoid division by zero.
+    If all values are excluded, returns NaN with warning.
+    
+    Consider using SMAPE (Symmetric MAPE) instead for more robust results.
     
     Args:
         actual: Actual values
         predicted: Predicted values
-        epsilon: Small value to avoid division by zero
+        epsilon: Threshold for excluding near-zero values (default 1e-10)
         
     Returns:
-        MAPE value (as percentage)
+        MAPE value (as percentage), or NaN if all values are excluded
+        
+    Warning:
+        If some observations are excluded due to near-zero actuals,
+        the returned MAPE is biased and may not be comparable across datasets.
     """
     actual = np.asarray(actual, dtype=float)
     predicted = np.asarray(predicted, dtype=float)
@@ -92,11 +100,25 @@ def mean_absolute_percentage_error(
     if actual.shape != predicted.shape:
         raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
     
-    # Exclude zero values to avoid division issues
+    # Identify near-zero values
     nonzero_mask = np.abs(actual) > epsilon
+    n_excluded = (~nonzero_mask).sum()
+    
+    if n_excluded > 0:
+        exclusion_rate = n_excluded / len(actual) * 100
+        logger.warning(
+            f"MAPE: Excluding {n_excluded}/{len(actual)} observations ({exclusion_rate:.1f}%) "
+            f"with |actual| <= {epsilon} to avoid division by zero. "
+            f"Consider using SMAPE instead."
+        )
     
     if nonzero_mask.sum() == 0:
-        logger.warning("All actual values are zero or near-zero; MAPE undefined")
+        logger.error(
+            "MAPE: All actual values are zero or near-zero (|actual| <= {epsilon}). "
+            "MAPE is undefined. Returning NaN. "
+            "This typically indicates: (1) very low disease counts, or (2) epsilon too large. "
+            "Consider using SMAPE instead."
+        )
         return np.nan
     
     actual_nz = actual[nonzero_mask]
@@ -184,7 +206,8 @@ def mean_directional_accuracy(
 
 def compute_all_metrics(
     actual: Union[np.ndarray, pd.Series],
-    predicted: Union[np.ndarray, pd.Series]
+    predicted: Union[np.ndarray, pd.Series],
+    warn_on_nan: bool = True
 ) -> dict:
     """
     Compute all evaluation metrics.
@@ -192,9 +215,13 @@ def compute_all_metrics(
     Args:
         actual: Actual values
         predicted: Predicted values
+        warn_on_nan: If True, log warning for any NaN metric values
         
     Returns:
-        Dictionary with metric names and values
+        Dictionary with metric names and values (may contain NaN)
+        
+    Raises:
+        ValueError: If shapes don't match
     """
     actual = np.asarray(actual)
     predicted = np.asarray(predicted)
@@ -209,6 +236,11 @@ def compute_all_metrics(
         "smape": symmetric_mean_absolute_percentage_error(actual, predicted),
         "mda": mean_directional_accuracy(actual, predicted),
     }
+    
+    # Check for NaN values
+    nan_metrics = [k for k, v in metrics.items() if np.isnan(v)]
+    if nan_metrics and warn_on_nan:
+        logger.warning(f"Metrics with NaN values: {nan_metrics}. Check data quality.")
     
     return metrics
 
