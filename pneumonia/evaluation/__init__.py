@@ -21,6 +21,11 @@ from pneumonia.evaluation.compare_models import (
     create_metrics_dataframe,
 )
 
+from pneumonia.evaluation.walkforward import (
+    WalkForwardValidator,
+    walkforward_validation,
+)
+
 __all__ = [
     # Metrics
     "mean_absolute_error",
@@ -35,4 +40,7 @@ __all__ = [
     "rank_models",
     "generate_comparison_report",
     "create_metrics_dataframe",
+    # Walk-forward validation
+    "WalkForwardValidator",
+    "walkforward_validation",
 ]
