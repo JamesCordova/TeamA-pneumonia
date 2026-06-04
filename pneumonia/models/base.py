@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+from pneumonia.config import MODEL_STORAGE_PATH
 from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -126,7 +127,7 @@ class BaseForecaster(ABC):
             raise ValueError("Model must be fitted before saving")
         
         if filepath is None:
-            models_dir = Path("models") / self.department / self.age_group
+            models_dir = MODEL_STORAGE_PATH / self.department / self.age_group
             models_dir.mkdir(parents=True, exist_ok=True)
             filepath = models_dir / f"{self.name}.pkl"
         else:
@@ -144,8 +145,7 @@ class BaseForecaster(ABC):
             logger.info(f"Model saved to {filepath}")
             
             # Save metadata JSON alongside the model
-            metadata_path = filepath.with_stem(filepath.stem + '_metadata')
-            metadata_path = metadata_path.with_suffix('.json')
+            metadata_path = filepath.with_name(filepath.stem + '_metadata.json')
             
             metadata_dict = {
                 "name": self.name,
@@ -189,12 +189,21 @@ class BaseForecaster(ABC):
         try:
             with open(filepath, 'rb') as f:
                 model = pickle.load(f)
+
+            if not isinstance(model, BaseForecaster):
+                raise TypeError(
+                    f"Expected a BaseForecaster subclass, got {type(model).__name__}. "
+                    f"Check that {filepath} was saved with BaseForecaster.save()."
+                )
+
+            if not model.is_fitted:
+                logger.warning(f"Loaded model '{model.name}' is not fitted.")
+
             logger.info(f"Model loaded from {filepath}")
-            
+
             # Try to load and log metadata if available
-            metadata_path = filepath.with_stem(filepath.stem + '_metadata')
-            metadata_path = metadata_path.with_suffix('.json')
-            
+            metadata_path = filepath.with_name(filepath.stem + '_metadata.json')
+
             if metadata_path.exists():
                 try:
                     with open(metadata_path, 'r') as f:
@@ -202,55 +211,9 @@ class BaseForecaster(ABC):
                     logger.debug(f"Loaded metadata: {metadata.get('saved_date', 'unknown')}")
                 except Exception as e:
                     logger.warning(f"Could not load metadata from {metadata_path}: {e}")
-            
+
             return model
-            
+
         except Exception as e:
             logger.error(f"Failed to load model: {str(e)}")
             raise
-    
-    def get_metadata(self) -> Dict[str, Any]:
-        """
-        Get model metadata.
-        
-        Returns:
-            Dictionary with model metadata
-        """
-        metadata = self.metadata.copy()
-        metadata.update({
-            "is_fitted": self.is_fitted,
-            "fitted_date": self.fitted_date,
-        })
-        return metadata
-    
-    def save_metadata(self, filepath: Optional[Path] = None) -> Path:
-        """
-        Save model metadata to JSON.
-        
-        Args:
-            filepath: Path to save metadata. If None, uses default path.
-            
-        Returns:
-            Path where metadata was saved
-        """
-        if filepath is None:
-            models_dir = Path("models") / self.department / self.age_group
-            models_dir.mkdir(parents=True, exist_ok=True)
-            filepath = models_dir / f"{self.name}_metadata.json"
-        else:
-            filepath = Path(filepath)
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-        
-        try:
-            with open(filepath, 'w') as f:
-                json.dump(self.get_metadata(), f, indent=2, default=str)
-            logger.info(f"Metadata saved to {filepath}")
-            return filepath
-        except Exception as e:
-            logger.error(f"Failed to save metadata: {str(e)}")
-            raise
-    
-    def __repr__(self) -> str:
-        """String representation of forecaster."""
-        status = "fitted" if self.is_fitted else "unfitted"
-        return f"{self.__class__.__name__}(name={self.name}, dept={self.department}, age={self.age_group}, {status})"
