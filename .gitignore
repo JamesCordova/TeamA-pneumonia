@@ -140,7 +140,7 @@ Thumbs.db
 *.h5
 *.pt
 *.pth
-/models/
+/models/*
 data/raw/*
 data/processed/*
 !data/processed/sample.csv
