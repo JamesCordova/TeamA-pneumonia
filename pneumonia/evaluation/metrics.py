@@ -194,12 +194,12 @@ def mean_directional_accuracy(
         logger.warning("Need at least 2 observations for MDA")
         return np.nan
     
-    # Calculate direction of change
-    actual_direction = np.diff(actual) > 0
-    predicted_direction = np.diff(predicted) > 0
-    
-    # Calculate accuracy
-    mda = np.mean(actual_direction == predicted_direction) * 100
+    # Direction of actual change: did actual go up from t to t+1?
+    actual_changes = np.diff(actual)
+    # Direction of predicted change: did the model forecast an increase over the last known actual?
+    predicted_changes = predicted[1:] - actual[:-1]
+
+    mda = np.mean(np.sign(actual_changes) == np.sign(predicted_changes)) * 100
     
     return float(mda)
 
