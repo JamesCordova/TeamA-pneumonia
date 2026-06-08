@@ -129,7 +129,7 @@ class BaseForecaster(ABC):
             raise ValueError("Model must be fitted before saving")
         
         if filepath is None:
-            models_dir = MODEL_STORAGE_PATH / self.department / self.age_group
+            models_dir = MODEL_STORAGE_PATH / self.department / self.age_group / self.name
             models_dir.mkdir(parents=True, exist_ok=True)
             filepath = models_dir / f"{self.name}.pkl"
         else:
