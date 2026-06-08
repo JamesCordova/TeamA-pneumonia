@@ -49,10 +49,23 @@ class SeasonalNaiveForecaster(BaseForecaster):
             f"season mean: {self._season_values.mean():.4f}"
         )
 
-    def predict(self, steps: int) -> np.ndarray:
+    def predict(self, data: pd.Series, steps: int = 52) -> np.ndarray:
         if not self.is_fitted:
             raise ValueError("Model must be fitted before predicting")
 
-        # Tile the stored season to cover requested steps
-        n_full = (steps + self.season_length - 1) // self.season_length
-        return np.tile(self._season_values, n_full)[:steps]
+        available = len(data)
+        if available < self.season_length:
+            logger.warning(
+                f"SeasonalNaive: data has {available} observations, "
+                f"less than season_length={self.season_length}. Using all available."
+            )
+            season_vals = data.values.astype(float)
+        else:
+            season_vals = data.values[-self.season_length:].astype(float)
+
+        logger.info(
+            f"SeasonalNaive predict — anchoring on last {len(season_vals)} observations, "
+            f"steps: {steps}"
+        )
+        n_full = (steps + len(season_vals) - 1) // len(season_vals)
+        return np.tile(season_vals, n_full)[:steps]

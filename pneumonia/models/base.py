@@ -80,15 +80,17 @@ class BaseForecaster(ABC):
         pass
     
     @abstractmethod
-    def predict(self, steps: int) -> np.ndarray:
+    def predict(self, data: pd.Series, steps: int = 52) -> np.ndarray:
         """
-        Generate forecasts for specified number of steps ahead.
-        
+        Generate forecasts anchored to the last real observations in data.
+
         Args:
-            steps: Number of forecast steps
-            
+            data: Real observations available at prediction time (may include
+                  training data plus any newer observations).
+            steps: Number of steps to forecast ahead (default: 52 weeks).
+
         Returns:
-            Array of forecasted values
+            Array of forecasted values of length steps.
         """
         pass
     

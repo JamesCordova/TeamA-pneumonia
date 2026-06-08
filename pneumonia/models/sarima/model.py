@@ -245,88 +245,72 @@ class SARIMAModel(BaseForecaster):
             logger.error(f"auto_arima fitting failed: {str(e)}")
             raise
     
-    def predict(self, steps: int = 52) -> np.ndarray:
+    def predict(self, data: pd.Series, steps: int = 52) -> np.ndarray:
         """
-        Generate forecasts for specified steps ahead.
-        
+        Generate forecasts anchored to the last real observations in data.
+
+        The fitted SARIMA parameters are applied to data without refitting,
+        so the state space is initialised at the end of data before forecasting.
+
         Args:
-            steps: Number of forecast steps (default: 52 weeks = 1 year)
-            
+            data: Real observations available at prediction time.
+            steps: Number of steps to forecast ahead (default: 52 weeks).
+
         Returns:
-            Array of point forecasts
-            
-        Raises:
-            ValueError: If model not fitted
+            Array of point forecasts of length steps.
         """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before prediction")
-        
-        logger.info(f"Generating {steps}-step forecast")
-        
+
+        logger.info(f"Generating {steps}-step SARIMA forecast from {len(data)} observations")
+
         try:
-            # Handle both pmdarima ARIMA and statsmodels SARIMAX
-            if hasattr(self.results, 'get_forecast'):
-                # statsmodels SARIMAX
-                forecast = self.results.get_forecast(steps=steps)
-                predictions = forecast.predicted_mean.values
-            elif hasattr(self.results, 'predict'):
-                # pmdarima ARIMA
-                predictions = self.results.predict(n_periods=steps)
-            else:
-                raise AttributeError("Results object has no get_forecast or predict method")
-            
-            logger.info(f"Forecast completed: {predictions.shape if hasattr(predictions, 'shape') else len(predictions)}")
+            # Unwrap pmdarima to get the underlying statsmodels SARIMAXResults
+            sm_results = self.results.arima_res_ if hasattr(self.results, 'arima_res_') else self.results
+
+            updated = sm_results.apply(data, refit=False)
+            predictions = updated.get_forecast(steps=steps).predicted_mean.values
+
             return np.array(predictions)
-            
+
         except Exception as e:
             logger.error(f"Prediction failed: {str(e)}")
             raise
     
     def get_forecast_interval(
         self,
+        data: pd.Series,
         steps: int = 52,
-        alpha: float = 0.05
+        alpha: float = 0.05,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Generate point forecasts and confidence intervals.
-        
+        Generate point forecasts and confidence intervals anchored to data.
+
         Args:
-            steps: Number of forecast steps
-            alpha: Significance level (0.05 = 95% CI)
-            
+            data: Real observations available at prediction time.
+            steps: Number of steps to forecast ahead (default: 52 weeks).
+            alpha: Significance level (0.05 = 95% CI).
+
         Returns:
-            Tuple of (predictions, lower_bound, upper_bound)
+            Tuple of (predictions, lower_bound, upper_bound).
         """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before prediction")
-        
+
         logger.info(f"Generating {steps}-step forecast with {(1-alpha)*100:.0f}% CI")
-        
+
         try:
-            # Handle both pmdarima ARIMA and statsmodels SARIMAX
-            if hasattr(self.results, 'get_forecast'):
-                # statsmodels SARIMAX - has built-in confidence interval
-                forecast = self.results.get_forecast(steps=steps)
-                predictions = forecast.predicted_mean.values
-                ci = forecast.conf_int(alpha=alpha)
-                lower = ci.iloc[:, 0].values
-                upper = ci.iloc[:, 1].values
-            elif hasattr(self.results, 'predict'):
-                # pmdarima ARIMA - calculate intervals from residual std
-                predictions = self.results.predict(n_periods=steps)
-                residuals = self.get_residuals()
-                residual_std = np.std(residuals)
-                # Use normal distribution to compute CI
-                from scipy import stats
-                z_score = stats.norm.ppf(1 - alpha/2)
-                margin = z_score * residual_std
-                lower = predictions - margin
-                upper = predictions + margin
-            else:
-                raise AttributeError("Results object has no forecast methods")
-            
+            sm_results = self.results.arima_res_ if hasattr(self.results, 'arima_res_') else self.results
+
+            updated = sm_results.apply(data, refit=False)
+            forecast = updated.get_forecast(steps=steps)
+            predictions = forecast.predicted_mean.values
+            ci = forecast.conf_int(alpha=alpha)
+            lower = ci.iloc[:, 0].values
+            upper = ci.iloc[:, 1].values
+
             return predictions, lower, upper
-            
+
         except Exception as e:
             logger.error(f"Forecast interval generation failed: {str(e)}")
             raise

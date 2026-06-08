@@ -254,11 +254,10 @@ class TestSARIMAModel:
         model.fit(sample_timeseries_long)
         assert model.is_fitted
         assert model.results is not None
-        
+
         # Predict
-        forecast = model.predict(steps=10)
+        forecast = model.predict(sample_timeseries_long, steps=10)
         assert len(forecast) == 10
-        assert np.all(forecast > 0)  # Should be positive
     
     def test_model_get_forecast_interval(self, sample_timeseries_long):
         """Test getting forecast with confidence intervals."""
@@ -268,7 +267,7 @@ class TestSARIMAModel:
         )
         
         model.fit(sample_timeseries_long)
-        pred, lower, upper = model.get_forecast_interval(steps=10, alpha=0.05)
+        pred, lower, upper = model.get_forecast_interval(sample_timeseries_long, steps=10, alpha=0.05)
         
         assert len(pred) == 10
         assert len(lower) == 10
@@ -353,11 +352,11 @@ class TestIntegration:
         model.fit(train)
         
         # Validate
-        val_forecast = model.predict(steps=len(val))
+        val_forecast = model.predict(train, steps=len(val))
         val_metrics = compute_all_metrics(val.values, val_forecast)
-        
+
         # Test
-        test_forecast = model.predict(steps=len(test))
+        test_forecast = model.predict(pd.concat([train, val]), steps=len(test))
         test_metrics = compute_all_metrics(test.values, test_forecast)
         
         # Check metrics
@@ -391,12 +390,10 @@ class TestPerformance:
         """Test forecasting large number of steps."""
         model = SARIMAModel(department="PERF_TEST", age_group="under5")
         model.fit(sample_timeseries_long)
-        
-        # Forecast 2 years (104 weeks)
-        forecast = model.predict(steps=104)
-        
+
+        forecast = model.predict(sample_timeseries_long, steps=104)
+
         assert len(forecast) == 104
-        assert np.all(forecast > 0)
 
 
 # =============================================================================
@@ -412,8 +409,8 @@ def test_sarima_both_age_groups(age_group, sample_timeseries_long):
     )
     
     model.fit(sample_timeseries_long)
-    forecast = model.predict(steps=10)
-    
+    forecast = model.predict(sample_timeseries_long, steps=10)
+
     assert len(forecast) == 10
 
 

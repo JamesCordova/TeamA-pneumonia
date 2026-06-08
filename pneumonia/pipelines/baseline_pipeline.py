@@ -210,7 +210,7 @@ class BaselinePipeline:
         try:
             model_metrics: Dict[str, Dict[str, float]] = {}
             for name, model in self.models.items():
-                forecast = model.predict(steps=len(self.val))
+                forecast = model.predict(self.train, steps=len(self.val))
                 metrics = compute_all_metrics(self.val.values, forecast)
                 model_metrics[name] = {
                     k: float(v) if not np.isnan(v) else None
@@ -237,7 +237,9 @@ class BaselinePipeline:
         try:
             model_metrics: Dict[str, Dict[str, float]] = {}
             for name, model in self.models.items():
-                forecast = model.predict(steps=len(self.test))
+                forecast = model.predict(
+                    pd.concat([self.train, self.val]), steps=len(self.test)
+                )
                 metrics = compute_all_metrics(self.test.values, forecast)
                 model_metrics[name] = {
                     k: float(v) if not np.isnan(v) else None

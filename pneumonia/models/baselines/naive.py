@@ -37,7 +37,9 @@ class NaiveForecaster(BaseForecaster):
         })
         logger.info(f"Naive fitted — last value: {self._last_value:.4f}")
 
-    def predict(self, steps: int) -> np.ndarray:
+    def predict(self, data: pd.Series, steps: int = 52) -> np.ndarray:
         if not self.is_fitted:
             raise ValueError("Model must be fitted before predicting")
-        return np.full(steps, self._last_value)
+        last_value = float(data.iloc[-1])
+        logger.info(f"Naive predict — last observed value: {last_value:.4f}, steps: {steps}")
+        return np.full(steps, last_value)

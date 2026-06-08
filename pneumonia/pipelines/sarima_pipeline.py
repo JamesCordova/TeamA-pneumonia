@@ -220,8 +220,8 @@ class SARIMAPipeline:
                 self.results["stages"]["validation"] = {"status": "skipped", "reason": "empty_val_set"}
                 return
             
-            # Predict on validation set
-            val_forecast = self.model.predict(steps=len(self.val))
+            # Predict on validation set (anchor to training data)
+            val_forecast = self.model.predict(self.train, steps=len(self.val))
             
             # Compute metrics
             val_metrics = compute_all_metrics(self.val.values, val_forecast)
@@ -258,8 +258,10 @@ class SARIMAPipeline:
                 self.results["stages"]["testing"] = {"status": "skipped", "reason": "empty_test_set"}
                 return
             
-            # Predict on test set
-            test_forecast = self.model.predict(steps=len(self.test))
+            # Predict on test set (anchor to train + val so model sees all observed data)
+            test_forecast = self.model.predict(
+                pd.concat([self.train, self.val]), steps=len(self.test)
+            )
             
             # Compute metrics
             test_metrics = compute_all_metrics(self.test.values, test_forecast)

@@ -205,7 +205,7 @@ class WalkForwardValidator:
                 elif "features" in sig_pred.parameters:
                     current_predict_kwargs["features"] = X_val.values
 
-            forecast = model.predict(steps=current_horizon, **current_predict_kwargs)
+            forecast = model.predict(y_train, steps=current_horizon, **current_predict_kwargs)
             forecast = np.asarray(forecast).flatten()
 
             # Align predictions into predictions_df

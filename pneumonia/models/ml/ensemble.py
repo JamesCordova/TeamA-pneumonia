@@ -123,7 +123,8 @@ class EnsembleModel(BaseForecaster):
     
     def predict(
         self,
-        steps: int,
+        data: pd.Series,
+        steps: int = 52,
         base_predictions: Optional[Dict[str, np.ndarray]] = None,
         **kwargs
     ) -> np.ndarray:

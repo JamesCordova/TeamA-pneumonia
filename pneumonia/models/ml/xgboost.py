@@ -99,7 +99,8 @@ class XGBoostModel(BaseForecaster):
     
     def predict(
         self,
-        steps: int,
+        data: pd.Series,
+        steps: int = 52,
         test_features: Optional[np.ndarray] = None,
         return_interval: bool = False,
         confidence: float = 0.95,
