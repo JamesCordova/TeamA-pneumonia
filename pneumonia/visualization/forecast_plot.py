@@ -170,11 +170,18 @@ def plot_forecasts(
 
     fig, ax = plt.subplots(figsize=figsize)
 
-    # --- training actuals (trailing context) ---
+    # --- training actuals (trailing context aligned to a calendar year) ---
+    val_start = df[df["split"] == "val"]["date"].min()
+    if pd.notna(val_start):
+        # Go back 2 full calendar years before the validation start year
+        start_year = val_start.year - 2
+        min_plot_date = pd.Timestamp(f"{start_year}-01-01")
+    else:
+        min_plot_date = df["date"].min()
+
     train_df = (
-        df[(df["split"] == "train") & (df["model"] == "actual")]
+        df[(df["split"] == "train") & (df["model"] == "actual") & (df["date"] >= min_plot_date)]
         .sort_values("date")
-        .tail(last_n_train_weeks)
     )
     if not train_df.empty:
         ax.plot(
@@ -216,6 +223,12 @@ def plot_forecasts(
         if pd.notna(boundary):
             ax.axvline(boundary, color=color, ls=":", lw=1.2, alpha=0.7)
             ax.text(boundary, label_y, f" {split_name}", color=color, fontsize=8)
+
+    # --- set exact x-limits to avoid empty margins ---
+    plot_min = train_df["date"].min() if not train_df.empty else forecast_df["date"].min()
+    plot_max = forecast_df["date"].max() if not forecast_df.empty else train_df["date"].max()
+    if pd.notna(plot_min) and pd.notna(plot_max):
+        ax.set_xlim(plot_min, plot_max)
 
     # --- formatting ---
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
