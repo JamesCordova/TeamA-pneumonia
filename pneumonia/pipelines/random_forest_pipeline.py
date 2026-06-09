@@ -267,7 +267,7 @@ class RandomForestPipeline:
             with open(results_file, "w") as f:
                 json.dump(self.results, f, indent=2, default=str)
 
-            from pneumonia.visualization.forecast_plot import save_predictions, plot_forecasts
+            from pneumonia.visualization.forecast_plot import save_predictions
             pred_csv = save_predictions(
                 reports_dir=REPORTS_PATH,
                 department=self.department,
@@ -281,11 +281,6 @@ class RandomForestPipeline:
                         "test": self.test_forecasts.get("RandomForest"),
                     }
                 },
-            )
-            plot_path = plot_forecasts(
-                department=self.department,
-                age_group=self.age_group,
-                reports_dir=REPORTS_PATH,
             )
 
             self.results["stages"]["reporting"] = {

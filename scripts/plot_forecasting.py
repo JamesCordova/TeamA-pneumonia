@@ -29,11 +29,12 @@ from pneumonia.visualization.forecast_plot import plot_forecasts
 logger = setup_logger(__name__)
 
 
-def plot_one(department: str, age_group: str, output: Path = None) -> None:
+def plot_one(department: str, age_group: str, models=None, output: Path = None) -> None:
     path = plot_forecasts(
         department=department.upper(),
         age_group=age_group.lower(),
         reports_dir=REPORTS_PATH,
+        models=models,
         save_path=output,
         show=False,
     )
@@ -72,6 +73,10 @@ Examples:
         help="Age group (default: under5)",
     )
     parser.add_argument("--output", "-o", type=str, help="Output file path for plot")
+    parser.add_argument(
+        "--models", "-m", type=str, nargs="+",
+        help="Models to include (e.g. --models SARIMA XGBoost). Default: all models.",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     return parser
@@ -91,11 +96,11 @@ def main():
         logger.info(f"Plotting {len(departments)} departments for {args.age_group}")
         for dept in departments:
             try:
-                plot_one(dept, args.age_group)
+                plot_one(dept, args.age_group, models=args.models)
             except Exception as exc:
                 logger.warning(f"Failed for {dept}: {exc}")
     else:
-        plot_one(args.department, args.age_group, output)
+        plot_one(args.department, args.age_group, models=args.models, output=output)
 
 
 if __name__ == "__main__":
