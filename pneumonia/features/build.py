@@ -1,84 +1,163 @@
 """
-Feature engineering and building functions.
+Feature engineering for weekly pneumonia time series.
 
-This module contains functions for constructing features from raw pneumonia data
-for use in machine learning models.
+Builds a supervised learning dataset suitable for tree-based models
+(RandomForest, XGBoost) from a univariate weekly time series.
+
+Convention (no look-ahead bias):
+  Row t predicts series[t] from values strictly before t.
+    lag_k[t]           = series[t-k]               (series.shift(k))
+    rolling_mean_w[t]  = mean(series[t-w : t])      (series.shift(1).rolling(w).mean())
+    rolling_std_w[t]   = std(series[t-w : t])
+
+  build_step_features() mirrors this exactly for recursive prediction so
+  the feature representation is identical between training and inference.
 """
 
-from typing import Tuple
-import pandas as pd
+from typing import Any, List, Optional, Tuple
+
 import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
 from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
 
+_DEFAULT_LAGS    = [1, 2, 4, 8, 13, 26, 52]
+_DEFAULT_WINDOWS = [4, 13, 26]
+
 
 def build_features(
-    data: pd.DataFrame,
-    include_lagged: bool = True,
-    include_seasonal: bool = True,
-    **kwargs
-) -> pd.DataFrame:
+    series: pd.Series,
+    lags: Optional[List[int]] = None,
+    windows: Optional[List[int]] = None,
+) -> Tuple[pd.DataFrame, pd.Series]:
     """
-    Build feature set from pneumonia time series data.
-    
-    This function constructs engineered features from raw pneumonia case data,
-    including lagged features, seasonal components, and temporal aggregations.
-    
+    Convert a weekly time series into a supervised learning dataset.
+
     Args:
-        data: DataFrame with pneumonia cases indexed by time
-        include_lagged: Whether to include lagged features (t-1, t-2, etc.)
-        include_seasonal: Whether to include seasonal decomposition features
-        **kwargs: Additional feature engineering parameters
-        
+        series: Weekly pneumonia cases with DatetimeIndex.
+        lags: Lag periods (default: [1,2,4,8,13,26,52]).
+        windows: Rolling window sizes for mean/std (default: [4,13,26]).
+
     Returns:
-        DataFrame with engineered features ready for modeling
-        
-    Notes:
-        - Integrates with pneumonia.data module for data loading
-        - Handles missing values using interpolation strategy from pneumonia.data.load_data
-        - Feature names should follow pattern: 'lag_<n>', 'seasonal_<component>'
-        
-    TODO: Implement feature engineering logic
-        - Add lagged features: cases_t-1, cases_t-2, ..., cases_t-k
-        - Add rolling statistics: 7-week and 13-week rolling means, std
-        - Add seasonal decomposition: trend, seasonal, residual components
-        - Add time-based features: week_of_year, month, quarter
-        - Add domain features: population-adjusted rates, YoY growth
-        - Handle edge cases (start of series, missing values)
+        X: Feature DataFrame (NaN rows already dropped).
+        y: Target Series aligned to X.
     """
-    pass
+    if lags is None:
+        lags = _DEFAULT_LAGS
+    if windows is None:
+        windows = _DEFAULT_WINDOWS
+
+    df = pd.DataFrame(index=series.index)
+
+    for k in lags:
+        df[f'lag_{k}'] = series.shift(k)
+
+    # shift(1) so rolling stats use only values before the target row
+    shifted = series.shift(1)
+    for w in windows:
+        df[f'rolling_mean_{w}'] = shifted.rolling(w).mean()
+        df[f'rolling_std_{w}']  = shifted.rolling(w).std()   # ddof=1
+
+    df['week_of_year'] = series.index.isocalendar().week.astype(int)
+    df['month']        = series.index.month
+    df['quarter']      = series.index.quarter
+    df['trend']        = np.arange(len(series))
+
+    valid = df.notna().all(axis=1)
+    X = df[valid].copy()
+    y = series[valid].copy()
+
+    logger.info(
+        f"build_features: {len(X)} usable rows from {len(series)} "
+        f"({(~valid).sum()} NaN rows dropped). "
+        f"Columns: {list(X.columns)}"
+    )
+    return X, y
+
+
+def build_step_features(
+    history: np.ndarray,
+    target_date: pd.Timestamp,
+    trend_idx: int,
+    feature_names: List[str],
+    lags: List[int],
+    windows: List[int],
+) -> np.ndarray:
+    """
+    Build one feature vector for a single recursive prediction step.
+
+    Mirrors build_features() exactly so training and prediction produce
+    identical feature representations.
+
+    Args:
+        history: 1-D array of known values (real + previously predicted).
+                 Must have at least max(max_lag, max_window) elements.
+        target_date: Timestamp of the value being predicted.
+        trend_idx: Linear trend index for this step.
+        feature_names: Ordered feature column names from training.
+        lags: Same lag periods used during training.
+        windows: Same rolling windows used during training.
+
+    Returns:
+        1-D float array of length len(feature_names).
+    """
+    values: dict = {}
+
+    for k in lags:
+        values[f'lag_{k}'] = float(history[-k]) if k <= len(history) else np.nan
+
+    for w in windows:
+        chunk = history[-w:] if w <= len(history) else history
+        values[f'rolling_mean_{w}'] = float(np.mean(chunk))
+        values[f'rolling_std_{w}']  = float(np.std(chunk, ddof=1)) if len(chunk) > 1 else 0.0
+
+    iso = target_date.isocalendar()
+    values['week_of_year'] = int(iso[1])
+    values['month']        = int(target_date.month)
+    values['quarter']      = int(target_date.quarter)
+    values['trend']        = int(trend_idx)
+
+    return np.array([values[name] for name in feature_names], dtype=float)
 
 
 def prepare_features_for_model(
-    train_data: pd.DataFrame,
-    test_data: pd.DataFrame,
+    train_X: pd.DataFrame,
+    test_X: pd.DataFrame,
     scaler=None,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, Any]:
     """
-    Prepare and scale features for model training and prediction.
-    
-    Applies consistent preprocessing to both training and test features,
-    including feature scaling and alignment.
-    
+    Scale train and test features consistently.
+
+    Tree-based models are scale-invariant, but scaling is useful when
+    features feed into ensemble or linear meta-learners.
+
     Args:
-        train_data: Training feature set
-        test_data: Test/validation feature set
-        scaler: Sklearn-compatible scaler object (StandardScaler, MinMaxScaler, etc.)
-                If None, StandardScaler is used by default
-        
+        train_X: Training feature DataFrame.
+        test_X:  Test feature DataFrame (same columns as train_X).
+        scaler:  Sklearn-compatible scaler. Defaults to StandardScaler.
+
     Returns:
-        Tuple of (scaled_train_array, scaled_test_array) as numpy arrays
-        
-    Raises:
-        ValueError: If train_data and test_data have mismatched columns
-        
-    TODO: Implement feature scaling pipeline
-        - Initialize scaler if not provided (default: StandardScaler)
-        - Fit scaler on training data
-        - Transform both train and test data consistently
-        - Handle NaN values and edge cases
-        - Return as numpy arrays for ML model compatibility
-        - Store feature names for later interpretation
+        (scaled_train, scaled_test, fitted_scaler)
     """
-    pass
+    if set(train_X.columns) != set(test_X.columns):
+        raise ValueError(
+            f"Column mismatch — train: {list(train_X.columns)}, "
+            f"test: {list(test_X.columns)}"
+        )
+
+    test_X = test_X[train_X.columns]  # align column order
+
+    if scaler is None:
+        scaler = StandardScaler()
+
+    scaled_train = scaler.fit_transform(train_X.values)
+    scaled_test  = scaler.transform(test_X.values)
+
+    logger.info(
+        f"prepare_features_for_model: "
+        f"train {scaled_train.shape}, test {scaled_test.shape}"
+    )
+    return scaled_train, scaled_test, scaler

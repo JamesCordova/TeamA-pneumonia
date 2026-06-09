@@ -1,13 +1,11 @@
 """
-Feature selection and importance analysis functions.
-
-This module provides utilities for selecting relevant features and analyzing
-feature importance across machine learning models.
+Feature selection and importance utilities.
 """
 
 from typing import Dict, List
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -19,40 +17,51 @@ def select_relevant_features(
     method: str = "variance",
 ) -> pd.DataFrame:
     """
-    Select relevant features from feature set.
-    
-    Filters features based on variance, correlation, or model-based importance,
-    removing low-variance or redundant features that may not contribute to prediction.
-    
+    Filter features by variance or pairwise correlation.
+
     Args:
-        features: DataFrame with all candidate features
-        importance_threshold: Minimum importance/variance threshold (0-1)
-        method: Selection method ('variance', 'correlation', 'mutual_info')
-                - 'variance': Remove low-variance features
-                - 'correlation': Remove highly correlated features (multicollinearity)
-                - 'mutual_info': Use mutual information with target variable
-        
+        features: Feature DataFrame.
+        importance_threshold:
+            variance  — minimum variance a feature must have to be kept.
+            correlation — maximum allowed absolute pairwise correlation (r > threshold
+                          causes one of the pair to be dropped).
+        method: 'variance' or 'correlation'.
+
     Returns:
-        DataFrame with selected subset of features
-        
-    Raises:
-        ValueError: If importance_threshold not in [0, 1]
-        ValueError: If method not in ['variance', 'correlation', 'mutual_info']
-        
-    Notes:
-        - Correlation method typically removes redundant features with r > 0.95
-        - Mutual information method requires target variable context
-        - Works across multiple age groups and departments seamlessly
-        
-    TODO: Implement feature selection logic
-        - Implement variance-based filtering (VarianceThreshold)
-        - Implement correlation-based redundancy removal
-        - Implement mutual information scoring
-        - Track removed features for logging
-        - Ensure feature order is preserved
-        - Return feature importance scores alongside selected features
+        DataFrame with selected features.
     """
-    pass
+    if not 0 <= importance_threshold <= 1:
+        raise ValueError(f"importance_threshold must be in [0,1], got {importance_threshold}")
+    if method not in ("variance", "correlation"):
+        raise ValueError(f"method must be 'variance' or 'correlation', got {method}")
+
+    original_cols = list(features.columns)
+
+    if method == "variance":
+        from sklearn.feature_selection import VarianceThreshold
+        selector = VarianceThreshold(threshold=importance_threshold)
+        selector.fit(features)
+        selected = features.loc[:, selector.get_support()]
+
+    else:  # correlation
+        corr = features.corr().abs()
+        upper = corr.where(np.triu(np.ones(corr.shape, dtype=bool), k=1))
+        to_drop = [c for c in upper.columns if (upper[c] > importance_threshold).any()]
+        selected = features.drop(columns=to_drop)
+
+    dropped = [c for c in original_cols if c not in selected.columns]
+    if dropped:
+        logger.info(
+            f"select_relevant_features ({method}): "
+            f"dropped {len(dropped)} features: {dropped}"
+        )
+    else:
+        logger.info(
+            f"select_relevant_features ({method}): "
+            f"all {len(original_cols)} features retained"
+        )
+
+    return selected
 
 
 def get_feature_importance(
@@ -61,39 +70,50 @@ def get_feature_importance(
     method: str = "default",
 ) -> Dict[str, float]:
     """
-    Extract feature importance scores from trained model.
-    
-    Retrieves feature importance values from different model types
-    (XGBoost, RandomForest, linear models) and returns normalized scores.
-    
+    Extract normalized feature importance scores from a fitted model.
+
+    Supports RandomForestModel (._rf) and XGBoostModel (._xgb) wrappers,
+    as well as bare sklearn estimators with feature_importances_.
+
     Args:
-        model: Fitted model object (XGBoostModel, RandomForestModel, etc.)
-        feature_names: List of feature names corresponding to model inputs
-        method: Importance method ('default', 'permutation', 'shap')
-                - 'default': Model-native importance (if available)
-                - 'permutation': Permutation-based importance (model-agnostic)
-                - 'shap': SHAP values (requires shap package)
-        
+        model: Fitted model wrapper or sklearn estimator.
+        feature_names: Feature column names in training order.
+        method: Currently only 'default' (model-native importances).
+
     Returns:
-        Dictionary mapping feature_name -> importance_score (normalized to [0,1])
-        
-    Raises:
-        ValueError: If method not supported
-        AttributeError: If model does not have fitted estimator
-        ValueError: If feature_names length mismatches model features
-        
-    Notes:
-        - Scores are normalized to sum to 1.0 for cross-model comparison
-        - Supports feature importance from XGBoost, RandomForest, and Ensemble models
-        - Permutation importance may be computationally expensive
-        
-    TODO: Implement importance extraction
-        - Detect model type (XGBoost, RandomForest, Ensemble)
-        - Extract native importance scores (feature_importances_, get_booster().get_score())
-        - Implement permutation importance if needed
-        - Normalize scores to [0,1] range
-        - Sort by importance descending
-        - Log top-N features
-        - Handle edge cases (single feature, tied importance)
+        Dict mapping feature_name -> importance, sorted descending,
+        normalized to sum to 1.0.
     """
-    pass
+    if method != "default":
+        raise ValueError(f"Only 'default' importance method is supported, got {method}")
+
+    # Unwrap project model wrappers to their underlying estimator
+    if hasattr(model, '_rf'):
+        estimator = model._rf
+    elif hasattr(model, '_xgb'):
+        estimator = model._xgb
+    else:
+        estimator = model
+
+    if not hasattr(estimator, 'feature_importances_'):
+        raise AttributeError(
+            f"{type(estimator).__name__} has no feature_importances_. "
+            "Ensure the model is fitted."
+        )
+
+    raw = np.array(estimator.feature_importances_)
+
+    if len(raw) != len(feature_names):
+        raise ValueError(
+            f"feature_names has {len(feature_names)} entries but "
+            f"importances has {len(raw)}"
+        )
+
+    total = raw.sum()
+    normalized = (raw / total).tolist() if total > 0 else raw.tolist()
+
+    result = dict(sorted(zip(feature_names, normalized), key=lambda x: x[1], reverse=True))
+
+    top5 = list(result.items())[:5]
+    logger.info(f"get_feature_importance — top 5: {top5}")
+    return result
