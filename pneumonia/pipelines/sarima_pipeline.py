@@ -305,8 +305,7 @@ class SARIMAPipeline:
             with open(results_file, 'w') as f:
                 json.dump(self.results, f, indent=2, default=str)
 
-            # Save predictions CSV and generate plot
-            from pneumonia.visualization.forecast_plot import save_predictions, plot_forecasts
+            from pneumonia.visualization.forecast_plot import save_predictions
             pred_csv = save_predictions(
                 reports_dir=REPORTS_PATH,
                 department=self.department,
@@ -321,17 +320,11 @@ class SARIMAPipeline:
                     }
                 },
             )
-            plot_path = plot_forecasts(
-                department=self.department,
-                age_group=self.age_group,
-                reports_dir=REPORTS_PATH,
-            )
 
             self.results["stages"]["reporting"] = {
                 "model_path": str(model_path),
                 "results_file": str(results_file),
                 "predictions_csv": str(pred_csv),
-                "forecast_plot": str(plot_path) if plot_path else None,
                 "status": "success",
             }
 

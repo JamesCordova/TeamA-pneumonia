@@ -18,7 +18,7 @@ shows every trained model side-by-side.
 """
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -129,16 +129,17 @@ def plot_forecasts(
     department: str,
     age_group: str,
     reports_dir: Path,
+    models: Optional[List[str]] = None,
     save_path: Optional[Path] = None,
     show: bool = False,
     figsize: tuple = (15, 5),
     last_n_train_weeks: int = 104,
 ) -> Optional[Path]:
     """
-    Generate a multi-model forecast comparison figure from predictions.csv.
+    Generate a forecast comparison figure from predictions.csv.
 
     Plots:
-      - Trailing train actuals (last_n_train_weeks) as a solid black line
+      - Trailing train actuals as a solid black line
       - Val + test actuals as a dashed black line
       - One coloured line per model over the val+test range
       - Vertical markers for the val and test split boundaries
@@ -147,6 +148,8 @@ def plot_forecasts(
         department:          Department name (uppercase).
         age_group:           'under5' or '60plus'.
         reports_dir:         Base reports directory (REPORTS_PATH).
+        models:              List of model names to include (e.g. ['SARIMA', 'XGBoost']).
+                             None means all models in the CSV.
         save_path:           Output path. Defaults to
                              reports_dir/department/age_group/forecast_plot.png
         show:                Call plt.show() (useful for notebooks).
@@ -199,7 +202,12 @@ def plot_forecasts(
         )
 
     # --- model predictions ---
-    model_names = sorted(m for m in forecast_df["model"].unique() if m != "actual")
+    available = sorted(m for m in forecast_df["model"].unique() if m != "actual")
+    model_names = [m for m in available if m in models] if models else available
+    if models:
+        missing = [m for m in models if m not in available]
+        if missing:
+            logger.warning(f"Models not found in CSV: {missing}. Available: {available}")
     palette = plt.cm.tab10.colors
 
     for idx, model_name in enumerate(model_names):
@@ -257,3 +265,74 @@ def plot_forecasts(
         plt.show()
 
     return Path(save_path)
+
+
+def save_walkforward_predictions(
+    reports_dir: Path,
+    department: str,
+    age_group: str,
+    model_name: str,
+    predictions_df: pd.DataFrame,
+    horizon: int = 1,
+) -> Path:
+    """
+    Save walk-forward validation predictions to predictions.csv for visualization.
+
+    Existing rows for the given model name are replaced (upsert).
+
+    Args:
+        reports_dir:     Base reports directory (REPORTS_PATH).
+        department:      Department name (uppercase).
+        age_group:       'under5' or '60plus'.
+        model_name:      Name of the model to register (e.g. 'SARIMA_WF').
+        predictions_df:  The predictions DataFrame returned by WalkForwardValidator.run(),
+                         which must contain 'actual' and 'pred_h{horizon}' columns.
+        horizon:         The forecast horizon step to persist (default: 1).
+
+    Returns:
+        Path to the saved predictions.csv file.
+    """
+    out_dir = Path(reports_dir) / department / age_group
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / "predictions.csv"
+
+    pred_col = f"pred_h{horizon}"
+    if pred_col not in predictions_df.columns:
+        raise ValueError(f"Column '{pred_col}' not found in predictions_df")
+
+    rows = []
+    for date, row in predictions_df.iterrows():
+        rows.append({
+            "date": date,
+            "split": "test",  # Map to test split so it renders over the evaluation range
+            "model": model_name,
+            "actual": float(row["actual"]),
+            "predicted": float(row[pred_col]) if pd.notna(row[pred_col]) else np.nan,
+            "department": department,
+            "age_group": age_group,
+        })
+    new_df = pd.DataFrame(rows, columns=_COLUMNS)
+
+    # --- upsert: drop stale rows for the model we are writing ---
+    if csv_path.exists():
+        try:
+            existing = pd.read_csv(csv_path, parse_dates=["date"])
+            keep = ~(
+                (existing["model"] == model_name)
+                & (existing["department"] == department)
+                & (existing["age_group"] == age_group)
+            )
+            combined = pd.concat([existing[keep], new_df], ignore_index=True)
+        except Exception as exc:
+            logger.warning(f"Could not read existing CSV ({exc}) — overwriting.")
+            combined = new_df
+    else:
+        combined = new_df
+
+    combined.sort_values(
+        ["department", "age_group", "date", "split", "model"], inplace=True
+    )
+    combined.to_csv(csv_path, index=False)
+    logger.info(f"Walk-Forward predictions saved for {model_name} to {csv_path} ({len(new_df)} rows written)")
+    return csv_path
+
