@@ -29,7 +29,15 @@ from pneumonia.visualization.forecast_plot import plot_forecasts
 logger = setup_logger(__name__)
 
 
-def plot_one(department: str, age_group: str, models=None, output: Path = None) -> None:
+def plot_one(
+    department: str,
+    age_group: str,
+    models=None,
+    output: Path = None,
+    no_backtest: bool = False,
+    backtest_only: bool = False,
+    year: int = None,
+) -> None:
     path = plot_forecasts(
         department=department.upper(),
         age_group=age_group.lower(),
@@ -37,6 +45,9 @@ def plot_one(department: str, age_group: str, models=None, output: Path = None) 
         models=models,
         save_path=output,
         show=False,
+        show_backtest=not no_backtest,
+        backtest_only=backtest_only,
+        year=year,
     )
     if path:
         print(f"Plot saved: {path}")
@@ -77,6 +88,14 @@ Examples:
         "--models", "-m", type=str, nargs="+",
         help="Models to include (e.g. --models SARIMA XGBoost). Default: all models.",
     )
+    parser.add_argument(
+        "--no_backtest", action="store_true",
+        help="Hide walk-forward backtest trace; show only val/test predictions.",
+    )
+    parser.add_argument(
+        "--backtest_only", action="store_true",
+        help="Show only the walk-forward backtest trace; hide val/test model lines.",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     return parser
@@ -96,11 +115,13 @@ def main():
         logger.info(f"Plotting {len(departments)} departments for {args.age_group}")
         for dept in departments:
             try:
-                plot_one(dept, args.age_group, models=args.models)
+                plot_one(dept, args.age_group, models=args.models,
+                         no_backtest=args.no_backtest, backtest_only=args.backtest_only)
             except Exception as exc:
                 logger.warning(f"Failed for {dept}: {exc}")
     else:
-        plot_one(args.department, args.age_group, models=args.models, output=output)
+        plot_one(args.department, args.age_group, models=args.models, output=output,
+                 no_backtest=args.no_backtest, backtest_only=args.backtest_only)
 
 
 if __name__ == "__main__":

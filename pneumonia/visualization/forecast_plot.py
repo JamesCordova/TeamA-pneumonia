@@ -100,13 +100,16 @@ def save_predictions(
 
     new_df = pd.DataFrame(rows, columns=_COLUMNS)
 
-    # --- upsert: drop stale rows for the models we are rewriting ---
+    # --- upsert: drop stale train/val/test rows for the models we are rewriting ---
+    # Backtest rows (split='backtest') are managed exclusively by save_walkforward_predictions
+    # and must not be clobbered by a regular pipeline re-run.
     if csv_path.exists():
         try:
             existing = pd.read_csv(csv_path, parse_dates=["date"])
             being_replaced = set(new_df["model"].unique())
             keep = ~(
                 (existing["model"].isin(being_replaced))
+                & (existing["split"].isin(["train", "val", "test"]))
                 & (existing["department"] == department)
                 & (existing["age_group"] == age_group)
             )
@@ -134,6 +137,9 @@ def plot_forecasts(
     show: bool = False,
     figsize: tuple = (15, 5),
     last_n_train_weeks: int = 104,
+    show_backtest: bool = True,
+    backtest_only: bool = False,
+    year: Optional[int] = None,
 ) -> Optional[Path]:
     """
     Generate a forecast comparison figure from predictions.csv.
@@ -171,19 +177,34 @@ def plot_forecasts(
         logger.warning(f"No rows for {department}/{age_group} in {csv_path}.")
         return None
 
+    # --- determine x-axis bounds early so train actuals can be clipped correctly ---
+    # backtest_only  → x-axis covers the full backtest range; val/test model lines hidden
+    # show_backtest  → backtest trace shown on top of the regular val/test view
+    # neither        → classic view: 2 years before val through test end
+    backtest_df = df[df["split"] == "backtest"].copy() if (show_backtest or backtest_only) else pd.DataFrame(columns=df.columns)
+    forecast_df = df[df["split"].isin(["val", "test"])].copy()
+
+    val_start = df[df["split"] == "val"]["date"].min()
+    test_end   = df[df["split"] == "test"]["date"].max()
+
+    if (show_backtest or backtest_only) and not backtest_df.empty:
+        plot_min = backtest_df["date"].min()
+    elif pd.notna(val_start):
+        plot_min = pd.Timestamp(f"{val_start.year - 2}-01-01")
+    else:
+        plot_min = df["date"].min()
+
+    plot_max = test_end if pd.notna(test_end) else df["date"].max()
+
+    if year is not None:
+        plot_min = pd.Timestamp(f"{year}-01-01")
+        plot_max = pd.Timestamp(f"{year}-12-31")
+
     fig, ax = plt.subplots(figsize=figsize)
 
-    # --- training actuals (trailing context aligned to a calendar year) ---
-    val_start = df[df["split"] == "val"]["date"].min()
-    if pd.notna(val_start):
-        # Go back 2 full calendar years before the validation start year
-        start_year = val_start.year - 2
-        min_plot_date = pd.Timestamp(f"{start_year}-01-01")
-    else:
-        min_plot_date = df["date"].min()
-
+    # --- training actuals clipped to the visible range ---
     train_df = (
-        df[(df["split"] == "train") & (df["model"] == "actual") & (df["date"] >= min_plot_date)]
+        df[(df["split"] == "train") & (df["model"] == "actual") & (df["date"] >= plot_min)]
         .sort_values("date")
     )
     if not train_df.empty:
@@ -192,8 +213,10 @@ def plot_forecasts(
             color="black", lw=1.3, label="Actual (train)",
         )
 
-    # --- val + test actuals (one unique actual per date) ---
-    forecast_df = df[df["split"].isin(["val", "test"])].copy()
+    palette = plt.cm.tab10.colors
+    model_names: List[str] = []
+
+    # --- val + test actuals: always shown as reference regardless of mode ---
     if not forecast_df.empty:
         actuals = forecast_df.drop_duplicates("date").sort_values("date")
         ax.plot(
@@ -201,23 +224,34 @@ def plot_forecasts(
             color="black", lw=1.5, ls="--", label="Actual (val/test)",
         )
 
-    # --- model predictions ---
-    available = sorted(m for m in forecast_df["model"].unique() if m != "actual")
-    model_names = [m for m in available if m in models] if models else available
-    if models:
-        missing = [m for m in models if m not in available]
-        if missing:
-            logger.warning(f"Models not found in CSV: {missing}. Available: {available}")
-    palette = plt.cm.tab10.colors
+    # --- val + test model predictions: hidden in backtest_only mode ---
+    if not backtest_only:
+        available = sorted(m for m in forecast_df["model"].unique() if m != "actual")
+        model_names = [m for m in available if m in models] if models else available
+        if models:
+            missing = [m for m in models if m not in available]
+            if missing:
+                logger.warning(f"Models not found in CSV: {missing}. Available: {available}")
 
-    for idx, model_name in enumerate(model_names):
-        mdf = forecast_df[forecast_df["model"] == model_name].sort_values("date")
+        for idx, model_name in enumerate(model_names):
+            mdf = forecast_df[forecast_df["model"] == model_name].sort_values("date")
+            ax.plot(
+                mdf["date"], mdf["predicted"],
+                color=palette[idx % len(palette)],
+                lw=1.5, ls="--", alpha=0.85,
+                label=model_name,
+            )
+
+    # --- backtest trace (walk-forward, solid line) ---
+    backtest_models = [m for m in backtest_df["model"].unique() if (models is None or m in models)]
+    for model_name in sorted(backtest_models):
+        color_idx = model_names.index(model_name) if model_name in model_names else len(model_names)
+        bdf = backtest_df[backtest_df["model"] == model_name].sort_values("date")
         ax.plot(
-            mdf["date"], mdf["predicted"],
-            color=palette[idx % len(palette)],
-            lw=1.5,
-            alpha=0.85,
-            label=model_name,
+            bdf["date"], bdf["predicted"],
+            color=palette[color_idx % len(palette)],
+            lw=1.5, alpha=0.85,
+            label=f"{model_name} (backtest)",
         )
 
     # --- split boundary markers ---
@@ -232,9 +266,7 @@ def plot_forecasts(
             ax.axvline(boundary, color=color, ls=":", lw=1.2, alpha=0.7)
             ax.text(boundary, label_y, f" {split_name}", color=color, fontsize=8)
 
-    # --- set exact x-limits to avoid empty margins ---
-    plot_min = train_df["date"].min() if not train_df.empty else forecast_df["date"].min()
-    plot_max = forecast_df["date"].max() if not forecast_df.empty else train_df["date"].max()
+    # --- apply pre-computed x-limits ---
     if pd.notna(plot_min) and pd.notna(plot_max):
         ax.set_xlim(plot_min, plot_max)
 
@@ -300,25 +332,29 @@ def save_walkforward_predictions(
     if pred_col not in predictions_df.columns:
         raise ValueError(f"Column '{pred_col}' not found in predictions_df")
 
+    # Only keep rows where the requested horizon was actually forecast.
+    # With step > 1, many rows have NaN for pred_h1 — skip them for a clean line.
+    valid = predictions_df[predictions_df[pred_col].notna()]
     rows = []
-    for date, row in predictions_df.iterrows():
+    for date, row in valid.iterrows():
         rows.append({
             "date": date,
-            "split": "test",  # Map to test split so it renders over the evaluation range
+            "split": "backtest",
             "model": model_name,
             "actual": float(row["actual"]),
-            "predicted": float(row[pred_col]) if pd.notna(row[pred_col]) else np.nan,
+            "predicted": float(row[pred_col]),
             "department": department,
             "age_group": age_group,
         })
     new_df = pd.DataFrame(rows, columns=_COLUMNS)
 
-    # --- upsert: drop stale rows for the model we are writing ---
+    # --- upsert: drop only the backtest rows for this model (preserve val/test) ---
     if csv_path.exists():
         try:
             existing = pd.read_csv(csv_path, parse_dates=["date"])
             keep = ~(
-                (existing["model"] == model_name)
+                (existing["split"] == "backtest")
+                & (existing["model"] == model_name)
                 & (existing["department"] == department)
                 & (existing["age_group"] == age_group)
             )
