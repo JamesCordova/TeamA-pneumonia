@@ -21,10 +21,7 @@ from pneumonia.evaluation.compare_models import (
     create_metrics_dataframe,
 )
 
-from pneumonia.evaluation.walkforward import (
-    WalkForwardValidator,
-    walkforward_validation,
-)
+from pneumonia.evaluation.walkforward import WalkForwardValidator
 
 __all__ = [
     # Metrics
@@ -42,5 +39,4 @@ __all__ = [
     "create_metrics_dataframe",
     # Walk-forward validation
     "WalkForwardValidator",
-    "walkforward_validation",
 ]
