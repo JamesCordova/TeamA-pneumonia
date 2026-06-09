@@ -61,7 +61,10 @@ def build_features(
         df[f'rolling_mean_{w}'] = shifted.rolling(w).mean()
         df[f'rolling_std_{w}']  = shifted.rolling(w).std()   # ddof=1
 
-    df['week_of_year'] = series.index.isocalendar().week.astype(int)
+    woy = series.index.isocalendar().week.astype(int)
+    df['week_of_year'] = woy
+    df['sin_week']     = np.sin(2 * np.pi * woy / 52.1775)
+    df['cos_week']     = np.cos(2 * np.pi * woy / 52.1775)
     df['month']        = series.index.month
     df['quarter']      = series.index.quarter
     df['trend']        = np.arange(len(series))
@@ -115,7 +118,10 @@ def build_step_features(
         values[f'rolling_std_{w}']  = float(np.std(chunk, ddof=1)) if len(chunk) > 1 else 0.0
 
     iso = target_date.isocalendar()
-    values['week_of_year'] = int(iso[1])
+    woy = int(iso[1])
+    values['week_of_year'] = woy
+    values['sin_week']     = float(np.sin(2 * np.pi * woy / 52.1775))
+    values['cos_week']     = float(np.cos(2 * np.pi * woy / 52.1775))
     values['month']        = int(target_date.month)
     values['quarter']      = int(target_date.quarter)
     values['trend']        = int(trend_idx)

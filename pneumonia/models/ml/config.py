@@ -6,14 +6,17 @@ department-specific configurations for XGBoost, RandomForest, and Ensemble model
 """
 
 # XGBoost default hyperparameters
+# Tuned to match the example notebook (modeling_children_cases_ml_updated_final.py):
+# shallower trees (depth=4) + slower learning (lr=0.05) + high subsample (0.9)
 XGBOOST_DEFAULT_PARAMS = {
-    "n_estimators": 100,
-    "max_depth": 5,
-    "learning_rate": 0.1,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
+    "n_estimators": 300,
+    "max_depth": 4,
+    "learning_rate": 0.05,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
     "objective": "reg:squarederror",
     "random_state": 42,
+    "n_jobs": -1,
 }
 
 # XGBoost hyperparameter search ranges (for GridSearchCV/RandomizedSearchCV)
