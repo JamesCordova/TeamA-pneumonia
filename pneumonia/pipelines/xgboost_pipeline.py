@@ -270,7 +270,6 @@ class XGBoostPipeline:
                 "model_path":      str(model_path),
                 "results_file":    str(results_file),
                 "predictions_csv": str(pred_csv),
-                "forecast_plot":   str(plot_path) if plot_path else None,
                 "status": "success",
             }
             logger.info(f"Results saved to {results_file}")
