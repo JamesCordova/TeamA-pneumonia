@@ -60,6 +60,19 @@ SARIMA_ENFORCE_INVERTIBILITY = False
 """If True, enforces MA parameters to be invertible (may fail in some cases)"""
 
 # =============================================================================
+# FOURIER SEASONALITY (recommended for s=52 weekly data)
+# =============================================================================
+USE_FOURIER_SEASONALITY = True
+"""Use Fourier sin/cos terms for seasonality instead of SAR/SMA with s=52.
+   Avoids the unstable 52-lag seasonal ARIMA estimation and the D=1 collapse
+   toward Seasonal Naive. Typically outperforms seasonal ARIMA for weekly data."""
+
+N_FOURIER_TERMS = 6
+"""Number of Fourier sin/cos pairs (K). Each K adds sin(2πkt/52) and cos(2πkt/52).
+   K=6 captures the first 6 harmonics of annual seasonality (recommended for
+   epidemiological weekly data; increase to 10 for more complex patterns)."""
+
+# =============================================================================
 # DEPARTMENT-SPECIFIC OVERRIDES
 # =============================================================================
 DEPARTMENTAL_CONFIGS = {
