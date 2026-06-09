@@ -78,6 +78,8 @@ class SARIMAPipeline:
         self.val = None
         self.test = None
         self.model = None
+        self.val_forecasts: dict = {}
+        self.test_forecasts: dict = {}
         self.results = {
             "department": self.department,
             "age_group": self.age_group,
@@ -222,6 +224,7 @@ class SARIMAPipeline:
             
             # Predict on validation set (anchor to training data)
             val_forecast = self.model.predict(self.train, steps=len(self.val))
+            self.val_forecasts['SARIMA'] = val_forecast
             
             # Compute metrics
             val_metrics = compute_all_metrics(self.val.values, val_forecast)
@@ -262,6 +265,7 @@ class SARIMAPipeline:
             test_forecast = self.model.predict(
                 pd.concat([self.train, self.val]), steps=len(self.test)
             )
+            self.test_forecasts['SARIMA'] = test_forecast
             
             # Compute metrics
             test_metrics = compute_all_metrics(self.test.values, test_forecast)
@@ -296,17 +300,41 @@ class SARIMAPipeline:
             # Save results JSON
             results_dir = REPORTS_PATH / self.department / self.age_group
             results_dir.mkdir(parents=True, exist_ok=True)
-            
+
             results_file = results_dir / "results.json"
             with open(results_file, 'w') as f:
                 json.dump(self.results, f, indent=2, default=str)
-            
+
+            # Save predictions CSV and generate plot
+            from pneumonia.visualization.forecast_plot import save_predictions, plot_forecasts
+            pred_csv = save_predictions(
+                reports_dir=REPORTS_PATH,
+                department=self.department,
+                age_group=self.age_group,
+                train=self.train,
+                val=self.val,
+                test=self.test,
+                model_forecasts={
+                    'SARIMA': {
+                        'val': self.val_forecasts.get('SARIMA'),
+                        'test': self.test_forecasts.get('SARIMA'),
+                    }
+                },
+            )
+            plot_path = plot_forecasts(
+                department=self.department,
+                age_group=self.age_group,
+                reports_dir=REPORTS_PATH,
+            )
+
             self.results["stages"]["reporting"] = {
                 "model_path": str(model_path),
                 "results_file": str(results_file),
+                "predictions_csv": str(pred_csv),
+                "forecast_plot": str(plot_path) if plot_path else None,
                 "status": "success",
             }
-            
+
             logger.info(f"Results saved to {results_file}")
             logger.info("Stage 6 completed successfully")
             

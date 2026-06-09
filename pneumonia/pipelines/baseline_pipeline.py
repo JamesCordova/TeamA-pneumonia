@@ -72,6 +72,8 @@ class BaselinePipeline:
         self.val = None
         self.test = None
         self.models: Dict[str, Any] = {}
+        self.val_forecasts: Dict[str, np.ndarray] = {}
+        self.test_forecasts: Dict[str, np.ndarray] = {}
 
         self.results = {
             "department": self.department,
@@ -211,6 +213,7 @@ class BaselinePipeline:
             model_metrics: Dict[str, Dict[str, float]] = {}
             for name, model in self.models.items():
                 forecast = model.predict(self.train, steps=len(self.val))
+                self.val_forecasts[name] = forecast
                 metrics = compute_all_metrics(self.val.values, forecast)
                 model_metrics[name] = {
                     k: float(v) if not np.isnan(v) else None
@@ -240,6 +243,7 @@ class BaselinePipeline:
                 forecast = model.predict(
                     pd.concat([self.train, self.val]), steps=len(self.test)
                 )
+                self.test_forecasts[name] = forecast
                 metrics = compute_all_metrics(self.test.values, forecast)
                 model_metrics[name] = {
                     k: float(v) if not np.isnan(v) else None
@@ -274,9 +278,34 @@ class BaselinePipeline:
             with open(results_file, "w") as f:
                 json.dump(self.results, f, indent=2, default=str)
 
+            # Save predictions CSV and generate plot
+            from pneumonia.visualization.forecast_plot import save_predictions, plot_forecasts
+            pred_csv = save_predictions(
+                reports_dir=REPORTS_PATH,
+                department=self.department,
+                age_group=self.age_group,
+                train=self.train,
+                val=self.val,
+                test=self.test,
+                model_forecasts={
+                    name: {
+                        'val': self.val_forecasts.get(name),
+                        'test': self.test_forecasts.get(name),
+                    }
+                    for name in self.models
+                },
+            )
+            plot_path = plot_forecasts(
+                department=self.department,
+                age_group=self.age_group,
+                reports_dir=REPORTS_PATH,
+            )
+
             self.results["stages"]["reporting"] = {
                 "model_paths": saved_paths,
                 "results_file": str(results_file),
+                "predictions_csv": str(pred_csv),
+                "forecast_plot": str(plot_path) if plot_path else None,
                 "status": "success",
             }
             logger.info(f"Results saved to {results_file}")
