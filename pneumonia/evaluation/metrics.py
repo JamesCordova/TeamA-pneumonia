@@ -114,7 +114,7 @@ def mean_absolute_percentage_error(
     
     if nonzero_mask.sum() == 0:
         logger.error(
-            "MAPE: All actual values are zero or near-zero (|actual| <= {epsilon}). "
+            f"MAPE: All actual values are zero or near-zero (|actual| <= {epsilon}). "
             "MAPE is undefined. Returning NaN. "
             "This typically indicates: (1) very low disease counts, or (2) epsilon too large. "
             "Consider using SMAPE instead."

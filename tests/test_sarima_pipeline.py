@@ -308,7 +308,7 @@ class TestSARIMAPipeline:
         assert pipeline.department == "TEST"
         assert pipeline.age_group == "under5"
         assert pipeline.model is None
-        assert pipeline.results["status"] not in pipeline.results  # No status yet
+        assert "status" not in pipeline.results
     
     def test_pipeline_with_mock_data(self, sample_timeseries_long, monkeypatch):
         """Test pipeline with mocked data loading."""
