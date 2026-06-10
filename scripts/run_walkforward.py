@@ -32,7 +32,7 @@ from pneumonia.models.utils import (
     validate_time_series,
 )
 from pneumonia.utils import setup_logger
-from pneumonia.visualization.forecast_plot import save_walkforward_predictions
+from pneumonia.visualization.persistence import save_walkforward_predictions
 
 logger = setup_logger(__name__)
 
