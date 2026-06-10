@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 """
-Plot forecast comparison from stored predictions CSV.
+Plot forecast results from stored predictions CSV.
 
-Each pipeline run (SARIMA, baselines, RandomForest) writes its predictions to:
-  reports/{DEPT}/{AGE_GROUP}/predictions.csv
-
-This script reads that CSV and generates a multi-model comparison figure.
-Running multiple pipelines before plotting will show all models together.
+Two plot types:
+  classic   — train/val/test comparison  → forecast_plot.png
+  backtest  — walk-forward backtest      → backtest_plot.png
+  both      — generate both files
 
 Usage:
     python scripts/plot_forecasting.py --department AMAZONAS --age_group under5
-    python scripts/plot_forecasting.py --all --age_group 60plus
-    python scripts/plot_forecasting.py --department LIMA --output my_plot.png
+    python scripts/plot_forecasting.py --department LIMA --plot backtest
+    python scripts/plot_forecasting.py --all --age_group 60plus --plot both
+    python scripts/plot_forecasting.py --department AMAZONAS --models SARIMA --year 2022
 """
 
 import argparse
@@ -24,7 +24,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from pneumonia.config import REPORTS_PATH
 from pneumonia.models.utils import get_available_departments
 from pneumonia.utils import setup_logger
-from pneumonia.visualization.forecast_plot import plot_forecasts
+from pneumonia.visualization.backtest_plot import plot_backtest
+from pneumonia.visualization.classic_plot import plot_classic
 
 logger = setup_logger(__name__)
 
@@ -32,43 +33,59 @@ logger = setup_logger(__name__)
 def plot_one(
     department: str,
     age_group: str,
+    plot_type: str = "classic",
     models=None,
     output: Path = None,
-    no_backtest: bool = False,
-    backtest_only: bool = False,
     year: int = None,
 ) -> None:
-    path = plot_forecasts(
-        department=department.upper(),
-        age_group=age_group.lower(),
-        reports_dir=REPORTS_PATH,
-        models=models,
-        save_path=output,
-        show=False,
-        show_backtest=not no_backtest,
-        backtest_only=backtest_only,
-        year=year,
-    )
-    if path:
-        print(f"Plot saved: {path}")
-    else:
-        print(
-            f"No predictions CSV found for {department}/{age_group}.\n"
-            f"Run at least one pipeline first:\n"
-            f"  python scripts/train_sarima.py --department {department} --age_group {age_group}\n"
-            f"  python scripts/train_baselines.py --department {department} --age_group {age_group}"
+    dept  = department.upper()
+    group = age_group.lower()
+
+    if plot_type in ("classic", "both"):
+        path = plot_classic(
+            department=dept,
+            age_group=group,
+            reports_dir=REPORTS_PATH,
+            models=models,
+            save_path=output if plot_type == "classic" else None,
+            year=year,
         )
+        if path:
+            print(f"Classic plot saved: {path}")
+        else:
+            print(
+                f"No predictions CSV for {dept}/{group}. "
+                f"Run a pipeline first (e.g. scripts/train_sarima.py)."
+            )
+
+    if plot_type in ("backtest", "both"):
+        path = plot_backtest(
+            department=dept,
+            age_group=group,
+            reports_dir=REPORTS_PATH,
+            models=models,
+            save_path=output if plot_type == "backtest" else None,
+            year=year,
+        )
+        if path:
+            print(f"Backtest plot saved: {path}")
+        else:
+            print(
+                f"No backtest data for {dept}/{group}. "
+                f"Run scripts/run_walkforward.py first."
+            )
 
 
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Plot forecast comparison from stored predictions CSV.",
+        description="Plot forecast results from stored predictions CSV.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python scripts/plot_forecasting.py --department AMAZONAS --age_group under5
-  python scripts/plot_forecasting.py --all --age_group 60plus
-  python scripts/plot_forecasting.py --department LIMA --output reports/lima_plot.png
+  python scripts/plot_forecasting.py --department LIMA --plot backtest
+  python scripts/plot_forecasting.py --all --age_group 60plus --plot both
+  python scripts/plot_forecasting.py --department AMAZONAS --models SARIMA --year 2022
         """,
     )
 
@@ -78,25 +95,25 @@ Examples:
 
     parser.add_argument(
         "--age_group", "-g",
-        type=str,
-        choices=["under5", "60plus"],
-        default="under5",
+        type=str, choices=["under5", "60plus"], default="under5",
         help="Age group (default: under5)",
     )
-    parser.add_argument("--output", "-o", type=str, help="Output file path for plot")
+    parser.add_argument(
+        "--plot", "-p",
+        type=str, choices=["classic", "backtest", "both"], default="classic",
+        help="Plot type: classic (val/test), backtest (walk-forward), or both (default: classic)",
+    )
+    parser.add_argument("--output", "-o", type=str,
+                        help="Output file path (only for --plot classic or backtest, not both)")
     parser.add_argument(
         "--models", "-m", type=str, nargs="+",
-        help="Models to include (e.g. --models SARIMA XGBoost). Default: all models.",
+        help="Models to include (e.g. --models SARIMA XGBoost). Default: all.",
     )
     parser.add_argument(
-        "--no_backtest", action="store_true",
-        help="Hide walk-forward backtest trace; show only val/test predictions.",
+        "--year", type=int,
+        help="Restrict plot to a single year (e.g. --year 2022).",
     )
-    parser.add_argument(
-        "--backtest_only", action="store_true",
-        help="Show only the walk-forward backtest trace; hide val/test model lines.",
-    )
-    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
 
     return parser
 
@@ -106,22 +123,22 @@ def main():
     args = parser.parse_args()
 
     if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+        logging.getLogger("pneumonia").setLevel(logging.DEBUG)
 
     output = Path(args.output) if args.output else None
 
     if args.all:
         departments = get_available_departments()
-        logger.info(f"Plotting {len(departments)} departments for {args.age_group}")
+        logger.info(f"Plotting {len(departments)} departments ({args.age_group}, {args.plot})")
         for dept in departments:
             try:
-                plot_one(dept, args.age_group, models=args.models,
-                         no_backtest=args.no_backtest, backtest_only=args.backtest_only)
+                plot_one(dept, args.age_group, plot_type=args.plot,
+                         models=args.models, year=args.year)
             except Exception as exc:
                 logger.warning(f"Failed for {dept}: {exc}")
     else:
-        plot_one(args.department, args.age_group, models=args.models, output=output,
-                 no_backtest=args.no_backtest, backtest_only=args.backtest_only)
+        plot_one(args.department, args.age_group, plot_type=args.plot,
+                 models=args.models, output=output, year=args.year)
 
 
 if __name__ == "__main__":
