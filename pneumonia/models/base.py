@@ -95,37 +95,15 @@ class BaseForecaster(ABC):
         self,
         actual: pd.Series,
         predicted: np.ndarray,
-        metrics: Optional[list] = None
     ) -> Dict[str, float]:
         """
-        Evaluate forecast performance using specified metrics.
-        
-        Args:
-            actual: Actual observed values
-            predicted: Predicted values
-            metrics: List of metric names to compute. Default: ['mae', 'rmse', 'mape']
-            
+        Evaluate forecast performance using all standard metrics.
+
         Returns:
-            Dictionary with metric results
+            Dictionary with mae, rmse, mape, smape, mda values.
         """
-        if metrics is None:
-            metrics = ['mae', 'rmse', 'mape']
-        
-        from pneumonia.evaluation.metrics import (
-            mean_absolute_error,
-            root_mean_squared_error,
-            mean_absolute_percentage_error,
-        )
-        
-        results = {}
-        
-        if 'mae' in metrics:
-            results['mae'] = mean_absolute_error(actual, predicted)
-        if 'rmse' in metrics:
-            results['rmse'] = root_mean_squared_error(actual, predicted)
-        if 'mape' in metrics:
-            results['mape'] = mean_absolute_percentage_error(actual, predicted)
-        
+        from pneumonia.evaluation.metrics import compute_all_metrics
+        results = compute_all_metrics(actual, predicted)
         logger.info(f"Evaluation results: {results}")
         return results
     
