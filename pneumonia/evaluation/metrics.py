@@ -124,7 +124,7 @@ def mean_absolute_percentage_error(
     actual_nz = actual[nonzero_mask]
     predicted_nz = predicted[nonzero_mask]
     
-    mape = np.mean(np.abs((actual_nz - predicted_nz) / (np.abs(actual_nz) + epsilon))) * 100
+    mape = np.mean(np.abs((actual_nz - predicted_nz) / np.abs(actual_nz))) * 100
     return float(mape)
 
 

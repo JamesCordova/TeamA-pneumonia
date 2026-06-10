@@ -190,7 +190,7 @@ class TestMetrics:
     
     def test_mape_with_zeros(self):
         """Test MAPE when actual values are near zero."""
-        actual = np.array([0, 0.0001, 0.1, 1])
+        actual = np.array([0, 0.000001, 0.000002, 0.000005])
         predicted = np.array([0.5, 0.5, 0.5, 0.5])
         
         mape = mean_absolute_percentage_error(actual, predicted, epsilon=1e-5)
