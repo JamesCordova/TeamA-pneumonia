@@ -37,11 +37,12 @@ from pneumonia.visualization.persistence import save_walkforward_predictions
 logger = setup_logger(__name__)
 
 _MODEL_REGISTRY = {
-    "sarima":        ("pneumonia.models.sarima.model",       "SARIMAModel"),
-    "randomforest":  ("pneumonia.models.ml.random_forest",   "RandomForestModel"),
-    "xgboost":       ("pneumonia.models.ml.xgboost",         "XGBoostModel"),
-    "seasonalnaive": ("pneumonia.models.baselines.seasonal_naive", "SeasonalNaiveForecaster"),
-    "naive":         ("pneumonia.models.baselines.naive",    "NaiveForecaster"),
+    "sarima":        ("pneumonia.models.sarima.model",             "SARIMAModel"),
+    "randomforest":  ("pneumonia.models.ml.random_forest",         "RandomForestModel"),
+    "xgboost":       ("pneumonia.models.ml.xgboost",               "XGBoostModel"),
+    "seasonalnaive": ("pneumonia.models.baselines.seasonal_naive",  "SeasonalNaiveForecaster"),
+    "naive":         ("pneumonia.models.baselines.naive",           "NaiveForecaster"),
+    "holtwinters":   ("pneumonia.models.baselines.holt_winters",    "HoltWintersForecaster"),
 }
 
 

@@ -34,15 +34,16 @@ from pneumonia.models.utils import (
     handle_missing_values,
     validate_time_series,
 )
-from pneumonia.models.baselines import NaiveForecaster, SeasonalNaiveForecaster
+from pneumonia.models.baselines import NaiveForecaster, SeasonalNaiveForecaster, HoltWintersForecaster
 from pneumonia.evaluation.metrics import compute_all_metrics
 from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
 
 BASELINE_MODELS = {
-    "Naive": NaiveForecaster,
+    "Naive":        NaiveForecaster,
     "SeasonalNaive": SeasonalNaiveForecaster,
+    "HoltWinters":  HoltWintersForecaster,
 }
 
 
