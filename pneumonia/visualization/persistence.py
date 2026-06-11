@@ -107,13 +107,14 @@ def save_walkforward_predictions(
     age_group: str,
     model_name: str,
     predictions_df: pd.DataFrame,
-    horizon: int = 1,
 ) -> Path:
     """
     Save walk-forward validation predictions with split='backtest'.
 
+    Combines all pred_h* columns so every evaluated date gets one prediction
+    (each date has exactly one non-NaN value across horizons with step==horizon).
     Only replaces existing backtest rows for this model; train/val/test rows
-    for the same model name are never touched.
+    are never touched.
 
     Args:
         reports_dir:     Base reports directory.
@@ -121,8 +122,7 @@ def save_walkforward_predictions(
         age_group:       'under5' or '60plus'.
         model_name:      Model name (e.g. 'Naive', 'SARIMA').
         predictions_df:  DataFrame from WalkForwardValidator.run() with columns
-                         'actual' and 'pred_h{horizon}'.
-        horizon:         Which forecast horizon to persist (default 1).
+                         'actual' and 'pred_h1' … 'pred_hN'.
 
     Returns:
         Path to the saved CSV file.
@@ -131,17 +131,26 @@ def save_walkforward_predictions(
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_path = out_dir / "predictions.csv"
 
-    pred_col = f"pred_h{horizon}"
-    if pred_col not in predictions_df.columns:
-        raise ValueError(f"Column '{pred_col}' not found in predictions_df")
+    pred_cols = sorted(
+        [c for c in predictions_df.columns if c.startswith("pred_h")],
+        key=lambda c: int(c[6:]),
+    )
+    if not pred_cols:
+        raise ValueError("predictions_df has no 'pred_h*' columns")
 
-    valid = predictions_df[predictions_df[pred_col].notna()]
+    # For each date take the first non-NaN prediction across all horizons.
+    # With step==horizon every date has exactly one filled column.
+    blended = predictions_df[pred_cols].stack().groupby(level=0).first()
+    blended = blended.reindex(predictions_df.index)
+
     rows = []
-    for date, row in valid.iterrows():
+    for date, pred_val in blended.items():
+        if pd.isna(pred_val):
+            continue
         rows.append({
             "date": date, "split": "backtest", "model": model_name,
-            "actual": float(row["actual"]),
-            "predicted": float(row[pred_col]),
+            "actual": float(predictions_df.loc[date, "actual"]),
+            "predicted": float(pred_val),
             "department": department, "age_group": age_group,
         })
     new_df = pd.DataFrame(rows, columns=_COLUMNS)

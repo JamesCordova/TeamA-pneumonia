@@ -80,7 +80,6 @@ def run_walkforward_for(
     step: int,
     window_type: str,
     refit_every: int,
-    save_horizon: int,
     extra_model_params: dict,
 ) -> int:
     logger.info(f"Walk-forward: {department}/{age_group} model={model_name}")
@@ -120,7 +119,6 @@ def run_walkforward_for(
         age_group=age_group,
         model_name=model_name,
         predictions_df=results["predictions"],
-        horizon=save_horizon,
     )
     print(f"Predictions saved → {csv_path}")
 
@@ -182,9 +180,6 @@ Examples:
     parser.add_argument("--refit_every", type=int, default=1,
                         help="Re-train every N steps; 0=fit once only (default: 1). "
                              "For SARIMA use 13 or 52 to keep runtime tractable.")
-    parser.add_argument("--save_horizon", type=int, default=4,
-                        help="Which horizon step to persist in predictions.csv (default: 4)")
-
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     return parser
@@ -214,7 +209,6 @@ def main():
                 step=args.step,
                 window_type=args.window_type,
                 refit_every=args.refit_every,
-                save_horizon=args.save_horizon,
                 extra_model_params={},
             )
         except Exception as exc:
