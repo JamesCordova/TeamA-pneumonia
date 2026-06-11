@@ -181,8 +181,8 @@ Examples:
     parser.add_argument("--refit_every", type=int, default=1,
                         help="Re-train every N steps; 0=fit once only (default: 1). "
                              "For SARIMA use 13 or 52 to keep runtime tractable.")
-    parser.add_argument("--save_horizon", type=int, default=1,
-                        help="Which horizon step to persist in predictions.csv (default: 1)")
+    parser.add_argument("--save_horizon", type=int, default=4,
+                        help="Which horizon step to persist in predictions.csv (default: 4)")
 
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
