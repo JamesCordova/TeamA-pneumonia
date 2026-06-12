@@ -26,8 +26,9 @@ from pneumonia.utils import setup_logger
 logger = setup_logger(__name__)
 
 # Data paths
-WEEKLY_DATA_PATH = Path(DATA_RAW_PATH) / "iras_data_raw.csv"
-ANNUAL_DATA_PATH = Path(DATA_PROCESSED_PATH) / "annual_disease_measures_by_department.csv"
+WEEKLY_DATA_PATH       = Path(DATA_RAW_PATH)       / "iras_data_raw.csv"
+WEEKLY_CLEAN_PATH      = Path(DATA_PROCESSED_PATH) / "iras_weekly_clean.csv"
+ANNUAL_DATA_PATH       = Path(DATA_PROCESSED_PATH) / "annual_disease_measures_by_department.csv"
 
 # Minimum weeks for model training
 MIN_WEEKS_FOR_TRAINING = 104  # 2 years
@@ -141,28 +142,40 @@ def get_departmental_data(
         pandas Series indexed by week_start with aggregated case counts
         and a regular 7-day frequency.
     """
-    df = load_weekly_cases(filepath=filepath, department=department, age_group=age_group)
+    dept_upper = department.upper()
 
-    if df.empty:
-        raise ValueError(f"No data found for {department} ({age_group})")
-
-    # Aggregate cases across all districts per week
-    ts = df.groupby("week_start")["cases"].sum().sort_index()
-
-    # Enforce regular 7-day frequency.
-    # The raw CSV skips ISO week-53 in 2004, 2009 and 2015, leaving 3 gaps of
-    # 14 days that cause statsmodels to warn about irregular frequency.
-    ts = ts.asfreq("7D")
-    if ts.isna().any():
-        ts = handle_missing_values(ts, method="interpolate")
-
-    logger.info(
-        f"Aggregated {len(df)} district records to {len(ts)} weeks "
-        f"for {department} ({age_group})"
-    )
+    # Fast path: load from pre-built processed file when available
+    if filepath is None and WEEKLY_CLEAN_PATH.exists():
+        clean = pd.read_csv(WEEKLY_CLEAN_PATH, parse_dates=["week_start"])
+        subset = clean[
+            (clean["department"] == dept_upper) &
+            (clean["age_group"]  == age_group)
+        ].copy()
+        if subset.empty:
+            raise ValueError(f"No data found for {dept_upper} ({age_group}) in processed file")
+        ts = subset.set_index("week_start")["cases"].sort_index()
+        ts.index.freq = ts.index.inferred_freq or "7D"
+        logger.info(f"Loaded {len(ts)} weeks for {dept_upper} ({age_group}) from processed file")
+    else:
+        # Fallback to raw (runs asfreq + interpolation on every call)
+        if not WEEKLY_CLEAN_PATH.exists():
+            logger.warning(
+                "Processed file not found — loading from raw CSV (slower). "
+                "Run 'python scripts/prepare_data.py --no_download' to build it."
+            )
+        df = load_weekly_cases(filepath=filepath, department=department, age_group=age_group)
+        if df.empty:
+            raise ValueError(f"No data found for {department} ({age_group})")
+        ts = df.groupby("week_start")["cases"].sum().sort_index()
+        ts = ts.asfreq("7D")
+        if ts.isna().any():
+            ts = handle_missing_values(ts, method="interpolate")
+        logger.info(
+            f"Aggregated {len(df)} district records to {len(ts)} weeks "
+            f"for {department} ({age_group})"
+        )
 
     # Warn about departments with known early-year under-reporting
-    dept_upper = department.upper()
     if dept_upper in _SUBREGISTRO_DEPTS and start_year is None:
         rec = _SUBREGISTRO_DEPTS[dept_upper]
         zeros_early = int((ts[ts.index.year < rec] == 0).sum())
