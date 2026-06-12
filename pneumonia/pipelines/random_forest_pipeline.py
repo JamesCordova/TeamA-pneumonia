@@ -275,12 +275,9 @@ class RandomForestPipeline:
                 train=self.train,
                 val=self.val,
                 test=self.test,
-                model_forecasts={
-                    "RandomForest": {
-                        "val":  self.val_forecasts.get("RandomForest"),
-                        "test": self.test_forecasts.get("RandomForest"),
-                    }
-                },
+                model_name="RandomForest",
+                val_forecast=self.val_forecasts.get("RandomForest"),
+                test_forecast=self.test_forecasts.get("RandomForest"),
             )
 
             self.results["stages"]["reporting"] = {

@@ -280,26 +280,24 @@ class BaselinePipeline:
                 json.dump(self.results, f, indent=2, default=str)
 
             from pneumonia.visualization.persistence import save_predictions
-            pred_csv = save_predictions(
-                reports_dir=REPORTS_PATH,
-                department=self.department,
-                age_group=self.age_group,
-                train=self.train,
-                val=self.val,
-                test=self.test,
-                model_forecasts={
-                    name: {
-                        'val': self.val_forecasts.get(name),
-                        'test': self.test_forecasts.get(name),
-                    }
-                    for name in self.models
-                },
-            )
+            pred_csvs = []
+            for name in self.models:
+                pred_csvs.append(save_predictions(
+                    reports_dir=REPORTS_PATH,
+                    department=self.department,
+                    age_group=self.age_group,
+                    train=self.train,
+                    val=self.val,
+                    test=self.test,
+                    model_name=name,
+                    val_forecast=self.val_forecasts.get(name),
+                    test_forecast=self.test_forecasts.get(name),
+                ))
 
             self.results["stages"]["reporting"] = {
                 "model_paths": saved_paths,
                 "results_file": str(results_file),
-                "predictions_csv": str(pred_csv),
+                "predictions_csvs": [str(p) for p in pred_csvs],
                 "status": "success",
             }
             logger.info(f"Results saved to {results_file}")

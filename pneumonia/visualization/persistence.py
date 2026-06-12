@@ -1,13 +1,17 @@
 """
-Prediction persistence — read/write the long-format predictions CSV.
+Prediction persistence — read/write per-model long-format prediction CSVs.
 
+Each model gets its own file: {model_name}_predictions.csv
 Columns: date, split, model, actual, predicted, department, age_group
   split : 'train' | 'val' | 'test' | 'backtest'
   model : model name (e.g. 'SARIMA', 'Naive') or 'actual' for train-only rows
+
+Having one file per model allows pipelines to run in parallel without
+write conflicts.
 """
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -19,6 +23,12 @@ logger = setup_logger(__name__)
 _COLUMNS = ["date", "split", "model", "actual", "predicted", "department", "age_group"]
 
 
+def _csv_path(reports_dir: Path, department: str, age_group: str, model_name: str) -> Path:
+    out_dir = Path(reports_dir) / department / age_group
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / f"{model_name}_predictions.csv"
+
+
 def save_predictions(
     reports_dir: Path,
     department: str,
@@ -26,29 +36,31 @@ def save_predictions(
     train: pd.Series,
     val: pd.Series,
     test: pd.Series,
-    model_forecasts: Dict[str, Dict[str, Optional[np.ndarray]]],
+    model_name: str,
+    val_forecast: Optional[np.ndarray],
+    test_forecast: Optional[np.ndarray],
 ) -> Path:
     """
-    Persist actual and predicted values to a long-format CSV.
+    Persist actual and predicted values for a single model.
 
-    Existing train/val/test rows for the given models are replaced.
-    Backtest rows (split='backtest') are never touched by this function.
+    Each model is stored in its own file ({model_name}_predictions.csv).
+    Existing train/val/test rows are replaced; backtest rows are preserved.
 
     Args:
-        reports_dir:     Base reports directory.
-        department:      Department name (uppercase).
-        age_group:       'under5' or '60plus'.
-        train:           Training split Series with DatetimeIndex.
-        val:             Validation split Series.
-        test:            Test split Series.
-        model_forecasts: {model_name: {'val': array_or_None, 'test': array_or_None}}
+        reports_dir:   Base reports directory.
+        department:    Department name (uppercase).
+        age_group:     'under5' or '60plus'.
+        train:         Training split Series with DatetimeIndex.
+        val:           Validation split Series.
+        test:          Test split Series.
+        model_name:    Model name (e.g. 'SARIMA', 'HoltWinters').
+        val_forecast:  Predicted values for the val split (array).
+        test_forecast: Predicted values for the test split (array).
 
     Returns:
         Path to the saved CSV file.
     """
-    out_dir = Path(reports_dir) / department / age_group
-    out_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = out_dir / "predictions.csv"
+    csv_path = _csv_path(reports_dir, department, age_group, model_name)
 
     rows = []
 
@@ -59,33 +71,24 @@ def save_predictions(
             "department": department, "age_group": age_group,
         })
 
-    for split_name, series, arr_key in [("val", val, "val"), ("test", test, "test")]:
-        if len(series) == 0:
+    for split_name, series, arr in [("val", val, val_forecast), ("test", test, test_forecast)]:
+        if len(series) == 0 or arr is None:
             continue
-        for model_name, forecasts in model_forecasts.items():
-            arr = forecasts.get(arr_key)
-            if arr is None:
-                continue
-            for i, (date, actual) in enumerate(series.items()):
-                rows.append({
-                    "date": date, "split": split_name, "model": model_name,
-                    "actual": float(actual),
-                    "predicted": float(arr[i]) if i < len(arr) else np.nan,
-                    "department": department, "age_group": age_group,
-                })
+        for i, (date, actual) in enumerate(series.items()):
+            rows.append({
+                "date": date, "split": split_name, "model": model_name,
+                "actual": float(actual),
+                "predicted": float(arr[i]) if i < len(arr) else np.nan,
+                "department": department, "age_group": age_group,
+            })
 
     new_df = pd.DataFrame(rows, columns=_COLUMNS)
 
     if csv_path.exists():
         try:
             existing = pd.read_csv(csv_path, parse_dates=["date"])
-            being_replaced = set(new_df["model"].unique())
-            keep = ~(
-                (existing["model"].isin(being_replaced))
-                & (existing["split"].isin(["train", "val", "test"]))
-                & (existing["department"] == department)
-                & (existing["age_group"] == age_group)
-            )
+            # Preserve only backtest rows; replace everything else
+            keep = existing["split"] == "backtest"
             combined = pd.concat([existing[keep], new_df], ignore_index=True)
         except Exception as exc:
             logger.warning(f"Could not read existing CSV ({exc}) — overwriting.")
@@ -93,11 +96,9 @@ def save_predictions(
     else:
         combined = new_df
 
-    combined.sort_values(
-        ["department", "age_group", "date", "split", "model"], inplace=True
-    )
+    combined.sort_values(["date", "split", "model"], inplace=True)
     combined.to_csv(csv_path, index=False)
-    logger.info(f"Predictions CSV updated: {csv_path} ({len(new_df)} rows written)")
+    logger.info(f"Predictions saved: {csv_path} ({len(new_df)} rows)")
     return csv_path
 
 
@@ -113,8 +114,8 @@ def save_walkforward_predictions(
 
     Combines all pred_h* columns so every evaluated date gets one prediction
     (each date has exactly one non-NaN value across horizons with step==horizon).
-    Only replaces existing backtest rows for this model; train/val/test rows
-    are never touched.
+    Existing backtest rows for this model are replaced; train/val/test rows
+    are preserved.
 
     Args:
         reports_dir:     Base reports directory.
@@ -127,9 +128,7 @@ def save_walkforward_predictions(
     Returns:
         Path to the saved CSV file.
     """
-    out_dir = Path(reports_dir) / department / age_group
-    out_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = out_dir / "predictions.csv"
+    csv_path = _csv_path(reports_dir, department, age_group, model_name)
 
     pred_cols = sorted(
         [c for c in predictions_df.columns if c.startswith("pred_h")],
@@ -158,12 +157,8 @@ def save_walkforward_predictions(
     if csv_path.exists():
         try:
             existing = pd.read_csv(csv_path, parse_dates=["date"])
-            keep = ~(
-                (existing["split"] == "backtest")
-                & (existing["model"] == model_name)
-                & (existing["department"] == department)
-                & (existing["age_group"] == age_group)
-            )
+            # Preserve train/val/test rows; replace backtest
+            keep = existing["split"] != "backtest"
             combined = pd.concat([existing[keep], new_df], ignore_index=True)
         except Exception as exc:
             logger.warning(f"Could not read existing CSV ({exc}) — overwriting.")
@@ -171,11 +166,7 @@ def save_walkforward_predictions(
     else:
         combined = new_df
 
-    combined.sort_values(
-        ["department", "age_group", "date", "split", "model"], inplace=True
-    )
+    combined.sort_values(["date", "split", "model"], inplace=True)
     combined.to_csv(csv_path, index=False)
-    logger.info(
-        f"Backtest predictions saved for {model_name}: {csv_path} ({len(new_df)} rows)"
-    )
+    logger.info(f"Backtest predictions saved: {csv_path} ({len(new_df)} rows)")
     return csv_path

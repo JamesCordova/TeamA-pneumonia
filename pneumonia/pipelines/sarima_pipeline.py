@@ -313,12 +313,9 @@ class SARIMAPipeline:
                 train=self.train,
                 val=self.val,
                 test=self.test,
-                model_forecasts={
-                    'SARIMA': {
-                        'val': self.val_forecasts.get('SARIMA'),
-                        'test': self.test_forecasts.get('SARIMA'),
-                    }
-                },
+                model_name="SARIMA",
+                val_forecast=self.val_forecasts.get("SARIMA"),
+                test_forecast=self.test_forecasts.get("SARIMA"),
             )
 
             self.results["stages"]["reporting"] = {

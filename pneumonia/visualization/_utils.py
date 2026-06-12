@@ -15,14 +15,23 @@ logger = setup_logger(__name__)
 def read_predictions(
     reports_dir: Path, department: str, age_group: str
 ) -> Optional[pd.DataFrame]:
-    csv_path = Path(reports_dir) / department / age_group / "predictions.csv"
-    if not csv_path.exists():
-        logger.warning(f"No predictions CSV at {csv_path} — run a pipeline first.")
+    out_dir = Path(reports_dir) / department / age_group
+    files = sorted(out_dir.glob("*_predictions.csv")) if out_dir.exists() else []
+    if not files:
+        logger.warning(f"No predictions files in {out_dir} — run a pipeline first.")
         return None
-    df = pd.read_csv(csv_path, parse_dates=["date"])
+    dfs = []
+    for f in files:
+        try:
+            dfs.append(pd.read_csv(f, parse_dates=["date"]))
+        except Exception as exc:
+            logger.warning(f"Could not read {f}: {exc}")
+    if not dfs:
+        return None
+    df = pd.concat(dfs, ignore_index=True).drop_duplicates()
     df = df[(df["department"] == department) & (df["age_group"] == age_group)].copy()
     if df.empty:
-        logger.warning(f"No rows for {department}/{age_group} in {csv_path}.")
+        logger.warning(f"No rows for {department}/{age_group} in {out_dir}.")
         return None
     return df
 

@@ -258,12 +258,9 @@ class XGBoostPipeline:
                 train=self.train,
                 val=self.val,
                 test=self.test,
-                model_forecasts={
-                    "XGBoost": {
-                        "val":  self.val_forecasts.get("XGBoost"),
-                        "test": self.test_forecasts.get("XGBoost"),
-                    }
-                },
+                model_name="XGBoost",
+                val_forecast=self.val_forecasts.get("XGBoost"),
+                test_forecast=self.test_forecasts.get("XGBoost"),
             )
 
             self.results["stages"]["reporting"] = {
