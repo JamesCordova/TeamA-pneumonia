@@ -79,14 +79,23 @@ def plot_backtest(
     fig, ax = plt.subplots(figsize=figsize)
     palette = plt.cm.tab10.colors
 
-    # --- single continuous actual line (train + val + test) ---
+    # --- single continuous actual line ---
+    # Sources (any combination may exist depending on which pipelines were run):
+    #   1. train split rows (model='actual')  — from classic pipeline
+    #   2. val/test split rows                — from classic pipeline
+    #   3. backtest split rows                — always present after walk-forward
     train_actuals = (
         df[(df["split"] == "train") & (df["model"] == "actual") & (df["date"] >= plot_min)]
         [["date", "actual"]]
     )
     forecast_df = df[df["split"].isin(["val", "test"])].copy()
     val_test_actuals = forecast_df.drop_duplicates("date")[["date", "actual"]]
-    all_actuals = pd.concat([train_actuals, val_test_actuals]).sort_values("date")
+    backtest_actuals = backtest_df.drop_duplicates("date")[["date", "actual"]]
+    all_actuals = (
+        pd.concat([train_actuals, val_test_actuals, backtest_actuals])
+        .drop_duplicates("date")
+        .sort_values("date")
+    )
     if not all_actuals.empty:
         ax.plot(all_actuals["date"], all_actuals["actual"],
                 color="black", lw=1.3, label="Actual")
