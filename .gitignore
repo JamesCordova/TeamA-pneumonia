@@ -148,3 +148,4 @@ data/interim/*
 data/external/*
 logs/
 outputs/
+/reports/*
