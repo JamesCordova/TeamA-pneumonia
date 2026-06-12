@@ -92,7 +92,6 @@ def plot_model_comparison(
     ax_bar.set_xticklabels(models, rotation=25, ha="right", fontsize=9)
     ax_bar.set_ylabel(ylabel)
     ax_bar.set_title(f"h={h_short} (solid) vs h={h_long} (faded)")
-    ax_bar.legend(fontsize=9)
     ax_bar.yaxis.set_minor_locator(mticker.AutoMinorLocator())
     ax_bar.grid(axis="y", alpha=0.25)
     ax_bar.grid(axis="y", which="minor", alpha=0.12)
