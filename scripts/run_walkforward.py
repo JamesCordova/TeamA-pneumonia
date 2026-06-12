@@ -20,6 +20,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -28,7 +29,6 @@ from pneumonia.evaluation.walkforward import WalkForwardValidator
 from pneumonia.models.utils import (
     get_available_departments,
     get_departmental_data,
-    handle_missing_values,
     validate_time_series,
 )
 from pneumonia.utils import setup_logger
@@ -81,12 +81,11 @@ def run_walkforward_for(
     window_type: str,
     refit_every: int,
     extra_model_params: dict,
+    start_year: Optional[int] = None,
 ) -> int:
     logger.info(f"Walk-forward: {department}/{age_group} model={model_name}")
 
-    data = get_departmental_data(department, age_group=age_group)
-    if data.isna().any():
-        data = handle_missing_values(data, method="interpolate")
+    data = get_departmental_data(department, age_group=age_group, start_year=start_year)
     validate_time_series(data)
 
     model_class = _resolve_model_class(model_name)
@@ -180,6 +179,9 @@ Examples:
     parser.add_argument("--refit_every", type=int, default=1,
                         help="Re-train every N steps; 0=fit once only (default: 1). "
                              "For SARIMA use 13 or 52 to keep runtime tractable.")
+    parser.add_argument("--start_year", type=int, default=None,
+                        help="Drop all data before this year (e.g. 2007 for TACNA/TUMBES, "
+                             "2008 for MOQUEGUA to skip early under-reporting).")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     return parser
@@ -210,6 +212,7 @@ def main():
                 window_type=args.window_type,
                 refit_every=args.refit_every,
                 extra_model_params={},
+                start_year=args.start_year,
             )
         except Exception as exc:
             logger.error(f"Failed for {dept}: {exc}")

@@ -32,6 +32,14 @@ ANNUAL_DATA_PATH = Path(DATA_PROCESSED_PATH) / "annual_disease_measures_by_depar
 # Minimum weeks for model training
 MIN_WEEKS_FOR_TRAINING = 104  # 2 years
 
+# Departments with known systematic under-reporting in early years.
+# Values are the first year with reliable continuous surveillance.
+_SUBREGISTRO_DEPTS: dict = {
+    "MOQUEGUA": 2008,
+    "TACNA":    2007,
+    "TUMBES":   2007,
+}
+
 
 def load_weekly_cases(
     filepath: Optional[Path] = None,
@@ -112,32 +120,67 @@ def load_weekly_cases(
 def get_departmental_data(
     department: str,
     age_group: str = "under5",
-    filepath: Optional[Path] = None
+    filepath: Optional[Path] = None,
+    start_year: Optional[int] = None,
 ) -> pd.Series:
     """
     Get time series of cases for a specific department and age group.
-    
-    Aggregates cases across all districts for each week.
-    
+
+    Aggregates cases across all districts for each week, enforces a regular
+    7-day frequency (filling the 3 ISO week-53 gaps via linear interpolation),
+    and optionally truncates the series to a given start year.
+
     Args:
-        department: Department name
-        age_group: 'under5' or '60plus'
-        filepath: Path to data file
-        
+        department:  Department name.
+        age_group:   'under5' or '60plus'.
+        filepath:    Path to data file; uses default if None.
+        start_year:  If provided, drop all observations before this year.
+                     Useful for departments with early-year under-reporting.
+
     Returns:
         pandas Series indexed by week_start with aggregated case counts
+        and a regular 7-day frequency.
     """
     df = load_weekly_cases(filepath=filepath, department=department, age_group=age_group)
-    
+
     if df.empty:
         raise ValueError(f"No data found for {department} ({age_group})")
-    
+
     # Aggregate cases across all districts per week
-    ts = df.groupby("week_start")["cases"].sum()
-    ts = ts.sort_index()
-    
-    logger.info(f"Aggregated {len(df)} district records to {len(ts)} weeks for {department} ({age_group})")
-    
+    ts = df.groupby("week_start")["cases"].sum().sort_index()
+
+    # Enforce regular 7-day frequency.
+    # The raw CSV skips ISO week-53 in 2004, 2009 and 2015, leaving 3 gaps of
+    # 14 days that cause statsmodels to warn about irregular frequency.
+    ts = ts.asfreq("7D")
+    if ts.isna().any():
+        ts = handle_missing_values(ts, method="interpolate")
+
+    logger.info(
+        f"Aggregated {len(df)} district records to {len(ts)} weeks "
+        f"for {department} ({age_group})"
+    )
+
+    # Warn about departments with known early-year under-reporting
+    dept_upper = department.upper()
+    if dept_upper in _SUBREGISTRO_DEPTS and start_year is None:
+        rec = _SUBREGISTRO_DEPTS[dept_upper]
+        zeros_early = int((ts[ts.index.year < rec] == 0).sum())
+        print(
+            f"\n[ADVERTENCIA] {dept_upper}: se detectaron {zeros_early} semanas con cero "
+            f"casos antes de {rec}, lo que indica subregistro sistemático.\n"
+            f"  → Se recomienda usar start_year={rec} para excluir ese período.\n"
+            f"  → Ejemplo: get_departmental_data('{dept_upper}', start_year={rec})\n"
+        )
+        logger.warning(
+            f"{dept_upper}: {zeros_early} zero-case weeks before {rec} suggest "
+            f"under-reporting. Consider start_year={rec}."
+        )
+
+    if start_year is not None:
+        ts = ts[ts.index.year >= start_year]
+        logger.info(f"Series truncated to start_year={start_year}: {len(ts)} weeks remaining")
+
     return ts
 
 
