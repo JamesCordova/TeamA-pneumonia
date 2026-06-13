@@ -20,7 +20,7 @@ prepare_data → train_* → run_walkforward → plot_forecasting / compare_mode
 ```
 
 1. **Preparar datos** — descarga + limpieza (rellena 3 saltos ISO semana 53)
-2. **Entrenar** — split clásico train/val/test por modelo
+2. **Entrenar** — split clásico train/val/test por modelo (No debería ser necesario)
 3. **Walk-forward** — validación rolling-origin (horizonte configurable)
 4. **Visualizar y comparar** — gráficos de backtest y tabla comparativa de métricas
 
@@ -62,7 +62,7 @@ python scripts/prepare_data.py --force
 > **Nota:** Los años 2004, 2009 y 2015 tienen un salto de 14 días por la semana ISO 53.
 > `prepare_data.py` los rellena automáticamente por interpolación lineal.
 
-### 2. Entrenar modelos (split clásico)
+### 2. Entrenar modelos (split clásico)(No debería ejecutarse para el análisis)
 
 ```bash
 python scripts/train_baselines.py   --department AMAZONAS
