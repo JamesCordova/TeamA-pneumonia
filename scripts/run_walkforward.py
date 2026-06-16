@@ -12,7 +12,23 @@ Usage:
         --horizon 8 --step 4 --window_type expanding --train_size 260
     python scripts/run_walkforward.py --all --model RandomForest --horizon 4
 
-Available models: SARIMA, RandomForest, XGBoost, SeasonalNaive, Naive
+    # RandomForest con hiperparámetros personalizados
+    python scripts/run_walkforward.py --department AMAZONAS --model RandomForest \\
+        --n_estimators 300 --max_depth 15
+    python scripts/run_walkforward.py --department AMAZONAS --model RandomForest \\
+        --lags 1 2 4 8 26 52 --windows 4 13 26 52
+
+    # XGBoost con hiperparámetros personalizados
+    python scripts/run_walkforward.py --department AMAZONAS --model XGBoost \\
+        --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7
+
+    # SARIMA: orden fijo y más términos Fourier
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
+        --sarima_order 2 1 1 --n_fourier_terms 10
+    # SARIMA clásico (sin Fourier)
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA --no_fourier
+
+Available models: SARIMA, RandomForest, XGBoost, SeasonalNaive, Naive, HoltWinters
 """
 
 import argparse
@@ -182,6 +198,51 @@ Examples:
     parser.add_argument("--start_year", type=int, default=None,
                         help="Drop all data before this year (e.g. 2007 for TACNA/TUMBES, "
                              "2008 for MOQUEGUA to skip early under-reporting).")
+    # RandomForest / XGBoost hyperparameters (shared names where applicable)
+    ml_group = parser.add_argument_group("ML model hyperparameters (RandomForest / XGBoost)")
+    ml_group.add_argument("--n_estimators", type=int, default=None,
+                          help="Number of trees (RF default: 100, XGB default: 300)")
+    ml_group.add_argument("--max_depth", type=int, default=None,
+                          help="Max tree depth (RF default: 10, XGB default: 4)")
+    ml_group.add_argument("--min_samples_leaf", type=int, default=None,
+                          help="[RF only] Min samples per leaf (default: 2)")
+    ml_group.add_argument("--min_samples_split", type=int, default=None,
+                          help="[RF only] Min samples to split a node (default: 5)")
+    ml_group.add_argument("--max_features", type=str, default=None,
+                          help="[RF only] Features per split: sqrt, log2 (default: sqrt)")
+    ml_group.add_argument("--learning_rate", type=float, default=None,
+                          help="[XGB only] Learning rate (default: 0.05)")
+    ml_group.add_argument("--subsample", type=float, default=None,
+                          help="[XGB only] Row subsample ratio (default: 0.9)")
+    ml_group.add_argument("--colsample_bytree", type=float, default=None,
+                          help="[XGB only] Feature subsample ratio per tree (default: 0.9)")
+    ml_group.add_argument("--lags", type=int, nargs="+", default=None,
+                          help="Lag periods as features, e.g. --lags 1 2 4 8 52 (default: 1 2 4 8 13)")
+    ml_group.add_argument("--windows", type=int, nargs="+", default=None,
+                          help="Rolling window sizes, e.g. --windows 4 13 26 52 (default: 4 13 26)")
+
+    # SARIMA hyperparameters
+    sarima_group = parser.add_argument_group("SARIMA hyperparameters")
+    sarima_group.add_argument(
+        "--sarima_order", type=int, nargs=3, default=None,
+        metavar=("P", "D", "Q"),
+        help="[SARIMA] Non-seasonal order (p d q), e.g. --sarima_order 2 1 1 "
+             "(default: auto_arima or config fallback)",
+    )
+    sarima_group.add_argument(
+        "--n_fourier_terms", type=int, default=None,
+        help="[SARIMA] Fourier sin/cos pairs for seasonality (default: 6)",
+    )
+    fourier_group = sarima_group.add_mutually_exclusive_group()
+    fourier_group.add_argument(
+        "--no_fourier", action="store_true", default=False,
+        help="[SARIMA] Use classical SAR/SMA instead of Fourier seasonality",
+    )
+    fourier_group.add_argument(
+        "--fourier", action="store_true", default=False,
+        help="[SARIMA] Force Fourier seasonality (overrides config if disabled)",
+    )
+
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     return parser
@@ -199,6 +260,45 @@ def main():
         else [args.department.upper()]
     )
 
+    # Build model-specific hyperparameter overrides from named CLI args
+    model_key = args.model.lower().replace("_", "").replace("-", "")
+    extra_model_params = {}
+
+    if model_key == "randomforest":
+        hp = {}
+        for key in ("n_estimators", "max_depth", "min_samples_leaf",
+                    "min_samples_split", "max_features"):
+            val = getattr(args, key, None)
+            if val is not None:
+                hp[key] = val
+        if hp:
+            extra_model_params["rf_params"] = hp
+
+    elif model_key == "xgboost":
+        hp = {}
+        for key in ("n_estimators", "max_depth", "learning_rate",
+                    "subsample", "colsample_bytree"):
+            val = getattr(args, key, None)
+            if val is not None:
+                hp[key] = val
+        if hp:
+            extra_model_params["xgb_params"] = hp
+
+    elif model_key == "sarima":
+        if args.sarima_order:
+            extra_model_params["order"] = tuple(args.sarima_order)
+        if args.n_fourier_terms is not None:
+            extra_model_params["n_fourier_terms"] = args.n_fourier_terms
+        if args.no_fourier:
+            extra_model_params["use_fourier"] = False
+        elif args.fourier:
+            extra_model_params["use_fourier"] = True
+
+    if args.lags:
+        extra_model_params["lags"] = args.lags
+    if args.windows:
+        extra_model_params["windows"] = args.windows
+
     failed = []
     for dept in departments:
         try:
@@ -211,7 +311,7 @@ def main():
                 step=args.step,
                 window_type=args.window_type,
                 refit_every=args.refit_every,
-                extra_model_params={},
+                extra_model_params=extra_model_params,
                 start_year=args.start_year,
             )
         except Exception as exc:
