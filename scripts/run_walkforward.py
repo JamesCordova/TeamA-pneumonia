@@ -225,9 +225,15 @@ Examples:
     sarima_group = parser.add_argument_group("SARIMA hyperparameters")
     sarima_group.add_argument(
         "--sarima_order", type=int, nargs=3, default=None,
-        metavar=("P", "D", "Q"),
+        metavar=("p", "d", "q"),
         help="[SARIMA] Non-seasonal order (p d q), e.g. --sarima_order 2 1 1 "
              "(default: auto_arima or config fallback)",
+    )
+    sarima_group.add_argument(
+        "--sarima_seasonal_order", type=int, nargs=4, default=None,
+        metavar=("P", "D", "Q", "s"),
+        help="[SARIMA] Seasonal order (P D Q s), e.g. --sarima_seasonal_order 1 1 1 52 "
+             "(only applies with --no_fourier; default: 1 1 1 52)",
     )
     sarima_group.add_argument(
         "--n_fourier_terms", type=int, default=None,
@@ -287,6 +293,8 @@ def main():
     elif model_key == "sarima":
         if args.sarima_order:
             extra_model_params["order"] = tuple(args.sarima_order)
+        if args.sarima_seasonal_order:
+            extra_model_params["seasonal_order"] = tuple(args.sarima_seasonal_order)
         if args.n_fourier_terms is not None:
             extra_model_params["n_fourier_terms"] = args.n_fourier_terms
         if args.no_fourier:
