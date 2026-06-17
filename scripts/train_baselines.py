@@ -38,8 +38,8 @@ Examples:
     )
 
     dept_group = parser.add_mutually_exclusive_group(required=True)
-    dept_group.add_argument("--department", "-d", type=str,
-                            help="Department name (e.g. AMAZONAS, LIMA)")
+    dept_group.add_argument("--department", "-d", type=str, nargs="+",
+                            help="Department name(s) (e.g. AMAZONAS LIMA, or comma-separated: AMAZONAS,LIMA)")
     dept_group.add_argument("--all", "-a", action="store_true",
                             help="Run baselines for all departments")
 
@@ -121,12 +121,22 @@ def main():
                 split_strategy=args.split_strategy,
             )
         else:
-            code = train_single(
-                department=args.department,
-                age_group=args.age_group,
-                split_strategy=args.split_strategy,
-                season_length=args.season_length,
-            )
+            # Parse list of departments
+            departments = []
+            for d in args.department:
+                departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
+            
+            # Loop through departments
+            code = 0
+            for dept in departments:
+                c = train_single(
+                    department=dept,
+                    age_group=args.age_group,
+                    split_strategy=args.split_strategy,
+                    season_length=args.season_length,
+                )
+                if c != 0:
+                    code = c
         return code
     except KeyboardInterrupt:
         logger.info("\nInterrupted by user")

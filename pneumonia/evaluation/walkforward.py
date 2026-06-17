@@ -163,7 +163,7 @@ class WalkForwardValidator:
             step_metrics = {}
             try:
                 step_metrics = compute_all_metrics(
-                    y_val.values, forecast, warn_on_nan=False
+                    y_val.values, forecast, warn_on_nan=False, training_actual=y_train.values
                 )
             except Exception as exc:
                 logger.warning(f"Step {step_idx} metrics failed: {exc}")
@@ -192,7 +192,7 @@ class WalkForwardValidator:
                 continue
             try:
                 m = compute_all_metrics(
-                    valid["actual"].values, valid[col].values, warn_on_nan=False
+                    valid["actual"].values, valid[col].values, warn_on_nan=False, training_actual=y.iloc[:train_size].values
                 )
                 metrics_by_horizon[h] = m
                 logger.info(

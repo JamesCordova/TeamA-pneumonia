@@ -223,7 +223,7 @@ class RandomForestPipeline:
             val_forecast = self.model.predict(self.train, steps=len(self.val))
             self.val_forecasts["RandomForest"] = val_forecast
 
-            metrics = compute_all_metrics(self.val.values, val_forecast)
+            metrics = compute_all_metrics(self.val.values, val_forecast, training_actual=self.train.values)
             self.results["stages"]["validation"] = {
                 "n_val_obs": len(self.val),
                 "metrics": {k: float(v) if not np.isnan(v) else None for k, v in metrics.items()},
@@ -245,7 +245,7 @@ class RandomForestPipeline:
             )
             self.test_forecasts["RandomForest"] = test_forecast
 
-            metrics = compute_all_metrics(self.test.values, test_forecast)
+            metrics = compute_all_metrics(self.test.values, test_forecast, training_actual=pd.concat([self.train, self.val]).values)
             self.results["stages"]["testing"] = {
                 "n_test_obs": len(self.test),
                 "metrics": {k: float(v) if not np.isnan(v) else None for k, v in metrics.items()},
@@ -296,6 +296,8 @@ def run_rf_for_all_departments(
     age_group: str = "under5",
     split_strategy: Optional[str] = None,
     rf_params: Optional[Dict] = None,
+    lags: Optional[List[int]] = None,
+    windows: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """Run RandomForest pipeline for every available department."""
     logger.info(f"Running RandomForest for all departments ({age_group})")
@@ -310,6 +312,8 @@ def run_rf_for_all_departments(
                 age_group=age_group,
                 split_strategy=split_strategy,
                 rf_params=rf_params,
+                lags=lags,
+                windows=windows,
             )
             pipeline.run()
             print(pipeline.summary())

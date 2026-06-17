@@ -80,7 +80,7 @@ def _print_metrics(label: str, metrics: dict) -> None:
         print(f"  {label}: no metrics computed")
         return
     parts = []
-    for k in ("mae", "rmse", "mape", "r2"):
+    for k in ("mae", "rmse", "me", "r2", "mase", "smape", "mda"):
         v = metrics.get(k)
         if v is not None and not (isinstance(v, float) and v != v):
             parts.append(f"{k.upper()}={v:.4f}")
@@ -135,7 +135,7 @@ def run_walkforward_for(
         model_name=model_name,
         predictions_df=results["predictions"],
     )
-    print(f"Predictions saved → {csv_path}")
+    print(f"Predictions saved -> {csv_path}")
 
     # Save metrics JSON alongside other model JSONs
     out_dir = REPORTS_PATH / department / age_group
@@ -171,8 +171,8 @@ Examples:
     )
 
     dept_group = parser.add_mutually_exclusive_group(required=True)
-    dept_group.add_argument("--department", "-d", type=str,
-                            help="Department name (e.g. AMAZONAS)")
+    dept_group.add_argument("--department", "-d", type=str, nargs="+",
+                            help="Department name(s) (e.g. AMAZONAS LIMA, or comma-separated: AMAZONAS,LIMA)")
     dept_group.add_argument("--all", "-a", action="store_true",
                             help="Run for all departments")
 
@@ -255,10 +255,12 @@ def main():
     if args.verbose:
         logging.getLogger("pneumonia").setLevel(logging.DEBUG)
 
-    departments = (
-        get_available_departments() if args.all
-        else [args.department.upper()]
-    )
+    departments = []
+    if args.all:
+        departments = get_available_departments()
+    elif args.department:
+        for d in args.department:
+            departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
 
     # Build model-specific hyperparameter overrides from named CLI args
     model_key = args.model.lower().replace("_", "").replace("-", "")

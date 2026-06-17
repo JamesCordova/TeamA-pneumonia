@@ -36,10 +36,13 @@ from pneumonia.visualization.comparison_plot import (
 
 logger = setup_logger(__name__)
 
-TABLE_METRICS = ["mae", "rmse", "smape", "mda"]
+TABLE_METRICS = ["mae", "rmse", "me", "r2", "mase", "smape", "mda"]
 TABLE_HEADERS = {
     "mae":   "MAE",
     "rmse":  "RMSE",
+    "me":    "ME",
+    "r2":    "R2",
+    "mase":  "MASE",
     "smape": "SMAPE (%)",
     "mda":   "MDA (%)",
 }
@@ -95,7 +98,7 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
             result[model] = round((v_l / v_s - 1) * 100, 1)
         else:
             result[model] = np.nan
-    return pd.Series(result, name=f"{label} degradation h{h_short}→h{h_long} (%)")
+    return pd.Series(result, name=f"{label} degradation h{h_short}->h{h_long} (%)")
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +125,7 @@ def compare(department: str, age_group: str, horizons: list, metric: str) -> Non
     print(f"Model comparison — {department} / {age_group}")
     print(f"{'='*70}")
     print(table.to_string())
-    print(f"\n--- {METRIC_LABELS[metric]} degradation h={h_short}→h={h_long} ---")
+    print(f"\n--- {METRIC_LABELS[metric]} degradation h={h_short}->h={h_long} ---")
     print(degr.sort_values().to_string())
     print(f"{'='*70}\n")
 
@@ -174,8 +177,8 @@ def main():
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--department", "-d", required=True,
-                        help="Department name (e.g. AMAZONAS)")
+    parser.add_argument("--department", "-d", required=True, nargs="+",
+                        help="Department name(s) (e.g. AMAZONAS LIMA, or comma-separated: AMAZONAS,LIMA)")
     parser.add_argument("--age_group",  "-g", default="under5",
                         choices=["under5", "60plus"],
                         help="Age group (default: under5)")
@@ -185,7 +188,16 @@ def main():
                         choices=sorted(VALID_METRICS),
                         help="Metric for the bar/line chart (default: mae)")
     args = parser.parse_args()
-    compare(args.department, args.age_group, args.horizons, args.metric)
+
+    departments = []
+    for d in args.department:
+        departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
+
+    for dept in departments:
+        try:
+            compare(dept, args.age_group, args.horizons, args.metric)
+        except Exception as exc:
+            logger.error(f"Failed to compare models for {dept}: {exc}")
 
 
 if __name__ == "__main__":

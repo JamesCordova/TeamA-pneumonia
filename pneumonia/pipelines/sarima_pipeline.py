@@ -55,6 +55,10 @@ class SARIMAPipeline:
         use_auto_arima: Optional[bool] = None,
         forecast_steps: int = 52,
         split_strategy: Optional[str] = None,
+        order: Optional[Tuple[int, int, int]] = None,
+        seasonal_order: Optional[Tuple[int, int, int, int]] = None,
+        use_fourier: Optional[bool] = None,
+        n_fourier_terms: Optional[int] = None,
     ):
         """
         Initialize pipeline.
@@ -71,6 +75,10 @@ class SARIMAPipeline:
         self.use_auto_arima = use_auto_arima if use_auto_arima is not None else SARIMA_USE_AUTO_ARIMA
         self.forecast_steps = forecast_steps
         self.split_strategy = split_strategy or TEMPORAL_SPLIT_STRATEGY
+        self.order = order
+        self.seasonal_order = seasonal_order
+        self.use_fourier = use_fourier
+        self.n_fourier_terms = n_fourier_terms
         
         # Storage for results
         self.data = None
@@ -187,6 +195,10 @@ class SARIMAPipeline:
             self.model = SARIMAModel(
                 department=self.department,
                 age_group=self.age_group,
+                order=self.order,
+                seasonal_order=self.seasonal_order,
+                use_fourier=self.use_fourier,
+                n_fourier_terms=self.n_fourier_terms,
             )
             
             # Fit model
@@ -227,7 +239,7 @@ class SARIMAPipeline:
             self.val_forecasts['SARIMA'] = val_forecast
             
             # Compute metrics
-            val_metrics = compute_all_metrics(self.val.values, val_forecast)
+            val_metrics = compute_all_metrics(self.val.values, val_forecast, training_actual=self.train.values)
             
             # Compute baseline for comparison
             baseline = baseline_metrics(self.val.values)
@@ -268,7 +280,7 @@ class SARIMAPipeline:
             self.test_forecasts['SARIMA'] = test_forecast
             
             # Compute metrics
-            test_metrics = compute_all_metrics(self.test.values, test_forecast)
+            test_metrics = compute_all_metrics(self.test.values, test_forecast, training_actual=pd.concat([self.train, self.val]).values)
             
             # Compute baseline for comparison
             baseline = baseline_metrics(self.test.values)
@@ -370,6 +382,12 @@ class SARIMAPipeline:
 def run_pipeline_for_all_departments(
     age_group: str = "under5",
     use_auto_arima: Optional[bool] = None,
+    split_strategy: Optional[str] = None,
+    forecast_steps: int = 52,
+    order: Optional[Tuple[int, int, int]] = None,
+    seasonal_order: Optional[Tuple[int, int, int, int]] = None,
+    use_fourier: Optional[bool] = None,
+    n_fourier_terms: Optional[int] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Run SARIMA pipeline for all available departments.
@@ -396,6 +414,12 @@ def run_pipeline_for_all_departments(
                 department=dept,
                 age_group=age_group,
                 use_auto_arima=use_auto_arima,
+                split_strategy=split_strategy,
+                forecast_steps=forecast_steps,
+                order=order,
+                seasonal_order=seasonal_order,
+                use_fourier=use_fourier,
+                n_fourier_terms=n_fourier_terms,
             )
             
             results = pipeline.run()

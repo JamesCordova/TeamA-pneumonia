@@ -1,0 +1,155 @@
+# Guía de Inicialización y Ejecución del Proyecto
+
+Esta guía contiene los pasos detallados para configurar el entorno virtual con **Conda**, instalar las dependencias necesarias, conectar la base de datos externa (solo lectura) y ejecutar el pipeline completo de modelado de neumonía.
+
+---
+
+## ⚙️ 1. Configuración del Entorno Virtual (Conda)
+
+Abre tu terminal en la raíz del proyecto y ejecuta:
+
+```bash
+# 1. Crear el entorno virtual con Python 3.12 (versión recomendada)
+conda create -y -n pneumonia python=3.12
+
+# 2. Activar el entorno virtual
+conda activate pneumonia
+
+# 3. Instalar todas las dependencias
+pip install -r requirements.txt
+```
+
+---
+
+## 🗄️ 2. Conectar tu Base de Datos Existente
+
+El código **solo lee** los datos de tu base de datos y genera archivos locales (no realiza modificaciones). 
+
+1. Copia el archivo de ejemplo a tu archivo de configuración real:
+   ```bash
+   cp .env.example .env
+   ```
+2. Abre el archivo `.env` en tu editor de código y configura la URL de conexión a tu PostgreSQL en la variable `DATABASE_URL`:
+   ```ini
+   DATABASE_URL=postgresql://usuario:contraseña@servidor:5432/nombre_base_datos
+   ```
+
+---
+
+## 🚀 3. Ejecución del Pipeline
+
+Sigue este flujo secuencial para ejecutar los modelos de predicción:
+
+### Paso A: Descarga y Preparación de Datos
+Este comando extraerá los datos de tu base de datos externa y creará los archivos CSV locales necesarios en `data/raw/` y `data/processed/`:
+```bash
+python scripts/prepare_data.py
+```
+*(Al finalizar esta ejecución, verás una lista de los departamentos que se detectaron en tu base de datos).*
+
+### Paso B: Entrenar Modelos
+Entrena los modelos predictivos. Puedes entrenar un departamento individual o una lista de departamentos separados por espacios o comas:
+
+```bash
+# Entrenar modelo SARIMA para Amazonas y Lima
+python scripts/train_sarima.py --department AMAZONAS LIMA --age_group under5
+
+# Entrenar RandomForest con parámetros personalizados
+python scripts/train_random_forest.py --department AMAZONAS LIMA --n_estimators 150 --max_depth 10 --lags 1 2 4 --windows 4 13
+```
+
+### Paso C: Validación Walk-Forward (Backtesting)
+Evalúa el rendimiento predictivo de los modelos entrenados usando validación cruzada temporal:
+```bash
+# Ejecutar validación para SARIMA
+python scripts/run_walkforward.py --department AMAZONAS LIMA --model SARIMA
+
+# Ejecutar validación para RandomForest
+python scripts/run_walkforward.py --department AMAZONAS LIMA --model RandomForest
+```
+
+### Paso D: Comparar y Visualizar Resultados
+Analiza el error de cada modelo y genera los reportes correspondientes:
+
+```bash
+# Generar tabla de comparación de métricas (MAE, RMSE, SMAPE, MDA)
+python scripts/compare_models.py --department AMAZONAS LIMA --metric smape
+
+# Generar gráficos de predicción y backtest
+python scripts/plot_forecasting.py --department AMAZONAS LIMA --plot both
+```
+*(Los gráficos e informes en formato JSON/CSV se guardarán dentro de la carpeta `reports/`).*
+
+---
+
+## 🛠️ 4. Parámetros Opcionales y Personalización
+
+Puedes ajustar el comportamiento de los modelos y las evaluaciones a través de los siguientes flags en la línea de comandos:
+
+### Parámetros Generales
+*   `--age_group` / `-g`: Grupo de edad. Opciones: `under5` (menores de 5 años, por defecto) o `60plus` (adultos mayores de 60 años).
+*   `--split_strategy` / `-s`: Estrategia de partición temporal. Opciones: `dynamic` (porcentajes de datos) o `years` (años calendarios fijos).
+*   `--verbose` / `-v`: Activa la salida de logs en nivel DEBUG.
+*   `--quiet` / `-q`: Silencia la salida informativa para acelerar los scripts.
+
+### Hiperparámetros de Modelos de ML (`RandomForest` / `XGBoost`)
+Estos parámetros se pueden pasar tanto a los scripts de entrenamiento (`train_*`) como al script de validación walk-forward (`run_walkforward.py`):
+*   `--n_estimators`: Número de estimadores/árboles en el ensamble.
+*   `--max_depth`: Profundidad máxima permitida para los árboles.
+*   `--learning_rate`: [Solo XGBoost] Tasa de aprendizaje o eta de reducción.
+*   `--subsample`: [Solo XGBoost] Fracción de filas para muestrear en cada árbol.
+*   `--colsample_bytree`: [Solo XGBoost] Fracción de columnas para muestrear por árbol.
+*   `--min_samples_leaf`: [Solo RandomForest] Mínimo de muestras por nodo hoja.
+*   `--min_samples_split`: [Solo RandomForest] Mínimo de muestras para dividir un nodo.
+*   `--max_features`: [Solo RandomForest] Atributos a considerar por nodo (`sqrt`, `log2`).
+*   `--lags`: Lista de rezagos (lags) temporales a incluir como variables (e.g. `--lags 1 2 4 8 13`).
+*   `--windows`: Lista de ventanas móviles para promedios históricos (e.g. `--windows 4 13 26`).
+
+### Parámetros de SARIMA (`train_sarima.py` / `run_walkforward.py`)
+*   `--sarima_order`: Orden no estacional manual `(p, d, q)` (e.g. `--sarima_order 2 1 1`).
+*   `--n_fourier_terms`: Cantidad de pares seno/coseno de Fourier para modelar la estacionalidad (por defecto: `6`).
+*   `--no_fourier`: Fuerza el uso de estacionalidad SARIMA clásica en lugar de regresores de Fourier.
+*   `--fourier`: Fuerza el modelado estacional con Fourier (ignora la configuración por defecto).
+*   `--use_auto_arima`: Activa la búsqueda automática de parámetros vía `pmdarima` (ignora valores por defecto).
+*   `--no_auto_arima`: Fuerza el uso del orden manual o el configurado por defecto.
+
+### Parámetros de Validación Walk-Forward (`run_walkforward.py`)
+*   `--train_size`: Tamaño de la ventana inicial de entrenamiento en semanas (por defecto `520` ≈ 10 años).
+*   `--horizon`: Horizonte de pronóstico a evaluar por paso en semanas (por defecto `4`).
+*   `--step`: Desplazamiento temporal del origen de pronóstico en semanas (por defecto `4`).
+*   `--window_type`: Tipo de ventana. Opciones: `sliding` (ventana deslizante fija) o `expanding` (ventana expansiva incremental).
+*   `--refit_every`: Frecuencia con la que se re-entrena el modelo (en pasos). Configura `0` para entrenar una sola vez al inicio, o `1` para cada paso.
+*   `--start_year`: Año a partir del cual entrenar (útil para excluir datos incompletos tempranos de departamentos específicos).
+
+---
+
+## 🗺️ 5. Departamentos de Perú Disponibles
+
+El proyecto procesa los **25 departamentos oficiales** del Perú. Cuando ejecutes `scripts/prepare_data.py`, el sistema validará cuáles de ellos tienen suficiente volumen de datos histórico (mínimo 104 semanas) antes de habilitar su entrenamiento.
+
+Lista completa de departamentos a seleccionar:
+1.  `AMAZONAS`
+2.  `ANCASH`
+3.  `APURIMAC`
+4.  `AREQUIPA`
+5.  `AYACUCHO`
+6.  `CAJAMARCA`
+7.  `CALLAO`
+8.  `CUSCO`
+9.  `HUANCAVELICA`
+10. `HUANUCO`
+11. `ICA`
+12. `JUNIN`
+13. `LA LIBERTAD`
+14. `LAMBAYEQUE`
+15. `LIMA`
+16. `LORETO`
+17. `MADRE DE DIOS`
+18. `MOQUEGUA` *(Se recomienda iniciar en 2008 usando `--start_year 2008`)*
+19. `PASCO`
+20. `PIURA`
+21. `PUNO`
+22. `SAN MARTIN`
+23. `TACNA` *(Se recomienda iniciar en 2007 usando `--start_year 2007`)*
+24. `TUMBES` *(Se recomienda iniciar en 2007 usando `--start_year 2007`)*
+25. `UCAYALI`

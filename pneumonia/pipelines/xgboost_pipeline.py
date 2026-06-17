@@ -207,7 +207,7 @@ class XGBoostPipeline:
         try:
             val_forecast = self.model.predict(self.train, steps=len(self.val))
             self.val_forecasts["XGBoost"] = val_forecast
-            metrics = compute_all_metrics(self.val.values, val_forecast)
+            metrics = compute_all_metrics(self.val.values, val_forecast, training_actual=self.train.values)
             self.results["stages"]["validation"] = {
                 "n_val_obs": len(self.val),
                 "metrics": {k: float(v) if not np.isnan(v) else None for k, v in metrics.items()},
@@ -228,7 +228,7 @@ class XGBoostPipeline:
                 pd.concat([self.train, self.val]), steps=len(self.test)
             )
             self.test_forecasts["XGBoost"] = test_forecast
-            metrics = compute_all_metrics(self.test.values, test_forecast)
+            metrics = compute_all_metrics(self.test.values, test_forecast, training_actual=pd.concat([self.train, self.val]).values)
             self.results["stages"]["testing"] = {
                 "n_test_obs": len(self.test),
                 "metrics": {k: float(v) if not np.isnan(v) else None for k, v in metrics.items()},
@@ -279,6 +279,8 @@ def run_xgb_for_all_departments(
     age_group: str = "under5",
     split_strategy: Optional[str] = None,
     xgb_params: Optional[Dict] = None,
+    lags: Optional[List[int]] = None,
+    windows: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """Run XGBoost pipeline for every available department."""
     logger.info(f"Running XGBoost for all departments ({age_group})")
@@ -293,6 +295,8 @@ def run_xgb_for_all_departments(
                 age_group=age_group,
                 split_strategy=split_strategy,
                 xgb_params=xgb_params,
+                lags=lags,
+                windows=windows,
             )
             pipeline.run()
             print(pipeline.summary())

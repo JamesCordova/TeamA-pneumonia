@@ -49,7 +49,8 @@ Examples:
     dept_group.add_argument(
         "--department", "-d",
         type=str,
-        help="Department name (e.g., AMAZONAS, LIMA, ANCASH)",
+        nargs="+",
+        help="Department name(s) (e.g., AMAZONAS LIMA, or comma-separated: AMAZONAS,LIMA)",
     )
     dept_group.add_argument(
         "--all", "-a",
@@ -77,6 +78,27 @@ Examples:
         "--no_auto_arima",
         action="store_true",
         help="Disable auto_arima search (overrides config)",
+    )
+    
+    # SARIMA manual parameter customization
+    sarima_group = parser.add_argument_group("SARIMA manual parameters")
+    sarima_group.add_argument(
+        "--sarima_order", type=int, nargs=3, default=None,
+        metavar=("P", "D", "Q"),
+        help="[SARIMA] Non-seasonal order (p d q), e.g. --sarima_order 2 1 1",
+    )
+    sarima_group.add_argument(
+        "--n_fourier_terms", type=int, default=None,
+        help="[SARIMA] Fourier sin/cos pairs for seasonality (default: 6)",
+    )
+    fourier_group = sarima_group.add_mutually_exclusive_group()
+    fourier_group.add_argument(
+        "--no_fourier", action="store_true", default=False,
+        help="[SARIMA] Use classical SAR/SMA instead of Fourier seasonality",
+    )
+    fourier_group.add_argument(
+        "--fourier", action="store_true", default=False,
+        help="[SARIMA] Force Fourier seasonality (overrides config if disabled)",
     )
     
     # Split strategy
@@ -118,6 +140,9 @@ def train_single_department(
     use_auto_arima: bool = None,
     split_strategy: str = None,
     forecast_steps: int = 52,
+    order: tuple = None,
+    n_fourier_terms: int = None,
+    use_fourier: bool = None,
 ) -> int:
     """
     Train SARIMA model for a single department.
@@ -143,6 +168,9 @@ def train_single_department(
             use_auto_arima=use_auto_arima,
             forecast_steps=forecast_steps,
             split_strategy=split_strategy,
+            order=order,
+            n_fourier_terms=n_fourier_terms,
+            use_fourier=use_fourier,
         )
         
         results = pipeline.run()
@@ -160,6 +188,9 @@ def train_all_departments(
     use_auto_arima: bool = None,
     split_strategy: str = None,
     forecast_steps: int = 52,
+    order: tuple = None,
+    n_fourier_terms: int = None,
+    use_fourier: bool = None,
 ) -> int:
     """
     Train SARIMA models for all departments.
@@ -185,6 +216,11 @@ def train_all_departments(
         results = run_pipeline_for_all_departments(
             age_group=age_group,
             use_auto_arima=use_auto_arima,
+            split_strategy=split_strategy,
+            forecast_steps=forecast_steps,
+            order=order,
+            n_fourier_terms=n_fourier_terms,
+            use_fourier=use_fourier,
         )
         
         # Summary
@@ -228,6 +264,14 @@ def main():
         use_auto_arima = True
     elif args.no_auto_arima:
         use_auto_arima = False
+
+    # Build SARIMA manual parameters
+    order = tuple(args.sarima_order) if args.sarima_order else None
+    use_fourier = None
+    if args.no_fourier:
+        use_fourier = False
+    elif args.fourier:
+        use_fourier = True
     
     try:
         if args.all:
@@ -237,16 +281,31 @@ def main():
                 use_auto_arima=use_auto_arima,
                 split_strategy=args.split_strategy,
                 forecast_steps=args.forecast_steps,
+                order=order,
+                n_fourier_terms=args.n_fourier_terms,
+                use_fourier=use_fourier,
             )
         else:
-            # Train single department
-            exit_code = train_single_department(
-                department=args.department,
-                age_group=args.age_group,
-                use_auto_arima=use_auto_arima,
-                split_strategy=args.split_strategy,
-                forecast_steps=args.forecast_steps,
-            )
+            # Parse list of departments
+            departments = []
+            for d in args.department:
+                departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
+            
+            # Loop through specified departments
+            exit_code = 0
+            for dept in departments:
+                code = train_single_department(
+                    department=dept,
+                    age_group=args.age_group,
+                    use_auto_arima=use_auto_arima,
+                    split_strategy=args.split_strategy,
+                    forecast_steps=args.forecast_steps,
+                    order=order,
+                    n_fourier_terms=args.n_fourier_terms,
+                    use_fourier=use_fourier,
+                )
+                if code != 0:
+                    exit_code = code
         
         return exit_code
         

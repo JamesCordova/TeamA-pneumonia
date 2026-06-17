@@ -38,8 +38,8 @@ Examples:
     )
 
     dept_group = parser.add_mutually_exclusive_group(required=True)
-    dept_group.add_argument("--department", "-d", type=str,
-                            help="Department name (e.g. AMAZONAS, LIMA)")
+    dept_group.add_argument("--department", "-d", type=str, nargs="+",
+                            help="Department name(s) (e.g. AMAZONAS LIMA, or comma-separated: AMAZONAS,LIMA)")
     dept_group.add_argument("--all", "-a", action="store_true",
                             help="Train for all departments")
 
@@ -55,6 +55,16 @@ Examples:
                         help="Number of trees (default from config)")
     parser.add_argument("--max_depth", type=int,
                         help="Max tree depth (default from config)")
+    parser.add_argument("--min_samples_leaf", type=int,
+                        help="Min samples per leaf (default from config)")
+    parser.add_argument("--min_samples_split", type=int,
+                        help="Min samples to split a node (default from config)")
+    parser.add_argument("--max_features", type=str,
+                        help="Features per split: sqrt, log2 (default from config)")
+    parser.add_argument("--lags", type=int, nargs="+",
+                        help="Lag periods as features, e.g. --lags 1 2 4 8 (default from config)")
+    parser.add_argument("--windows", type=int, nargs="+",
+                        help="Rolling window sizes, e.g. --windows 4 13 (default from config)")
 
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
@@ -69,6 +79,8 @@ def train_single(
     age_group: str = "under5",
     split_strategy: str = None,
     rf_params: dict = None,
+    lags: list = None,
+    windows: list = None,
 ) -> int:
     try:
         logger.info(f"\n{'='*80}\nRandomForest for {department} ({age_group})\n{'='*80}\n")
@@ -77,6 +89,8 @@ def train_single(
             age_group=age_group,
             split_strategy=split_strategy,
             rf_params=rf_params,
+            lags=lags,
+            windows=windows,
         )
         pipeline.run()
         print(pipeline.summary())
@@ -90,6 +104,8 @@ def train_all(
     age_group: str = "under5",
     split_strategy: str = None,
     rf_params: dict = None,
+    lags: list = None,
+    windows: list = None,
 ) -> int:
     try:
         departments = get_available_departments()
@@ -99,6 +115,8 @@ def train_all(
             age_group=age_group,
             split_strategy=split_strategy,
             rf_params=rf_params,
+            lags=lags,
+            windows=windows,
         )
         successes = sum(1 for r in results.values() if r["status"] == "success")
         failures = len(results) - successes
@@ -123,10 +141,10 @@ def main():
 
     # Build optional RF param overrides from CLI args
     rf_params = {}
-    if args.n_estimators:
-        rf_params["n_estimators"] = args.n_estimators
-    if args.max_depth:
-        rf_params["max_depth"] = args.max_depth
+    for key in ("n_estimators", "max_depth", "min_samples_leaf", "min_samples_split", "max_features"):
+        val = getattr(args, key, None)
+        if val is not None:
+            rf_params[key] = val
     rf_params = rf_params or None
 
     try:
@@ -135,14 +153,28 @@ def main():
                 age_group=args.age_group,
                 split_strategy=args.split_strategy,
                 rf_params=rf_params,
+                lags=args.lags,
+                windows=args.windows,
             )
         else:
-            code = train_single(
-                department=args.department,
-                age_group=args.age_group,
-                split_strategy=args.split_strategy,
-                rf_params=rf_params,
-            )
+            # Parse list of departments
+            departments = []
+            for d in args.department:
+                departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
+            
+            # Loop through departments
+            code = 0
+            for dept in departments:
+                c = train_single(
+                    department=dept,
+                    age_group=args.age_group,
+                    split_strategy=args.split_strategy,
+                    rf_params=rf_params,
+                    lags=args.lags,
+                    windows=args.windows,
+                )
+                if c != 0:
+                    code = c
         return code
     except KeyboardInterrupt:
         logger.info("\nInterrupted by user")
