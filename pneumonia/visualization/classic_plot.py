@@ -1,11 +1,12 @@
 """
-Classic train/val/test forecast comparison plot.
+Classic train/val/test forecast comparison plot with premium styling.
 
 Shows:
-  - Trailing training actuals (solid black)
-  - Val + test actuals (dashed black)
+  - Trailing training actuals (solid dark charcoal)
+  - Val + test actuals as reference
+  - Shaded regions for validation and testing split boundaries
   - One dashed coloured line per model over the val + test range
-  - Vertical markers at the val and test split boundaries
+  - Clean layout, custom fonts, grid, and despined axes.
 
 Saved to: reports/{DEPT}/{AGE_GROUP}/forecast_plot.png
 """
@@ -26,6 +27,16 @@ from pneumonia.visualization._utils import (
 
 logger = setup_logger(__name__)
 
+# Premium color palette matching modern design tokens
+PALETTE = {
+    "randomforest": "#2563eb",   # Royal Blue
+    "sarima": "#059669",         # Emerald Green
+    "xgboost": "#7c3aed",        # Purple
+    "seasonalnaive": "#dc2626",  # Red
+    "naive": "#d97706",          # Amber
+    "holtwinters": "#db2777",    # Pink
+}
+
 
 def plot_classic(
     department: str,
@@ -34,11 +45,11 @@ def plot_classic(
     models: Optional[List[str]] = None,
     save_path: Optional[Path] = None,
     show: bool = False,
-    figsize: tuple = (15, 5),
+    figsize: tuple = (15, 5.5),
     year: Optional[int] = None,
 ) -> Optional[Path]:
     """
-    Generate the classic forecast comparison figure.
+    Generate a styled classic forecast comparison figure.
 
     Args:
         department:   Department name (uppercase).
@@ -57,7 +68,12 @@ def plot_classic(
     if df is None:
         return None
 
+    # Style options
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans", "Arial", "sans-serif"]
+    plt.rcParams["font.family"] = "sans-serif"
+
     val_start = df[df["split"] == "val"]["date"].min()
+    test_start = df[df["split"] == "test"]["date"].min()
     test_end   = df[df["split"] == "test"]["date"].max()
 
     if year is not None:
@@ -70,8 +86,14 @@ def plot_classic(
         plot_min = df["date"].min()
         plot_max = df["date"].max()
 
-    fig, ax = plt.subplots(figsize=figsize)
-    palette = plt.cm.tab10.colors
+    fig, ax = plt.subplots(figsize=figsize, facecolor="white")
+
+    # --- split shading first (so it stays in background) ---
+    if pd.notna(val_start):
+        val_shade_end = test_start if pd.notna(test_start) else (test_end if pd.notna(test_end) else df["date"].max())
+        ax.axvspan(val_start, val_shade_end, color="#eff6ff", alpha=0.6, label="Validation Period")
+    if pd.notna(test_start) and pd.notna(test_end):
+        ax.axvspan(test_start, test_end, color="#fff7ed", alpha=0.6, label="Testing Period")
 
     # --- single continuous actual line (train + val + test) ---
     train_actuals = (
@@ -83,7 +105,7 @@ def plot_classic(
     all_actuals = pd.concat([train_actuals, val_test_actuals]).sort_values("date")
     if not all_actuals.empty:
         ax.plot(all_actuals["date"], all_actuals["actual"],
-                color="black", lw=1.3, label="Actual")
+                color="#1f2937", lw=1.8, label="Actual cases")
 
     # --- model predictions (dashed coloured lines) ---
     available = sorted(m for m in forecast_df["model"].unique() if m != "actual")
@@ -95,27 +117,45 @@ def plot_classic(
 
     for idx, name in enumerate(model_names):
         mdf = forecast_df[forecast_df["model"] == name].sort_values("date")
+        key = name.lower().replace("_", "").replace("-", "")
+        color = PALETTE.get(key, plt.cm.tab10.colors[idx % 10])
         ax.plot(mdf["date"], mdf["predicted"],
-                color=palette[idx % len(palette)],
-                lw=1.5, ls="--", alpha=0.85, label=name)
+                color=color,
+                lw=2.0, ls="--", alpha=0.9, label=name)
 
     # --- split boundary markers ---
     ax.autoscale_view()
     ymin, ymax = ax.get_ylim()
-    label_y = ymax - (ymax - ymin) * 0.06
-    for split_name, color in [("val", "steelblue"), ("test", "darkorange")]:
+    label_y = ymax - (ymax - ymin) * 0.08
+    for split_name, color, label_text in [("val", "#1d4ed8", "Validation"), ("test", "#c2410c", "Testing")]:
         boundary = df[df["split"] == split_name]["date"].min()
         if pd.notna(boundary):
-            ax.axvline(boundary, color=color, ls=":", lw=1.2, alpha=0.7)
-            ax.text(boundary, label_y, f" {split_name}", color=color, fontsize=8)
+            ax.axvline(boundary, color=color, ls=":", lw=1.5, alpha=0.8)
+            ax.text(boundary, label_y, f"  {label_text} Start", color=color, fontsize=8.5, fontweight="bold")
 
     configure_date_axis(ax, plot_min, plot_max)
 
-    age_label = "Under 5" if age_group == "under5" else "60+"
-    ax.set_title(f"{department} — {age_label} — Forecast comparison", fontsize=12, pad=10)
-    ax.set_ylabel("Pneumonia cases")
-    ax.legend(loc="upper left", fontsize=8, framealpha=0.8)
-    ax.grid(True, alpha=0.25)
+    age_label = "Under 5 Years" if age_group == "under5" else "60+ Years"
+    ax.set_title(f"Forecast Comparison — {department} ({age_label})", fontsize=14, fontweight="bold", color="#1f2937", pad=12)
+    ax.set_ylabel("Pneumonia Cases", fontsize=10, fontweight="semibold", color="#374151")
+    
+    # Legend
+    legend = ax.legend(
+        loc="upper left", 
+        fontsize=9, 
+        frameon=True,
+        facecolor="#f9fafb",
+        edgecolor="#e5e7eb"
+    )
+    legend.get_frame().set_boxstyle("round,pad=0.4")
+    
+    # Grid & Spines
+    ax.grid(color="#e5e7eb", linestyle="--", linewidth=0.7, alpha=0.8)
+    for spine in ["top", "right"]:
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color("#d1d5db")
+    ax.spines["bottom"].set_color("#d1d5db")
+    ax.tick_params(colors="#4b5563")
 
     clip_axes(ax, df, plot_min, plot_max)
 

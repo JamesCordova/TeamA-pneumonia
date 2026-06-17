@@ -123,7 +123,47 @@ Estos parámetros se pueden pasar tanto a los scripts de entrenamiento (`train_*
 
 ---
 
-## 🗺️ 5. Departamentos de Perú Disponibles
+## 📊 5. Métricas de Evaluación Disponibles y Márgenes de Calidad
+
+El pipeline calcula y reporta las siguientes métricas de precisión, ajuste y sesgo. A continuación se detallan sus significados y los **márgenes o umbrales de referencia** para evaluar si un modelo es de buena calidad:
+
+1.  **MAE (Error Absoluto Medio)**: Mide la magnitud promedio de los errores de predicción en unidades de casos de neumonía.
+    *   *Margen*: Debe ser lo más bajo posible. Se evalúa de manera relativa comparándolo con el volumen total de casos del departamento.
+2.  **RMSE (Raíz del Error Cuadrático Medio)**: Mide el error promedio penalizando con mayor fuerza las predicciones muy alejadas (errores grandes).
+    *   *Margen*: Al igual que MAE, debe ser lo más bajo posible. Si RMSE es mucho mayor que el MAE, indica presencia de errores muy grandes en semanas específicas.
+3.  **ME (Error Medio / Sesgo)**: Evalúa si el modelo subestima o sobreestima de forma sistemática.
+    *   *Valor Óptimo*: `0.0` (modelo perfectamente insesgado).
+    *   *Margen*: 
+        *   **ME < 0**: El modelo tiende a **sobreestimar** (pronostica más casos de los reales).
+        *   **ME > 0**: El modelo tiende a **subestimar** (pronostica menos casos de los reales).
+        *   Un sesgo de ±1 a ±3 casos se considera aceptable dependiendo del tamaño del departamento.
+4.  **R2 (Coeficiente de Determinación)**: Representa la proporción de la varianza histórica que el modelo logra capturar.
+    *   *Rango*: $-\infty$ a `1.0`.
+    *   *Margen*:
+        *   **R2 >= 0.70**: Ajuste **excelente** (muy alta capacidad predictiva).
+        *   **R2 entre 0.40 y 0.70**: Ajuste **bueno a moderado** (habitual en series ruidosas de salud pública).
+        *   **R2 < 0.40**: Ajuste **pobre** (baja confianza en las predicciones).
+        *   **R2 <= 0.00**: El modelo predice peor que simplemente usar el promedio histórico de la serie.
+5.  **MASE (Error Absoluto Escalado Medio)**: Compara el error del modelo frente a una predicción ingenua (naive) estacional. ¡Es la métrica clave de utilidad!
+    *   *Rango*: `0.0` a $\infty$.
+    *   *Margen*:
+        *   **MASE < 1.0**: **El modelo es útil** (es más preciso que simplemente repetir el valor del año pasado).
+        *   **MASE < 0.50**: Ajuste **excepcional** (muy superior al baseline).
+        *   **MASE >= 1.0**: El modelo no aporta valor predictivo frente a la estimación más simple posible.
+6.  **SMAPE (Error Porcentual Absoluto Medio Simétrico)**: Mide el error promedio en formato porcentual (de 0% a 200%).
+    *   *Margen*:
+        *   **SMAPE < 10%**: Precisión **excelente**.
+        *   **SMAPE entre 10% y 25%**: Precisión **buena a aceptable** (típica en epidemiología debido a fluctuaciones estacionales).
+        *   **SMAPE > 25%**: Precisión **baja**.
+7.  **MDA (Precisión Direccional Media)**: Mide el porcentaje de aciertos en predecir si los casos subirán o bajarán la semana siguiente.
+    *   *Rango*: `0%` a `100%`.
+    *   *Margen*:
+        *   **MDA > 50%**: El modelo predice la dirección mejor que el azar (lanzar una moneda).
+        *   **MDA >= 70%**: **Excelente** capacidad para detectar tendencias y alertas tempranas de brotes.
+
+---
+
+## 🗺️ 6. Departamentos de Perú Disponibles
 
 El proyecto procesa los **25 departamentos oficiales** del Perú. Cuando ejecutes `scripts/prepare_data.py`, el sistema validará cuáles de ellos tienen suficiente volumen de datos histórico (mínimo 104 semanas) antes de habilitar su entrenamiento.
 

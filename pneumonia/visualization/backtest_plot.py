@@ -1,13 +1,12 @@
 """
-Walk-forward backtest plot.
+Walk-forward backtest plot with premium styling.
 
 Shows:
-  - Training actuals from the earliest backtest origin (solid black)
+  - Training actuals from the earliest backtest origin (solid dark charcoal)
+  - Shaded backtest evaluation window
   - Val + test actuals as a reference line (dashed black)
   - One solid coloured line per model from the backtest predictions
-
-The x-axis extends to the earliest backtest date so the full rolling-origin
-history is visible, unlike the classic plot which only shows the last few years.
+  - Clean layout, custom fonts, grid, and despined axes.
 
 Saved to: reports/{DEPT}/{AGE_GROUP}/backtest_plot.png
 """
@@ -28,6 +27,16 @@ from pneumonia.visualization._utils import (
 
 logger = setup_logger(__name__)
 
+# Premium color palette matching modern design tokens
+PALETTE = {
+    "randomforest": "#2563eb",   # Royal Blue
+    "sarima": "#059669",         # Emerald Green
+    "xgboost": "#7c3aed",        # Purple
+    "seasonalnaive": "#dc2626",  # Red
+    "naive": "#d97706",          # Amber
+    "holtwinters": "#db2777",    # Pink
+}
+
 
 def plot_backtest(
     department: str,
@@ -36,11 +45,11 @@ def plot_backtest(
     models: Optional[List[str]] = None,
     save_path: Optional[Path] = None,
     show: bool = False,
-    figsize: tuple = (15, 5),
+    figsize: tuple = (15, 5.5),
     year: Optional[int] = None,
 ) -> Optional[Path]:
     """
-    Generate the walk-forward backtest figure.
+    Generate a styled walk-forward backtest figure.
 
     Args:
         department:   Department name (uppercase).
@@ -76,14 +85,19 @@ def plot_backtest(
         plot_min = backtest_df["date"].min()
         plot_max = test_end if pd.notna(test_end) else backtest_df["date"].max()
 
-    fig, ax = plt.subplots(figsize=figsize)
-    palette = plt.cm.tab10.colors
+    fig, ax = plt.subplots(figsize=figsize, facecolor="white")
+
+    # Style options
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans", "Arial", "sans-serif"]
+    plt.rcParams["font.family"] = "sans-serif"
+
+    # --- backtest split shading in the background ---
+    backtest_start = backtest_df["date"].min()
+    backtest_end = backtest_df["date"].max()
+    if pd.notna(backtest_start) and pd.notna(backtest_end):
+        ax.axvspan(backtest_start, backtest_end, color="#f5f3ff", alpha=0.6, label="Backtest Period")
 
     # --- single continuous actual line ---
-    # Sources (any combination may exist depending on which pipelines were run):
-    #   1. train split rows (model='actual')  — from classic pipeline
-    #   2. val/test split rows                — from classic pipeline
-    #   3. backtest split rows                — always present after walk-forward
     train_actuals = (
         df[(df["split"] == "train") & (df["model"] == "actual") & (df["date"] >= plot_min)]
         [["date", "actual"]]
@@ -98,7 +112,7 @@ def plot_backtest(
     )
     if not all_actuals.empty:
         ax.plot(all_actuals["date"], all_actuals["actual"],
-                color="black", lw=1.3, label="Actual")
+                color="#1f2937", lw=1.8, label="Actual cases")
 
     # --- backtest model predictions (solid coloured lines) ---
     available = sorted(backtest_df["model"].unique())
@@ -112,19 +126,37 @@ def plot_backtest(
 
     for idx, name in enumerate(bt_models):
         bdf = backtest_df[backtest_df["model"] == name].sort_values("date")
+        key = name.lower().replace("_", "").replace("-", "")
+        color = PALETTE.get(key, plt.cm.tab10.colors[idx % 10])
         ax.plot(bdf["date"], bdf["predicted"],
-                color=palette[idx % len(palette)],
-                lw=1.5, alpha=0.85, label=f"{name} (backtest)")
+                color=color,
+                lw=2.0, alpha=0.9, label=f"{name} (backtest)")
 
     configure_date_axis(ax, plot_min, plot_max)
 
-    age_label = "Under 5" if age_group == "under5" else "60+"
+    age_label = "Under 5 Years" if age_group == "under5" else "60+ Years"
     ax.set_title(
-        f"{department} — {age_label} — Walk-forward backtest", fontsize=12, pad=10
+        f"Walk-Forward Backtest — {department} ({age_label})", fontsize=14, fontweight="bold", color="#1f2937", pad=12
     )
-    ax.set_ylabel("Pneumonia cases")
-    ax.legend(loc="upper left", fontsize=8, framealpha=0.8)
-    ax.grid(True, alpha=0.25)
+    ax.set_ylabel("Pneumonia Cases", fontsize=10, fontweight="semibold", color="#374151")
+    
+    # Legend
+    legend = ax.legend(
+        loc="upper left", 
+        fontsize=9, 
+        frameon=True,
+        facecolor="#f9fafb",
+        edgecolor="#e5e7eb"
+    )
+    legend.get_frame().set_boxstyle("round,pad=0.4")
+    
+    # Grid & Spines
+    ax.grid(color="#e5e7eb", linestyle="--", linewidth=0.7, alpha=0.8)
+    for spine in ["top", "right"]:
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color("#d1d5db")
+    ax.spines["bottom"].set_color("#d1d5db")
+    ax.tick_params(colors="#4b5563")
 
     clip_axes(ax, df, plot_min, plot_max)
 
