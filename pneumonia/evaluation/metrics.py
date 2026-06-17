@@ -168,6 +168,39 @@ def symmetric_mean_absolute_percentage_error(
     return float(smape)
 
 
+def r2_score(
+    actual: Union[np.ndarray, pd.Series],
+    predicted: Union[np.ndarray, pd.Series]
+) -> float:
+    """
+    Calculate the coefficient of determination (R²).
+
+    R² = 1 - SS_res / SS_tot
+      SS_res = Σ(actual - predicted)²
+      SS_tot = Σ(actual - mean(actual))²
+
+    Interpretation:
+      R² = 1.0  — perfect prediction
+      R² = 0.0  — equivalent to predicting the mean
+      R² < 0    — worse than predicting the mean
+
+    Returns NaN when SS_tot = 0 (all actual values are identical).
+    """
+    actual = np.asarray(actual, dtype=float)
+    predicted = np.asarray(predicted, dtype=float)
+
+    if actual.shape != predicted.shape:
+        raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
+
+    ss_tot = np.sum((actual - np.mean(actual)) ** 2)
+    if ss_tot == 0:
+        logger.warning("R²: all actual values are identical (SS_tot=0); returning NaN.")
+        return np.nan
+
+    ss_res = np.sum((actual - predicted) ** 2)
+    return float(1.0 - ss_res / ss_tot)
+
+
 def mean_directional_accuracy(
     actual: Union[np.ndarray, pd.Series],
     predicted: Union[np.ndarray, pd.Series]
@@ -235,6 +268,7 @@ def compute_all_metrics(
         "mape": mean_absolute_percentage_error(actual, predicted),
         "smape": symmetric_mean_absolute_percentage_error(actual, predicted),
         "mda": mean_directional_accuracy(actual, predicted),
+        "r2": r2_score(actual, predicted),
     }
     
     # Check for NaN values

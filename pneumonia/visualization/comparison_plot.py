@@ -3,7 +3,7 @@ Walk-forward model comparison figure.
 
 Two-panel figure:
   Left  — grouped bar chart: selected metric at h_short vs h_long per model
-  Right — line chart: metric degradation from h_short to h_long per model
+  Right — line chart: metric across all horizons per model
 """
 
 from pathlib import Path
@@ -18,7 +18,11 @@ METRIC_LABELS = {
     "rmse":  "RMSE (cases)",
     "smape": "SMAPE (%)",
     "mda":   "MDA (%)",
+    "r2":    "R²",
 }
+
+# For these metrics higher value = better model
+HIGHER_IS_BETTER = {"mda", "r2"}
 
 VALID_METRICS = set(METRIC_LABELS)
 
@@ -37,10 +41,10 @@ def plot_model_comparison(
 
     Args:
         metrics:   {model_name: {horizon_int: {metric_key: value}}}
-        horizons:  All available horizons (used for the degradation line).
+        horizons:  All available horizons (used for the line chart).
         h_short:   Short horizon for bar chart (e.g. 1).
         h_long:    Long horizon for bar chart (e.g. 4).
-        metric:    Metric to plot: 'mae', 'rmse', 'smape', or 'mda'.
+        metric:    Metric to plot: 'mae', 'rmse', 'smape', 'mda', or 'r2'.
         save_path: Where to save the PNG. Returns None if not provided.
         show:      Call plt.show() after saving.
 
@@ -49,6 +53,20 @@ def plot_model_comparison(
     """
     if metric not in VALID_METRICS:
         raise ValueError(f"metric must be one of {sorted(VALID_METRICS)}, got '{metric}'")
+
+    # Check that at least one model has data for this metric
+    has_data = any(
+        not np.isnan(v)
+        for by_h in metrics.values()
+        for h_data in by_h.values()
+        for v in [h_data.get(metric, np.nan)]
+    )
+    if not has_data:
+        print(
+            f"[comparison_plot] No data for metric '{metric}' in any model — "
+            "re-run scripts/run_walkforward.py to regenerate metrics."
+        )
+        return None
 
     models  = list(metrics.keys())
     palette = plt.cm.tab10.colors
@@ -80,25 +98,43 @@ def plot_model_comparison(
         edgecolor=[colors[m] for m in models], linewidth=1.2,
     )
 
+    # Value labels above (or below for negative R²) each bar
+    all_vals = [v for v in vals_s + vals_l if not np.isnan(v)]
+    val_range = (max(all_vals) - min(all_vals)) if all_vals else 1
+    offset = val_range * 0.02 or 0.05
+
     for bar in list(bars_s) + list(bars_l):
         h = bar.get_height()
         if not np.isnan(h):
             ax_bar.text(
-                bar.get_x() + bar.get_width() / 2, h + 0.05,
-                f"{h:.1f}", ha="center", va="bottom", fontsize=7.5,
+                bar.get_x() + bar.get_width() / 2,
+                h + offset if h >= 0 else h - offset * 3,
+                f"{h:.2f}" if metric == "r2" else f"{h:.1f}",
+                ha="center",
+                va="bottom" if h >= 0 else "top",
+                fontsize=7.5,
             )
 
     ax_bar.set_xticks(x)
     ax_bar.set_xticklabels(models, rotation=25, ha="right", fontsize=9)
     ax_bar.set_ylabel(ylabel)
-    ax_bar.set_title(f"h={h_short} (solid) vs h={h_long} (faded)")
+    better = "↑ higher is better" if metric in HIGHER_IS_BETTER else "↓ lower is better"
+    ax_bar.set_title(f"h={h_short} (solid) vs h={h_long} (faded) — {better}")
     ax_bar.yaxis.set_minor_locator(mticker.AutoMinorLocator())
     ax_bar.grid(axis="y", alpha=0.25)
     ax_bar.grid(axis="y", which="minor", alpha=0.12)
+    # Draw y=0 line for R² to make negative values obvious
+    if metric == "r2":
+        ax_bar.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
     # ------------------------------------------------------------------ #
-    # Panel 2: degradation lines across all horizons
+    # Panel 2: metric across all horizons
     # ------------------------------------------------------------------ #
+    line_title = (
+        f"{ylabel} across horizons — ↑ improves"
+        if metric in HIGHER_IS_BETTER
+        else f"{ylabel} across horizons — ↓ improves"
+    )
     for model in models:
         hs   = sorted(h for h in horizons if h in metrics[model])
         vals = [metrics[model][h].get(metric, np.nan) for h in hs]
@@ -108,9 +144,11 @@ def plot_model_comparison(
     ax_line.set_xticks(horizons)
     ax_line.set_xlabel("Forecast horizon (weeks ahead)")
     ax_line.set_ylabel(ylabel)
-    ax_line.set_title(f"{ylabel} across horizons")
-    ax_line.legend(fontsize=9, loc="upper left")
+    ax_line.set_title(line_title)
+    ax_line.legend(fontsize=9, loc="upper left" if metric not in HIGHER_IS_BETTER else "lower left")
     ax_line.grid(alpha=0.25)
+    if metric == "r2":
+        ax_line.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
     fig.tight_layout()
 

@@ -36,12 +36,13 @@ from pneumonia.visualization.comparison_plot import (
 
 logger = setup_logger(__name__)
 
-TABLE_METRICS = ["mae", "rmse", "smape", "mda"]
+TABLE_METRICS = ["mae", "rmse", "smape", "mda", "r2"]
 TABLE_HEADERS = {
     "mae":   "MAE",
     "rmse":  "RMSE",
     "smape": "SMAPE (%)",
     "mda":   "MDA (%)",
+    "r2":    "R²",
 }
 
 
@@ -85,17 +86,30 @@ def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
 
 
 def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd.Series:
-    """(metric_hlong / metric_hshort - 1) × 100 per model for the given metric."""
+    """
+    Metric change from h_short to h_long per model.
+
+    For error metrics (mae, rmse, smape): (v_long/v_short - 1) × 100 % — positive = worse.
+    For score metrics (mda, r2):          v_long - v_short (absolute) — negative = worse.
+    """
     result = {}
     label  = TABLE_HEADERS.get(metric, metric.upper())
+    higher_is_better = metric in {"mda", "r2"}
+
     for model, by_h in metrics.items():
         v_s = by_h.get(h_short, {}).get(metric, np.nan)
         v_l = by_h.get(h_long,  {}).get(metric, np.nan)
-        if v_s and v_s > 0:
+        if np.isnan(v_s) or np.isnan(v_l):
+            result[model] = np.nan
+        elif higher_is_better:
+            result[model] = round(v_l - v_s, 3)
+        elif v_s > 0:
             result[model] = round((v_l / v_s - 1) * 100, 1)
         else:
             result[model] = np.nan
-    return pd.Series(result, name=f"{label} degradation h{h_short}→h{h_long} (%)")
+
+    unit = "" if higher_is_better else " (%)"
+    return pd.Series(result, name=f"{label} change h{h_short}→h{h_long}{unit}")
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +136,8 @@ def compare(department: str, age_group: str, horizons: list, metric: str) -> Non
     print(f"Model comparison — {department} / {age_group}")
     print(f"{'='*70}")
     print(table.to_string())
-    print(f"\n--- {METRIC_LABELS[metric]} degradation h={h_short}→h={h_long} ---")
+    change_label = "change" if metric in {"mda", "r2"} else "degradation"
+    print(f"\n--- {METRIC_LABELS[metric]} {change_label} h={h_short}→h={h_long} ---")
     print(degr.sort_values().to_string())
     print(f"{'='*70}\n")
 
@@ -144,28 +159,33 @@ def compare(department: str, age_group: str, horizons: list, metric: str) -> Non
         save_path  = fig_path,
     )
 
-    # --- Plain-language summary (always in MAE for interpretability) ---
+    # --- Plain-language summary ---
     mae_s  = {m: metrics[m].get(h_short, {}).get("mae", np.nan) for m in metrics}
     mae_l  = {m: metrics[m].get(h_long,  {}).get("mae", np.nan) for m in metrics}
     mda_s  = {m: metrics[m].get(h_short, {}).get("mda", np.nan) for m in metrics}
+    r2_s   = {m: metrics[m].get(h_short, {}).get("r2",  np.nan) for m in metrics}
     mae_degr = degradation_pct(metrics, h_short, h_long, "mae")
 
     best_short  = min(mae_s, key=lambda m: mae_s[m] if not np.isnan(mae_s[m]) else np.inf)
     best_long   = min(mae_l, key=lambda m: mae_l[m] if not np.isnan(mae_l[m]) else np.inf)
     best_mda    = max(mda_s, key=lambda m: mda_s[m] if not np.isnan(mda_s[m]) else -np.inf)
+    best_r2     = max(r2_s,  key=lambda m: r2_s[m]  if not np.isnan(r2_s[m])  else -np.inf)
     most_stable = mae_degr.dropna().idxmin()
+
+    degr_val = mae_degr[most_stable]
+    degr_str = f"{degr_val:+.1f}%"
 
     print("=== Conclusiones automáticas ===")
     print(f"  Mejor modelo a corto plazo (h={h_short}, MAE): "
           f"{best_short} ({mae_s[best_short]:.2f})")
     print(f"  Mejor modelo a largo plazo  (h={h_long},  MAE): "
           f"{best_long} ({mae_l[best_long]:.2f})")
-    degr_val = mae_degr[most_stable]
-    degr_str = f"{degr_val:+.1f}%"
     print(f"  Más estable ante horizonte largo (menor degradación MAE): "
           f"{most_stable} ({degr_str})")
     print(f"  Mejor dirección de cambio (MDA h={h_short}): "
           f"{best_mda} ({mda_s[best_mda]:.1f}%)")
+    print(f"  Mejor ajuste general (R² h={h_short}): "
+          f"{best_r2} ({r2_s[best_r2]:.3f})")
     print()
 
 
