@@ -1,0 +1,54 @@
+# Modelado-Pneumonia — Docker Compose
+#
+# Prerequisites (Windows 11):
+#   - Docker Desktop with "Use the WSL 2 based engine" enabled
+#   - Windows GPU drivers that expose WSL2 GPU passthrough (Game Ready / Studio ≥ 460)
+#   - No separate NVIDIA Container Toolkit needed on Windows with Docker Desktop
+#
+# Linux host:
+#   - NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit
+#
+# Usage examples:
+#   docker compose build
+#   docker compose run --rm pneumonia scripts/prepare_data.py --no_download
+#   docker compose run --rm pneumonia scripts/train_sarima.py --department AMAZONAS --age_group under5
+#   docker compose run --rm pneumonia scripts/run_walkforward.py --department LIMA --model XGBoost
+#   docker compose run --rm pneumonia scripts/plot_forecasting.py --department AMAZONAS --plot both
+#   docker compose run --rm --entrypoint bash pneumonia   # interactive shell
+
+services:
+  pneumonia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pneumonia-forecast:latest
+
+    # GPU access — works with Docker Desktop (WSL2) and linux + nvidia-container-toolkit
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # Load project env vars (.env must exist; copy from .env.example if needed)
+    env_file:
+      - .env
+
+    environment:
+      - TF_CPP_MIN_LOG_LEVEL=2
+
+    # Persistent volumes: host directories are mounted into the container.
+    # Outputs (reports, models, logs) are written to the host automatically.
+    volumes:
+      - ./data:/app/data          # input data (raw + processed)
+      - ./reports:/app/reports    # generated plots and comparison CSVs
+      - ./models:/app/models      # serialised trained models (.pkl, metadata)
+      - ./logs:/app/logs          # runtime logs
+
+    working_dir: /app
+
+    # Keep stdin/tty open so interactive flags work (e.g. --trace output from pmdarima)
+    stdin_open: true
+    tty: true

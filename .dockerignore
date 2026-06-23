@@ -1,0 +1,35 @@
+# Virtual environment — never copy into image (reinstalled via requirements.txt)
+.venv/
+
+# Python bytecode
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Test / build artifacts
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Git history
+.git/
+.gitignore
+
+# IDE / editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# Environment secrets — injected at runtime via env_file, not baked into image
+.env
+
+# Docs and examples (not needed at runtime)
+docs/
+notebooks/
+examples/
+
+# Large output directories — mounted as volumes, not copied into image
+models/
+reports/
+logs/
