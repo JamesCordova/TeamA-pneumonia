@@ -16,14 +16,14 @@ import numpy as np
 METRIC_LABELS = {
     "mae":   "MAE (cases)",
     "rmse":  "RMSE (cases)",
+    "me":    "ME (bias)",
+    "mape":  "MAPE (%)",
     "smape": "SMAPE (%)",
     "mda":   "MDA (%)",
     "r2":    "R²",
 }
 
-# For these metrics higher value = better model
 HIGHER_IS_BETTER = {"mda", "r2"}
-
 VALID_METRICS = set(METRIC_LABELS)
 
 
@@ -54,7 +54,6 @@ def plot_model_comparison(
     if metric not in VALID_METRICS:
         raise ValueError(f"metric must be one of {sorted(VALID_METRICS)}, got '{metric}'")
 
-    # Check that at least one model has data for this metric
     has_data = any(
         not np.isnan(v)
         for by_h in metrics.values()
@@ -68,34 +67,37 @@ def plot_model_comparison(
         )
         return None
 
-    models  = list(metrics.keys())
+    models = list(metrics.keys())
     palette = plt.cm.tab10.colors
     colors  = {m: palette[i % len(palette)] for i, m in enumerate(models)}
     ylabel  = METRIC_LABELS[metric]
 
-    fig, (ax_bar, ax_line) = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle(
-        f"Walk-forward model comparison — {ylabel}", fontsize=13, y=1.01
-    )
+    fig, (ax_bar, ax_line) = plt.subplots(1, 2, figsize=(14, 5.5))
+    fig.suptitle(f"Model Evaluation Comparison — {ylabel}", fontsize=14, fontweight="bold")
 
     # ------------------------------------------------------------------ #
-    # Panel 1: grouped bar chart at h_short and h_long
+    # Panel 1: Grouped bar chart at h_short and h_long
     # ------------------------------------------------------------------ #
-    x      = np.arange(len(models))
-    width  = 0.35
+    x = np.arange(len(models))
+    width = 0.32
     vals_s = [metrics[m].get(h_short, {}).get(metric, np.nan) for m in models]
     vals_l = [metrics[m].get(h_long,  {}).get(metric, np.nan) for m in models]
 
     bars_s = ax_bar.bar(
         x - width / 2, vals_s, width,
-        label=f"h={h_short}",
-        color=[colors[m] for m in models], alpha=0.9,
+        label=f"Horizon h={h_short}",
+        color=[colors[m] for m in models],
+        alpha=0.9,
+        edgecolor="white",
+        linewidth=0.7,
     )
     bars_l = ax_bar.bar(
         x + width / 2, vals_l, width,
-        label=f"h={h_long}",
-        color=[colors[m] for m in models], alpha=0.45,
-        edgecolor=[colors[m] for m in models], linewidth=1.2,
+        label=f"Horizon h={h_long}",
+        color=[colors[m] for m in models],
+        alpha=0.45,
+        edgecolor=[colors[m] for m in models],
+        linewidth=1.2,
     )
 
     # Value labels above (or below for negative R²) each bar
@@ -123,7 +125,6 @@ def plot_model_comparison(
     ax_bar.yaxis.set_minor_locator(mticker.AutoMinorLocator())
     ax_bar.grid(axis="y", alpha=0.25)
     ax_bar.grid(axis="y", which="minor", alpha=0.12)
-    # Draw y=0 line for R² to make negative values obvious
     if metric == "r2":
         ax_bar.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
@@ -136,10 +137,18 @@ def plot_model_comparison(
         else f"{ylabel} across horizons — ↓ improves"
     )
     for model in models:
-        hs   = sorted(h for h in horizons if h in metrics[model])
+        hs = sorted(h for h in horizons if h in metrics[model])
         vals = [metrics[model][h].get(metric, np.nan) for h in hs]
-        ax_line.plot(hs, vals, marker="o", lw=1.8,
-                     label=model, color=colors[model])
+        ax_line.plot(
+            hs, vals,
+            marker="o",
+            markersize=6,
+            markeredgecolor="white",
+            markeredgewidth=1.0,
+            lw=2.2,
+            label=model,
+            color=colors[model],
+        )
 
     ax_line.set_xticks(horizons)
     ax_line.set_xlabel("Forecast horizon (weeks ahead)")

@@ -309,6 +309,7 @@ class BaselinePipeline:
 def run_baselines_for_all_departments(
     age_group: str = "under5",
     split_strategy: Optional[str] = None,
+    season_length: int = 52,
 ) -> Dict[str, Dict[str, Any]]:
     """Run baseline pipeline for every available department."""
     logger.info(f"Running baselines for all departments ({age_group})")
@@ -322,6 +323,7 @@ def run_baselines_for_all_departments(
                 department=dept,
                 age_group=age_group,
                 split_strategy=split_strategy,
+                season_length=season_length,
             )
             results = pipeline.run()
             print(pipeline.summary())

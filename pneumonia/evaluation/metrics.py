@@ -237,24 +237,21 @@ def mean_directional_accuracy(
     return float(mda)
 
 
-def compute_all_metrics(
+def mean_error(
     actual: Union[np.ndarray, pd.Series],
-    predicted: Union[np.ndarray, pd.Series],
-    warn_on_nan: bool = True
-) -> dict:
+    predicted: Union[np.ndarray, pd.Series]
+) -> float:
     """
-    Compute all evaluation metrics.
+    Calculate Mean Error (ME) or Bias.
+    
+    ME = (1/n) * Σ(actual - predicted)
     
     Args:
         actual: Actual values
         predicted: Predicted values
-        warn_on_nan: If True, log warning for any NaN metric values
         
     Returns:
-        Dictionary with metric names and values (may contain NaN)
-        
-    Raises:
-        ValueError: If shapes don't match
+        ME value
     """
     actual = np.asarray(actual)
     predicted = np.asarray(predicted)
@@ -262,20 +259,49 @@ def compute_all_metrics(
     if actual.shape != predicted.shape:
         raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
     
+    me = np.mean(actual - predicted)
+    return float(me)
+
+
+def compute_all_metrics(
+    actual: Union[np.ndarray, pd.Series],
+    predicted: Union[np.ndarray, pd.Series],
+    warn_on_nan: bool = True,
+) -> dict:
+    """
+    Compute all evaluation metrics.
+
+    Args:
+        actual: Actual values
+        predicted: Predicted values
+        warn_on_nan: If True, log warning for any NaN metric values
+
+    Returns:
+        Dictionary with metric names and values (may contain NaN)
+
+    Raises:
+        ValueError: If shapes don't match
+    """
+    actual = np.asarray(actual)
+    predicted = np.asarray(predicted)
+
+    if actual.shape != predicted.shape:
+        raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
+
     metrics = {
-        "mae": mean_absolute_error(actual, predicted),
-        "rmse": root_mean_squared_error(actual, predicted),
-        "mape": mean_absolute_percentage_error(actual, predicted),
+        "mae":   mean_absolute_error(actual, predicted),
+        "rmse":  root_mean_squared_error(actual, predicted),
+        "me":    mean_error(actual, predicted),
+        "mape":  mean_absolute_percentage_error(actual, predicted),
         "smape": symmetric_mean_absolute_percentage_error(actual, predicted),
-        "mda": mean_directional_accuracy(actual, predicted),
-        "r2": r2_score(actual, predicted),
+        "mda":   mean_directional_accuracy(actual, predicted),
+        "r2":    r2_score(actual, predicted),
     }
-    
-    # Check for NaN values
-    nan_metrics = [k for k, v in metrics.items() if np.isnan(v)]
+
+    nan_metrics = [k for k, v in metrics.items() if isinstance(v, float) and np.isnan(v)]
     if nan_metrics and warn_on_nan:
         logger.warning(f"Metrics with NaN values: {nan_metrics}. Check data quality.")
-    
+
     return metrics
 
 
