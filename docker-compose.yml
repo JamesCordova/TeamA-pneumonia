@@ -38,6 +38,8 @@ services:
 
     environment:
       - TF_CPP_MIN_LOG_LEVEL=2
+      # Tell TF's XLA JIT compiler where CUDA lives (needed for libdevice.10.bc)
+      - XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/local/cuda
 
     # Persistent volumes: host directories are mounted into the container.
     # Outputs (reports, models, logs) are written to the host automatically.

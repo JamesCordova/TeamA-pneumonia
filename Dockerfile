@@ -10,13 +10,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Install Python 3.11 + build deps for psycopg2 and compiled wheels
+# Install Python 3.11 + build deps for psycopg2 and compiled wheels.
+# cuda-nvcc-12-6 provides libdevice.10.bc required by TensorFlow XLA JIT on GPU.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.11 \
         python3.11-dev \
         curl \
         build-essential \
         libpq-dev \
+        cuda-nvcc-12-6 \
     && rm -rf /var/lib/apt/lists/* \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 \
     && update-alternatives --install /usr/bin/python  python  /usr/bin/python3.11 1 \
@@ -28,12 +30,9 @@ WORKDIR /app
 COPY requirements.txt .
 
 # requirements.txt may be UTF-16 LE (Windows default pip freeze encoding).
-# The Python snippet below normalises it to UTF-8 before passing it to pip.
-RUN python -c "
-data = open('requirements.txt', 'rb').read()
-text = data.decode('utf-16') if data[:2] in (b'\xff\xfe', b'\xfe\xff') else data.decode('utf-8')
-open('/tmp/req.txt', 'w').write(text)
-" \
+# iconv converts it to UTF-8; falls back to a plain copy if already UTF-8.
+RUN iconv -f utf-16 -t utf-8 requirements.txt -o /tmp/req.txt 2>/dev/null \
+    || cp requirements.txt /tmp/req.txt \
     && python -m pip install --no-cache-dir --upgrade pip \
     && python -m pip install --no-cache-dir -r /tmp/req.txt
 
