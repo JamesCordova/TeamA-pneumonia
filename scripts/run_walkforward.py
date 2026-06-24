@@ -35,7 +35,7 @@ Usage:
     python scripts/run_walkforward.py --all --model GRU --age_group 60plus \\
         --train_size 260 --horizon 4 --refit_every 1 --smooth_window 1
 
-Available models: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters
+Available models: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters, Prophet
 """
 
 import argparse
@@ -68,6 +68,7 @@ _MODEL_REGISTRY = {
     "seasonalnaive": ("pneumonia.models.baselines.seasonal_naive",  "SeasonalNaiveForecaster"),
     "naive":         ("pneumonia.models.baselines.naive",           "NaiveForecaster"),
     "holtwinters":   ("pneumonia.models.baselines.holt_winters",    "HoltWintersForecaster"),
+    "prophet":       ("pneumonia.models.prophet.model",            "ProphetModel"),
 }
 
 
@@ -189,7 +190,7 @@ Examples:
                         choices=["under5", "60plus"], default="under5",
                         help="Age group (default: under5)")
     parser.add_argument("--model", "-m", type=str, required=True,
-                        help="Model to evaluate: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters")
+                        help="Model to evaluate: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters, Prophet")
 
     # Walk-forward parameters
     parser.add_argument("--train_size", type=int, default=520,
@@ -282,6 +283,21 @@ Examples:
         help="[SARIMA] Force Fourier seasonality (overrides config if disabled)",
     )
 
+    # Prophet hyperparameters
+    prophet_group = parser.add_argument_group("Prophet hyperparameters")
+    prophet_group.add_argument(
+        "--prophet_growth", type=str, choices=["linear", "flat"],
+        help="[Prophet] growth type (linear or flat)",
+    )
+    prophet_group.add_argument(
+        "--prophet_changepoint_scale", type=float,
+        help="[Prophet] changepoint prior scale (default: 0.05)",
+    )
+    prophet_group.add_argument(
+        "--prophet_seasonality_scale", type=float,
+        help="[Prophet] seasonality prior scale (default: 10.0)",
+    )
+
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     return parser
@@ -352,6 +368,14 @@ def main():
             extra_model_params["use_fourier"] = False
         elif args.fourier:
             extra_model_params["use_fourier"] = True
+
+    elif model_key == "prophet":
+        if args.prophet_growth is not None:
+            extra_model_params["growth"] = args.prophet_growth
+        if args.prophet_changepoint_scale is not None:
+            extra_model_params["changepoint_prior_scale"] = args.prophet_changepoint_scale
+        if args.prophet_seasonality_scale is not None:
+            extra_model_params["seasonality_prior_scale"] = args.prophet_seasonality_scale
 
     if args.lags:
         extra_model_params["lags"] = args.lags

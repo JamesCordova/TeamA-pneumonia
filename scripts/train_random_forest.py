@@ -66,6 +66,8 @@ Examples:
     parser.add_argument("--windows", type=int, nargs="+",
                         help="Rolling window sizes, e.g. --windows 4 13 (default from config)")
 
+    parser.add_argument("--start_year", type=int, default=None,
+                        help="Start year to truncate early sub-reported data")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     parser.add_argument("--quiet", "-q", action="store_true",
@@ -81,6 +83,7 @@ def train_single(
     rf_params: dict = None,
     lags: list = None,
     windows: list = None,
+    start_year: int = None,
 ) -> int:
     try:
         logger.info(f"\n{'='*80}\nRandomForest for {department} ({age_group})\n{'='*80}\n")
@@ -91,6 +94,7 @@ def train_single(
             rf_params=rf_params,
             lags=lags,
             windows=windows,
+            start_year=start_year,
         )
         pipeline.run()
         print(pipeline.summary())
@@ -106,6 +110,7 @@ def train_all(
     rf_params: dict = None,
     lags: list = None,
     windows: list = None,
+    start_year: int = None,
 ) -> int:
     try:
         departments = get_available_departments()
@@ -117,6 +122,7 @@ def train_all(
             rf_params=rf_params,
             lags=lags,
             windows=windows,
+            start_year=start_year,
         )
         successes = sum(1 for r in results.values() if r["status"] == "success")
         failures = len(results) - successes
@@ -155,6 +161,7 @@ def main():
                 rf_params=rf_params,
                 lags=args.lags,
                 windows=args.windows,
+                start_year=args.start_year,
             )
         else:
             departments = []
@@ -170,6 +177,7 @@ def main():
                     rf_params=rf_params,
                     lags=args.lags,
                     windows=args.windows,
+                    start_year=args.start_year,
                 )
                 if c != 0:
                     failed.append(dept)
