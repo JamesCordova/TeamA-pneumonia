@@ -279,6 +279,8 @@ def run_xgb_for_all_departments(
     age_group: str = "under5",
     split_strategy: Optional[str] = None,
     xgb_params: Optional[Dict] = None,
+    lags: Optional[List[int]] = None,
+    windows: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """Run XGBoost pipeline for every available department."""
     logger.info(f"Running XGBoost for all departments ({age_group})")
@@ -293,6 +295,8 @@ def run_xgb_for_all_departments(
                 age_group=age_group,
                 split_strategy=split_strategy,
                 xgb_params=xgb_params,
+                lags=lags,
+                windows=windows,
             )
             pipeline.run()
             print(pipeline.summary())

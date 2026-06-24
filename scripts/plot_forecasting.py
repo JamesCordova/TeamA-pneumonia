@@ -90,7 +90,8 @@ Examples:
     )
 
     dept_group = parser.add_mutually_exclusive_group(required=True)
-    dept_group.add_argument("--department", "-d", type=str, help="Department name")
+    dept_group.add_argument("--department", "-d", type=str, nargs="+",
+                            help="Department name(s) (e.g. AMAZONAS LIMA, or comma-separated: AMAZONAS,LIMA)")
     dept_group.add_argument("--all", "-a", action="store_true", help="Plot all departments")
 
     parser.add_argument(
@@ -127,18 +128,24 @@ def main():
 
     output = Path(args.output) if args.output else None
 
+    departments = []
     if args.all:
         departments = get_available_departments()
-        logger.info(f"Plotting {len(departments)} departments ({args.age_group}, {args.plot})")
-        for dept in departments:
-            try:
-                plot_one(dept, args.age_group, plot_type=args.plot,
-                         models=args.models, year=args.year)
-            except Exception as exc:
-                logger.warning(f"Failed for {dept}: {exc}")
-    else:
-        plot_one(args.department, args.age_group, plot_type=args.plot,
-                 models=args.models, output=output, year=args.year)
+    elif args.department:
+        for d in args.department:
+            departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
+
+    if len(departments) > 1 and output:
+        logger.warning("Multiple departments specified with --output. Ignoring --output to avoid overwriting files.")
+        output = None
+
+    logger.info(f"Plotting {len(departments)} departments ({args.age_group}, {args.plot})")
+    for dept in departments:
+        try:
+            plot_one(dept, args.age_group, plot_type=args.plot,
+                     models=args.models, output=output, year=args.year)
+        except Exception as exc:
+            logger.warning(f"Failed for {dept}: {exc}")
 
 
 if __name__ == "__main__":

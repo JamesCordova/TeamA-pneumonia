@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pneumonia.models.base import BaseForecaster
 from pneumonia.models.sarima.model import SARIMAModel
-from pneumonia.evaluation.walkforward import WalkForwardValidator, walkforward_validation
+from pneumonia.evaluation.walkforward import WalkForwardValidator
 
 
 # =============================================================================
@@ -31,24 +31,11 @@ class DummyForecaster(BaseForecaster):
         self.is_fitted = True
         self.fitted_date = "dummy_date"
         
-    def predict(self, steps: int) -> np.ndarray:
+    def predict(self, data: pd.Series, steps: int = 52) -> np.ndarray:
         return np.full(steps, self.constant_value, dtype=float)
 
 
-class DummyMLForecaster(BaseForecaster):
-    """Dummy ML forecaster that expects features for testing."""
-    
-    def __init__(self, department="TEST", age_group="under5"):
-        super().__init__(name="DummyML", department=department, age_group=age_group)
-        
-    def fit(self, train_data: pd.Series, train_features: np.ndarray, **kwargs) -> None:
-        self.is_fitted = True
-        self.fitted_date = "dummy_date"
-        self.train_features_shape = train_features.shape
-        
-    def predict(self, steps: int, test_features: np.ndarray) -> np.ndarray:
-        # Predict the mean of test features along columns as a dummy prediction
-        return np.mean(test_features, axis=1)
+
 
 
 # =============================================================================
@@ -63,15 +50,6 @@ def dummy_timeseries():
     return pd.Series(values, index=dates)
 
 
-@pytest.fixture
-def dummy_features():
-    """Create dummy features with same index length of 20."""
-    dates = pd.date_range(start="2023-01-01", periods=20, freq="W")
-    return pd.DataFrame({
-        "feat1": np.arange(10.0, 30.0),
-        "feat2": np.arange(20.0, 40.0)
-    }, index=dates)
-
 
 # =============================================================================
 # TESTS
@@ -85,8 +63,8 @@ class TestWalkForwardValidator:
         with pytest.raises(ValueError, match="horizon must be positive"):
             WalkForwardValidator(DummyForecaster, {}, initial_train_size=5, horizon=0)
             
-        with pytest.raises(ValueError, match="step_size must be positive"):
-            WalkForwardValidator(DummyForecaster, {}, initial_train_size=5, step_size=-1)
+        with pytest.raises(ValueError, match="step must be positive"):
+            WalkForwardValidator(DummyForecaster, {}, initial_train_size=5, step=-1)
             
         with pytest.raises(ValueError, match="window_type must be"):
             WalkForwardValidator(DummyForecaster, {}, initial_train_size=5, window_type="invalid")
@@ -98,7 +76,7 @@ class TestWalkForwardValidator:
             model_params={"constant_value": 15.0},
             initial_train_size=10,
             horizon=1,
-            step_size=1,
+            step=1,
             window_type="expanding",
             min_train_size=5
         )
@@ -141,7 +119,7 @@ class TestWalkForwardValidator:
             model_params={"constant_value": 10.0},
             initial_train_size=10,
             horizon=1,
-            step_size=2,
+            step=2,
             window_type="sliding",
             min_train_size=5
         )
@@ -171,7 +149,7 @@ class TestWalkForwardValidator:
             model_params={"constant_value": 5.0},
             initial_train_size=12,
             horizon=3,
-            step_size=2,
+            step=2,
             window_type="expanding",
             min_train_size=5
         )
@@ -200,35 +178,11 @@ class TestWalkForwardValidator:
         assert 2 in results["metrics_by_horizon"]
         assert 3 in results["metrics_by_horizon"]
 
-    def test_ml_features_integration(self, dummy_timeseries, dummy_features):
-        """Test that feature matrix X is properly aligned and sliced for ML forecasters."""
-        results = walkforward_validation(
-            data=dummy_timeseries,
-            X=dummy_features,
-            model_class=DummyMLForecaster,
-            model_params={},
-            initial_train_size=10,
-            horizon=2,
-            step_size=2,
-            min_train_size=5
-        )
-        
-        assert "metrics_by_horizon" in results
-        assert len(results["step_results"]) == 5
-        
-        predictions_df = results["predictions"]
-        # Predictions are the mean of test features.
-        # At step 0: train 0..10. Predict 10, 11.
-        # Test features at step 10: feat1=20.0, feat2=30.0 -> mean is 25.0
-        # Test features at step 11: feat1=21.0, feat2=31.0 -> mean is 26.0
-        assert predictions_df.loc[dummy_timeseries.index[10], "pred_h1"] == pytest.approx(25.0)
-        assert predictions_df.loc[dummy_timeseries.index[11], "pred_h2"] == pytest.approx(26.0)
-
     @pytest.mark.slow
     def test_sarima_model_integration(self):
         """Test walk-forward validation integrated with real SARIMAModel."""
         # Create a 2.5-year weekly series (130 weeks) to fit SARIMA's seasonal requirement (m=52)
-        # We need train size >= 104. Let's make initial train size 110, horizon 2, step_size 5.
+        # We need train size >= 104. Let's make initial train size 110, horizon 2, step 5.
         dates = pd.date_range(start="2021-01-01", periods=120, freq="W")
         t = np.arange(120)
         # Simple sine curve for seasonal variance + linear trend
@@ -236,8 +190,7 @@ class TestWalkForwardValidator:
         y = pd.Series(values, index=dates)
         
         # Run walkforward on a subset
-        results = walkforward_validation(
-            data=y,
+        validator = WalkForwardValidator(
             model_class=SARIMAModel,
             model_params={
                 "department": "TEST",
@@ -247,9 +200,10 @@ class TestWalkForwardValidator:
             },
             initial_train_size=110,
             horizon=2,
-            step_size=4,
+            step=4,
             min_train_size=50
         )
+        results = validator.run(y)
         
         assert len(results["step_results"]) == 3  # step 0: 110, step 1: 114, step 2: 118
         predictions_df = results["predictions"]

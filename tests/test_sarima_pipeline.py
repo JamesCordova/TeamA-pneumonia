@@ -21,6 +21,8 @@ from pneumonia.evaluation.metrics import (
     mean_absolute_error,
     root_mean_squared_error,
     mean_absolute_percentage_error,
+    mean_error,
+    r2_score
 )
 from pneumonia.pipelines.sarima_pipeline import SARIMAPipeline
 
@@ -209,10 +211,26 @@ class TestMetrics:
         assert "mape" in metrics
         assert "smape" in metrics
         assert "mda" in metrics
+        assert "me" in metrics
+        assert "r2" in metrics
         
         # Check values are numeric
         for metric_name, value in metrics.items():
             assert isinstance(value, (int, float, type(np.nan)))
+            
+    def test_me(self, sample_predictions):
+        """Test Mean Error."""
+        actual, predicted = sample_predictions
+        me = mean_error(actual, predicted)
+        # Expected: mean of [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1] = 0.0
+        assert me == pytest.approx(0.0)
+
+    def test_r2(self, sample_predictions):
+        """Test R2 Score."""
+        actual, predicted = sample_predictions
+        r2 = r2_score(actual, predicted)
+        assert isinstance(r2, float)
+        assert r2 <= 1.0
     
     def test_metrics_shape_mismatch(self, sample_predictions):
         """Test that mismatched shapes raise error."""

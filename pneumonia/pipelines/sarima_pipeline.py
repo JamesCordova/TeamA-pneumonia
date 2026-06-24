@@ -55,22 +55,34 @@ class SARIMAPipeline:
         use_auto_arima: Optional[bool] = None,
         forecast_steps: int = 52,
         split_strategy: Optional[str] = None,
+        order: Optional[Tuple[int, int, int]] = None,
+        seasonal_order: Optional[Tuple[int, int, int, int]] = None,
+        use_fourier: Optional[bool] = None,
+        n_fourier_terms: Optional[int] = None,
     ):
         """
         Initialize pipeline.
-        
+
         Args:
             department: Department name
             age_group: 'under5' or '60plus'
             use_auto_arima: Override config setting for auto_arima search
             forecast_steps: Number of steps to forecast (default: 52 weeks = 1 year)
             split_strategy: Override config 'dynamic' or 'years' splitting
+            order: Non-seasonal ARIMA order (p, d, q); None uses config/auto_arima
+            seasonal_order: Seasonal order (P, D, Q, m); None uses config/auto_arima
+            use_fourier: Override Fourier seasonality setting from config
+            n_fourier_terms: Number of Fourier sin/cos pairs for seasonality
         """
         self.department = department.upper()
         self.age_group = age_group.lower()
         self.use_auto_arima = use_auto_arima if use_auto_arima is not None else SARIMA_USE_AUTO_ARIMA
         self.forecast_steps = forecast_steps
         self.split_strategy = split_strategy or TEMPORAL_SPLIT_STRATEGY
+        self.order = order
+        self.seasonal_order = seasonal_order
+        self.use_fourier = use_fourier
+        self.n_fourier_terms = n_fourier_terms
         
         # Storage for results
         self.data = None
@@ -187,6 +199,10 @@ class SARIMAPipeline:
             self.model = SARIMAModel(
                 department=self.department,
                 age_group=self.age_group,
+                order=self.order,
+                seasonal_order=self.seasonal_order,
+                use_fourier=self.use_fourier,
+                n_fourier_terms=self.n_fourier_terms,
             )
             
             # Fit model
@@ -370,6 +386,12 @@ class SARIMAPipeline:
 def run_pipeline_for_all_departments(
     age_group: str = "under5",
     use_auto_arima: Optional[bool] = None,
+    split_strategy: Optional[str] = None,
+    forecast_steps: int = 52,
+    order: Optional[Tuple[int, int, int]] = None,
+    seasonal_order: Optional[Tuple[int, int, int, int]] = None,
+    use_fourier: Optional[bool] = None,
+    n_fourier_terms: Optional[int] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Run SARIMA pipeline for all available departments.
@@ -396,6 +418,12 @@ def run_pipeline_for_all_departments(
                 department=dept,
                 age_group=age_group,
                 use_auto_arima=use_auto_arima,
+                split_strategy=split_strategy,
+                forecast_steps=forecast_steps,
+                order=order,
+                seasonal_order=seasonal_order,
+                use_fourier=use_fourier,
+                n_fourier_terms=n_fourier_terms,
             )
             
             results = pipeline.run()

@@ -38,8 +38,8 @@ Examples:
     )
 
     dept_group = parser.add_mutually_exclusive_group(required=True)
-    dept_group.add_argument("--department", "-d", type=str,
-                            help="Department name (e.g. AMAZONAS, LIMA)")
+    dept_group.add_argument("--department", "-d", type=str, nargs="+",
+                            help="Department name(s) (e.g. AMAZONAS LIMA, or comma-separated: AMAZONAS,LIMA)")
     dept_group.add_argument("--all", "-a", action="store_true",
                             help="Run baselines for all departments")
 
@@ -84,6 +84,7 @@ def train_single(
 def train_all(
     age_group: str = "under5",
     split_strategy: str = None,
+    season_length: int = 52,
 ) -> int:
     try:
         departments = get_available_departments()
@@ -92,6 +93,7 @@ def train_all(
         results = run_baselines_for_all_departments(
             age_group=age_group,
             split_strategy=split_strategy,
+            season_length=season_length,
         )
         successes = sum(1 for r in results.values() if r["status"] == "success")
         failures = len(results) - successes
@@ -119,14 +121,27 @@ def main():
             code = train_all(
                 age_group=args.age_group,
                 split_strategy=args.split_strategy,
-            )
-        else:
-            code = train_single(
-                department=args.department,
-                age_group=args.age_group,
-                split_strategy=args.split_strategy,
                 season_length=args.season_length,
             )
+        else:
+            departments = []
+            for d in args.department:
+                departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
+
+            failed = []
+            for dept in departments:
+                c = train_single(
+                    department=dept,
+                    age_group=args.age_group,
+                    split_strategy=args.split_strategy,
+                    season_length=args.season_length,
+                )
+                if c != 0:
+                    failed.append(dept)
+
+            if failed:
+                print(f"\nFailed departments: {', '.join(failed)}")
+            code = 1 if failed else 0
         return code
     except KeyboardInterrupt:
         logger.info("\nInterrupted by user")
