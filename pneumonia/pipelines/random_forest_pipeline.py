@@ -56,6 +56,7 @@ class RandomForestPipeline:
         rf_params: Optional[Dict] = None,
         lags: Optional[List[int]] = None,
         windows: Optional[List[int]] = None,
+        start_year: Optional[int] = None,
     ):
         """
         Args:
@@ -74,6 +75,7 @@ class RandomForestPipeline:
         self.rf_params = rf_params
         self.lags = lags
         self.windows = windows
+        self.start_year = start_year
 
         self.data = None
         self.train = None
@@ -143,7 +145,11 @@ class RandomForestPipeline:
     def _stage_load_data(self) -> None:
         logger.info(f"Stage 1: Loading data for {self.department} ({self.age_group})")
         try:
-            self.data = get_departmental_data(self.department, age_group=self.age_group)
+            self.data = get_departmental_data(
+                self.department,
+                age_group=self.age_group,
+                start_year=self.start_year
+            )
 
             nan_count = int(self.data.isna().sum())
             if nan_count > 0:
@@ -298,6 +304,7 @@ def run_rf_for_all_departments(
     rf_params: Optional[Dict] = None,
     lags: Optional[List[int]] = None,
     windows: Optional[List[int]] = None,
+    start_year: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Run RandomForest pipeline for every available department."""
     logger.info(f"Running RandomForest for all departments ({age_group})")
@@ -314,6 +321,7 @@ def run_rf_for_all_departments(
                 rf_params=rf_params,
                 lags=lags,
                 windows=windows,
+                start_year=start_year,
             )
             pipeline.run()
             print(pipeline.summary())

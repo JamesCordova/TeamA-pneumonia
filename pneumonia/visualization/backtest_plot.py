@@ -35,6 +35,7 @@ PALETTE = {
     "seasonalnaive": "#dc2626",  # Red
     "naive": "#d97706",          # Amber
     "holtwinters": "#db2777",    # Pink
+    "prophet": "#06b6d4",        # Cyan
 }
 
 

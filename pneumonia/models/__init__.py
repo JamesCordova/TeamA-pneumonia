@@ -18,6 +18,7 @@ from pneumonia.models.sarima.model import SARIMAModel
 from pneumonia.models.ml.xgboost import XGBoostModel
 from pneumonia.models.ml.random_forest import RandomForestModel
 from pneumonia.models.ml.ensemble import EnsembleModel
+from pneumonia.models.prophet.model import ProphetModel
 
 __all__ = [
     "BaseForecaster",
@@ -27,4 +28,5 @@ __all__ = [
     "XGBoostModel",
     "RandomForestModel",
     "EnsembleModel",
+    "ProphetModel",
 ]

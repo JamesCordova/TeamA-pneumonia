@@ -51,6 +51,8 @@ Examples:
                         help="Temporal split strategy (overrides config)")
     parser.add_argument("--season_length", type=int, default=52,
                         help="Season length for SeasonalNaive (default: 52 weeks)")
+    parser.add_argument("--start_year", type=int, default=None,
+                        help="Start year to truncate early sub-reported data")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     parser.add_argument("--quiet", "-q", action="store_true",
@@ -64,6 +66,7 @@ def train_single(
     age_group: str = "under5",
     split_strategy: str = None,
     season_length: int = 52,
+    start_year: int = None,
 ) -> int:
     try:
         logger.info(f"\n{'='*80}\nBaselines for {department} ({age_group})\n{'='*80}\n")
@@ -72,6 +75,7 @@ def train_single(
             age_group=age_group,
             split_strategy=split_strategy,
             season_length=season_length,
+            start_year=start_year,
         )
         pipeline.run()
         print(pipeline.summary())
@@ -84,6 +88,7 @@ def train_single(
 def train_all(
     age_group: str = "under5",
     split_strategy: str = None,
+    start_year: int = None,
 ) -> int:
     try:
         departments = get_available_departments()
@@ -92,6 +97,7 @@ def train_all(
         results = run_baselines_for_all_departments(
             age_group=age_group,
             split_strategy=split_strategy,
+            start_year=start_year,
         )
         successes = sum(1 for r in results.values() if r["status"] == "success")
         failures = len(results) - successes
@@ -119,6 +125,7 @@ def main():
             code = train_all(
                 age_group=args.age_group,
                 split_strategy=args.split_strategy,
+                start_year=args.start_year,
             )
         else:
             # Parse list of departments
@@ -134,6 +141,7 @@ def main():
                     age_group=args.age_group,
                     split_strategy=args.split_strategy,
                     season_length=args.season_length,
+                    start_year=args.start_year,
                 )
                 if c != 0:
                     code = c
