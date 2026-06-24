@@ -1,5 +1,9 @@
-# Virtual environment — never copy into image (reinstalled via requirements.txt)
+# Virtual environments — never copy into image (reinstalled via requirements.txt)
 .venv/
+venv/
+env/
+.env/
+virtualenv/
 
 # Python bytecode
 **/__pycache__/
