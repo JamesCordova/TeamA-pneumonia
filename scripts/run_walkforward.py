@@ -28,7 +28,14 @@ Usage:
     # SARIMA clásico (sin Fourier)
     python scripts/run_walkforward.py --department AMAZONAS --model SARIMA --no_fourier
 
-Available models: SARIMA, RandomForest, XGBoost, SeasonalNaive, Naive, HoltWinters
+    # LSTM / GRU con hiperparámetros personalizados
+    python scripts/run_walkforward.py --department UCAYALI --model LSTM \\
+        --train_size 260 --horizon 4 --step 4 --refit_every 1 \\
+        --lookback 52 --units_1 64 --units_2 32 --epochs 80
+    python scripts/run_walkforward.py --all --model GRU --age_group 60plus \\
+        --train_size 260 --horizon 4 --refit_every 1 --smooth_window 1
+
+Available models: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters
 """
 
 import argparse
@@ -56,6 +63,8 @@ _MODEL_REGISTRY = {
     "sarima":        ("pneumonia.models.sarima.model",             "SARIMAModel"),
     "randomforest":  ("pneumonia.models.ml.random_forest",         "RandomForestModel"),
     "xgboost":       ("pneumonia.models.ml.xgboost",               "XGBoostModel"),
+    "lstm":          ("pneumonia.models.rnn.lstm",                   "LSTMModel"),
+    "gru":           ("pneumonia.models.rnn.gru",                    "GRUModel"),
     "seasonalnaive": ("pneumonia.models.baselines.seasonal_naive",  "SeasonalNaiveForecaster"),
     "naive":         ("pneumonia.models.baselines.naive",           "NaiveForecaster"),
     "holtwinters":   ("pneumonia.models.baselines.holt_winters",    "HoltWintersForecaster"),
@@ -180,7 +189,7 @@ Examples:
                         choices=["under5", "60plus"], default="under5",
                         help="Age group (default: under5)")
     parser.add_argument("--model", "-m", type=str, required=True,
-                        help="Model to evaluate: SARIMA, RandomForest, XGBoost, SeasonalNaive, Naive")
+                        help="Model to evaluate: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters")
 
     # Walk-forward parameters
     parser.add_argument("--train_size", type=int, default=520,
@@ -220,6 +229,30 @@ Examples:
                           help="Lag periods as features, e.g. --lags 1 2 4 8 52 (default: 1 2 4 8 13)")
     ml_group.add_argument("--windows", type=int, nargs="+", default=None,
                           help="Rolling window sizes, e.g. --windows 4 13 26 52 (default: 4 13 26)")
+
+    # RNN hyperparameters (LSTM / GRU)
+    rnn_group = parser.add_argument_group("RNN hyperparameters (LSTM / GRU)")
+    rnn_group.add_argument("--lookback", type=int, default=None,
+                           help="[RNN] Weeks of history fed to the network (default: 52)")
+    rnn_group.add_argument("--rnn_horizon", type=int, default=None,
+                           help="[RNN] Internal Dense output size / prediction block "
+                                "(default: 4). Usually matches --horizon.")
+    rnn_group.add_argument("--units_1", type=int, default=None,
+                           help="[RNN] Units in the first recurrent layer (default: 48)")
+    rnn_group.add_argument("--units_2", type=int, default=None,
+                           help="[RNN] Units in the second recurrent layer (default: 24)")
+    rnn_group.add_argument("--dropout_rate", type=float, default=None,
+                           help="[RNN] Dropout rate after each recurrent layer (default: 0.3)")
+    rnn_group.add_argument("--epochs", type=int, default=None,
+                           help="[RNN] Maximum training epochs (default: 60)")
+    rnn_group.add_argument("--batch_size", type=int, default=None,
+                           help="[RNN] Mini-batch size (default: 8)")
+    rnn_group.add_argument("--val_weeks", type=int, default=None,
+                           help="[RNN] In-window validation sequences for EarlyStopping "
+                                "(default: 26)")
+    rnn_group.add_argument("--smooth_window", type=int, default=None,
+                           help="[RNN] Rolling-mean smoothing window before scaling "
+                                "(default: 3; set 1 to disable)")
 
     # SARIMA hyperparameters
     sarima_group = parser.add_argument_group("SARIMA hyperparameters")
@@ -291,6 +324,22 @@ def main():
                 hp[key] = val
         if hp:
             extra_model_params["xgb_params"] = hp
+
+    elif model_key in ("lstm", "gru"):
+        for src, dst in [
+            ("lookback",     "lookback"),
+            ("rnn_horizon",  "forecast_horizon"),
+            ("units_1",      "units_1"),
+            ("units_2",      "units_2"),
+            ("dropout_rate", "dropout_rate"),
+            ("epochs",       "epochs"),
+            ("batch_size",   "batch_size"),
+            ("val_weeks",    "val_weeks"),
+            ("smooth_window","smooth_window"),
+        ]:
+            val = getattr(args, src, None)
+            if val is not None:
+                extra_model_params[dst] = val
 
     elif model_key == "sarima":
         if args.sarima_order:
