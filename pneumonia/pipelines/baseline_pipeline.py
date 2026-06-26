@@ -62,11 +62,13 @@ class BaselinePipeline:
         age_group: str = "under5",
         split_strategy: Optional[str] = None,
         season_length: int = 52,
+        start_year: Optional[int] = None,
     ):
         self.department = department.upper()
         self.age_group = age_group.lower()
         self.split_strategy = split_strategy or TEMPORAL_SPLIT_STRATEGY
         self.season_length = season_length
+        self.start_year = start_year
 
         self.data = None
         self.train = None
@@ -132,7 +134,11 @@ class BaselinePipeline:
     def _stage_load_data(self) -> None:
         logger.info(f"Stage 1: Loading data for {self.department} ({self.age_group})")
         try:
-            self.data = get_departmental_data(self.department, age_group=self.age_group)
+            self.data = get_departmental_data(
+                self.department,
+                age_group=self.age_group,
+                start_year=self.start_year
+            )
 
             nan_count = int(self.data.isna().sum())
             if nan_count > 0:
@@ -310,6 +316,7 @@ def run_baselines_for_all_departments(
     age_group: str = "under5",
     split_strategy: Optional[str] = None,
     season_length: int = 52,
+    start_year: Optional[int] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Run baseline pipeline for every available department."""
     logger.info(f"Running baselines for all departments ({age_group})")
@@ -324,6 +331,7 @@ def run_baselines_for_all_departments(
                 age_group=age_group,
                 split_strategy=split_strategy,
                 season_length=season_length,
+                start_year=start_year,
             )
             results = pipeline.run()
             print(pipeline.summary())

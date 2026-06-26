@@ -122,6 +122,13 @@ Examples:
         help="Number of weeks to forecast (default: 52)",
     )
     
+    # Start year to truncate early data
+    parser.add_argument(
+        "--start_year",
+        type=int,
+        help="Start year to truncate early sub-reported data",
+    )
+    
     # Verbosity
     parser.add_argument(
         "--verbose", "-v",
@@ -149,6 +156,7 @@ def train_single_department(
     seasonal_order: tuple = None,
     n_fourier_terms: int = None,
     use_fourier: bool = None,
+    start_year: int = None,
 ) -> int:
     """
     Train SARIMA model for a single department.
@@ -178,6 +186,7 @@ def train_single_department(
             seasonal_order=seasonal_order,
             n_fourier_terms=n_fourier_terms,
             use_fourier=use_fourier,
+            start_year=start_year,
         )
         
         results = pipeline.run()
@@ -199,6 +208,7 @@ def train_all_departments(
     seasonal_order: tuple = None,
     n_fourier_terms: int = None,
     use_fourier: bool = None,
+    start_year: int = None,
 ) -> int:
     """
     Train SARIMA models for all departments.
@@ -230,6 +240,7 @@ def train_all_departments(
             seasonal_order=seasonal_order,
             n_fourier_terms=n_fourier_terms,
             use_fourier=use_fourier,
+            start_year=start_year,
         )
         
         # Summary
@@ -295,6 +306,7 @@ def main():
                 seasonal_order=seasonal_order,
                 n_fourier_terms=args.n_fourier_terms,
                 use_fourier=use_fourier,
+                start_year=args.start_year,
             )
         else:
             departments = []
@@ -313,6 +325,7 @@ def main():
                     seasonal_order=seasonal_order,
                     n_fourier_terms=args.n_fourier_terms,
                     use_fourier=use_fourier,
+                    start_year=args.start_year,
                 )
                 if code != 0:
                     failed.append(dept)
