@@ -270,10 +270,12 @@ def main():
     parser.add_argument("--step_metrics", action="store_true",
                         help="Also render per-step diagnostic figures (boxplot + mean, "
                              "and metric evolution over time) from *_step_metrics.csv")
-    parser.add_argument("--trend_window", type=int, default=13,
+    parser.add_argument("--trend_window", type=int, default=None,
                         help="[--step_metrics] Steps to average over for the time-series "
-                             "overlay (default: 13). Not related to run_walkforward.py's "
-                             "--window_type — this only smooths the diagnostic plot.")
+                             "overlay. Default: 13 normally, or 4 when --year is set (a "
+                             "single year has too few steps for a 13-step window). Not "
+                             "related to run_walkforward.py's --window_type — this only "
+                             "smooths the diagnostic plot.")
     parser.add_argument("--year", type=int, default=None,
                         help="[--step_metrics] Restrict step metrics (boxplot + time "
                              "evolution) to a single calendar year (default: all years)")
@@ -285,11 +287,16 @@ def main():
 
     metric_names = sorted(VALID_METRICS) if "all" in args.metric else args.metric
 
+    if args.trend_window is not None:
+        trend_window = args.trend_window
+    else:
+        trend_window = 4 if args.year is not None else 13
+
     for dept in departments:
         try:
             compare(
                 dept, args.age_group, args.horizons, metric_names,
-                step_metrics=args.step_metrics, trend_window=args.trend_window,
+                step_metrics=args.step_metrics, trend_window=trend_window,
                 year=args.year,
             )
         except Exception as exc:
