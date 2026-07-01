@@ -212,6 +212,7 @@ class WalkForwardValidator:
             "step_results":       step_results,
             "predictions":        pred_df,
             "n_steps":            step_idx,
+            "model_params":       model.get_params() if model is not None else {},
             "config": {
                 "horizon":      self.horizon,
                 "step":         self.step,

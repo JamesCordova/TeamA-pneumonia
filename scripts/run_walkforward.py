@@ -165,6 +165,7 @@ def run_walkforward_for(
         "model": model_name,
         "run_name": run_name,
         "config": results["config"],
+        "model_params": results["model_params"],
         "metrics_by_horizon": {
             str(h): m for h, m in results["metrics_by_horizon"].items()
         },

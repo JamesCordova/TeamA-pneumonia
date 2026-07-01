@@ -28,6 +28,9 @@ class SeasonalNaiveForecaster(BaseForecaster):
         self.season_length = season_length
         self._season_values: np.ndarray = None
 
+    def get_params(self) -> dict:
+        return {"season_length": self.season_length}
+
     def fit(self, train_data: pd.Series, **kwargs) -> None:
         if len(train_data) < self.season_length:
             raise ValueError(

@@ -113,6 +113,19 @@ class BaseRNNModel(BaseForecaster):
             "smooth_window":    smooth_window,
         })
 
+    def get_params(self) -> dict:
+        return {
+            "lookback":         self.lookback,
+            "forecast_horizon": self.forecast_horizon,
+            "epochs":           self.epochs,
+            "batch_size":       self.batch_size,
+            "val_weeks":        self.val_weeks,
+            "units_1":          self.units_1,
+            "units_2":          self.units_2,
+            "dropout_rate":     self.dropout_rate,
+            "smooth_window":    self.smooth_window,
+        }
+
     # ------------------------------------------------------------------
     # Abstract — subclasses provide the recurrent cell
     # ------------------------------------------------------------------
