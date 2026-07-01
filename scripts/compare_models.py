@@ -14,6 +14,12 @@ Usage:
     python scripts/compare_models.py --department AMAZONAS --age_group 60plus
     python scripts/compare_models.py --department AMAZONAS --metric rmse
     python scripts/compare_models.py --department AMAZONAS --horizons 1 4
+
+Add --step_metrics to also render the per-step diagnostic figures (boxplot +
+mean, and metric evolution over time) via pneumonia.visualization.step_metrics_plot
+— same data source used standalone by scripts/plot_step_metrics.py:
+    python scripts/compare_models.py --department AMAZONAS --step_metrics
+    python scripts/compare_models.py --department AMAZONAS --step_metrics --year 2020
 """
 
 import argparse
@@ -33,6 +39,8 @@ from pneumonia.visualization.comparison_plot import (
     VALID_METRICS,
     plot_model_comparison,
 )
+from pneumonia.visualization.persistence import load_step_metrics
+from pneumonia.visualization.step_metrics_plot import plot_step_metrics
 
 logger = setup_logger(__name__)
 
@@ -118,7 +126,15 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
 # Main
 # ---------------------------------------------------------------------------
 
-def compare(department: str, age_group: str, horizons: list, metric_names: list) -> None:
+def compare(
+    department: str,
+    age_group: str,
+    horizons: list,
+    metric_names: list,
+    step_metrics: bool = False,
+    rolling_window: int = 10,
+    year: int = None,
+) -> None:
     department = department.upper()
     metrics    = load_metrics(REPORTS_PATH, department, age_group)
 
@@ -162,6 +178,31 @@ def compare(department: str, age_group: str, horizons: list, metric_names: list)
     csv_path = out_dir / "model_comparison.csv"
     full_table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
+
+    # --- Per-step diagnostic figures (optional) ---
+    if step_metrics:
+        try:
+            step_data = load_step_metrics(REPORTS_PATH, department, age_group)
+        except FileNotFoundError as exc:
+            logger.warning(f"Skipping step metrics for {department}: {exc}")
+        else:
+            if year is not None:
+                step_data = {
+                    m: df[df["date"].dt.year == year] for m, df in step_data.items()
+                }
+                step_data = {m: df for m, df in step_data.items() if not df.empty}
+                if not step_data:
+                    logger.warning(f"No step metrics found for year={year} in {department}")
+
+            suffix = f"_{year}" if year is not None else ""
+            for metric in metric_names:
+                fig_path = out_dir / f"step_metrics_{metric}{suffix}.png"
+                plot_step_metrics(
+                    step_data      = step_data,
+                    metric         = metric,
+                    save_path      = fig_path,
+                    rolling_window = rolling_window,
+                )
 
     # --- Plain-language summary ---
     mae_s  = {m: metrics[m].get(h_short, {}).get("mae", np.nan) for m in metrics}
@@ -215,6 +256,15 @@ def main():
     parser.add_argument("--metric", "-m", nargs="+", default=["all"],
                         choices=sorted(VALID_METRICS) + ["all"],
                         help="Metric(s) for the bar/line charts (default: all)")
+    parser.add_argument("--step_metrics", action="store_true",
+                        help="Also render per-step diagnostic figures (boxplot + mean, "
+                             "and metric evolution over time) from *_step_metrics.csv")
+    parser.add_argument("--rolling_window", type=int, default=10,
+                        help="[--step_metrics] Steps to average over for the time-series "
+                             "overlay (default: 10)")
+    parser.add_argument("--year", type=int, default=None,
+                        help="[--step_metrics] Restrict step metrics (boxplot + time "
+                             "evolution) to a single calendar year (default: all years)")
     args = parser.parse_args()
 
     departments = []
@@ -225,7 +275,11 @@ def main():
 
     for dept in departments:
         try:
-            compare(dept, args.age_group, args.horizons, metric_names)
+            compare(
+                dept, args.age_group, args.horizons, metric_names,
+                step_metrics=args.step_metrics, rolling_window=args.rolling_window,
+                year=args.year,
+            )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")
 

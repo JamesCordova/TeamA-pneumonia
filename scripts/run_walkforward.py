@@ -61,7 +61,10 @@ from pneumonia.models.utils import (
     validate_time_series,
 )
 from pneumonia.utils import setup_logger
-from pneumonia.visualization.persistence import save_walkforward_predictions
+from pneumonia.visualization.persistence import (
+    save_step_metrics,
+    save_walkforward_predictions,
+)
 
 logger = setup_logger(__name__)
 
@@ -154,6 +157,15 @@ def run_walkforward_for(
         predictions_df=results["predictions"],
     )
     print(f"Predictions saved -> {csv_path}")
+
+    step_csv_path = save_step_metrics(
+        reports_dir=REPORTS_PATH,
+        department=department,
+        age_group=age_group,
+        model_name=run_name,
+        step_results=results["step_results"],
+    )
+    print(f"Step metrics saved -> {step_csv_path}")
 
     # Save metrics JSON alongside other model JSONs
     out_dir = REPORTS_PATH / department / age_group

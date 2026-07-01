@@ -102,6 +102,74 @@ def save_predictions(
     return csv_path
 
 
+def save_step_metrics(
+    reports_dir: Path,
+    department: str,
+    age_group: str,
+    model_name: str,
+    step_results: list,
+) -> Path:
+    """
+    Persist per-step (per walk-forward origin) metrics for diagnostic plots.
+
+    One row per step: the forecast's anchor date, step index, number of
+    horizon observations pooled into that step's metrics (n_obs — usually
+    equal to `horizon`, but may be smaller for the last step(s) near the end
+    of the series), and the metric values themselves (mae, rmse, me, mape,
+    smape, mda, r2). The date column lets plots align steps across models
+    even when they don't share the same number of steps.
+
+    Args:
+        reports_dir:  Base reports directory.
+        department:   Department name (uppercase).
+        age_group:    'under5' or '60plus'.
+        model_name:   Model name (e.g. 'SARIMA', 'XGBoost').
+        step_results: `WalkForwardValidator.run()["step_results"]` — a list of
+                      per-step dicts with 'forecast_start', 'step', 'actuals',
+                      'metrics'.
+
+    Returns:
+        Path to the saved CSV file.
+    """
+    out_dir = Path(reports_dir) / department / age_group
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / f"{model_name}_step_metrics.csv"
+
+    rows = []
+    for step in step_results:
+        row = {
+            "date":  step["forecast_start"],
+            "step":  step["step"],
+            "n_obs": len(step["actuals"]),
+        }
+        row.update(step["metrics"])
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    df.to_csv(csv_path, index=False)
+    logger.info(f"Step metrics saved: {csv_path} ({len(df)} rows)")
+    return csv_path
+
+
+def load_step_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
+    """
+    Return {model_name: DataFrame(date, step, n_obs, mae, rmse, ...)} read back
+    from the *_step_metrics.csv files written by `save_step_metrics`.
+    """
+    out_dir = Path(reports_dir) / department / age_group
+    files   = sorted(out_dir.glob("*_step_metrics.csv"))
+    if not files:
+        raise FileNotFoundError(
+            f"No step metrics found in {out_dir}.\n"
+            "Run scripts/run_walkforward.py first."
+        )
+    data = {}
+    for f in files:
+        model = f.stem[: -len("_step_metrics")]
+        data[model] = pd.read_csv(f, parse_dates=["date"])
+    return data
+
+
 def save_walkforward_predictions(
     reports_dir: Path,
     department: str,
