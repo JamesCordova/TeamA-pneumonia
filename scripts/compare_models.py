@@ -118,7 +118,7 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
 # Main
 # ---------------------------------------------------------------------------
 
-def compare(department: str, age_group: str, horizons: list, metric: str) -> None:
+def compare(department: str, age_group: str, horizons: list, metric_names: list) -> None:
     department = department.upper()
     metrics    = load_metrics(REPORTS_PATH, department, age_group)
 
@@ -132,34 +132,36 @@ def compare(department: str, age_group: str, horizons: list, metric: str) -> Non
 
     # --- Table ---
     table = build_table(metrics, horizons)
-    degr  = degradation_pct(metrics, h_short, h_long, metric)
 
     print(f"\n{'='*70}")
     print(f"Model comparison — {department} / {age_group}")
     print(f"{'='*70}")
     print(table.to_string())
-    change_label = "change" if metric in {"mda", "r2"} else "degradation"
-    print(f"\n--- {METRIC_LABELS[metric]} {change_label} h={h_short}→h={h_long} ---")
-    print(degr.sort_values().to_string())
+
+    out_dir    = Path(REPORTS_PATH) / department / age_group
+    full_table = table.copy()
+
+    for metric in metric_names:
+        degr = degradation_pct(metrics, h_short, h_long, metric)
+        change_label = "change" if metric in {"mda", "r2"} else "degradation"
+        print(f"\n--- {METRIC_LABELS[metric]} {change_label} h={h_short}→h={h_long} ---")
+        print(degr.sort_values().to_string())
+        full_table[degr.name] = degr
+
+        fig_path = out_dir / f"model_comparison_{metric}.png"
+        plot_model_comparison(
+            metrics    = metrics,
+            horizons   = available_horizons,
+            h_short    = h_short,
+            h_long     = h_long,
+            metric     = metric,
+            save_path  = fig_path,
+        )
     print(f"{'='*70}\n")
 
-    out_dir  = Path(REPORTS_PATH) / department / age_group
     csv_path = out_dir / "model_comparison.csv"
-    full_table = table.copy()
-    full_table[degr.name] = degr
     full_table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
-
-    # --- Figure ---
-    fig_path = out_dir / f"model_comparison_{metric}.png"
-    plot_model_comparison(
-        metrics    = metrics,
-        horizons   = available_horizons,
-        h_short    = h_short,
-        h_long     = h_long,
-        metric     = metric,
-        save_path  = fig_path,
-    )
 
     # --- Plain-language summary ---
     mae_s  = {m: metrics[m].get(h_short, {}).get("mae", np.nan) for m in metrics}
@@ -210,18 +212,20 @@ def main():
                         help="Age group (default: under5)")
     parser.add_argument("--horizons", type=int, nargs="+", default=[1, 2, 3, 4],
                         help="Horizons to include in the table (default: 1 2 3 4)")
-    parser.add_argument("--metric", "-m", default="mae",
-                        choices=sorted(VALID_METRICS),
-                        help="Metric for the bar/line chart (default: mae)")
+    parser.add_argument("--metric", "-m", nargs="+", default=["all"],
+                        choices=sorted(VALID_METRICS) + ["all"],
+                        help="Metric(s) for the bar/line charts (default: all)")
     args = parser.parse_args()
 
     departments = []
     for d in args.department:
         departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
 
+    metric_names = sorted(VALID_METRICS) if "all" in args.metric else args.metric
+
     for dept in departments:
         try:
-            compare(dept, args.age_group, args.horizons, args.metric)
+            compare(dept, args.age_group, args.horizons, metric_names)
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")
 
