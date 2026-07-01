@@ -18,15 +18,16 @@ import numpy as np
 import pandas as pd
 
 from pneumonia.visualization.comparison_plot import (
-    HIGHER_IS_BETTER,
     METRIC_LABELS,
     VALID_METRICS,
+    better_label,
 )
 
 
 def plot_step_metrics(
     step_data: Dict[str, pd.DataFrame],
     metric: str,
+    department: Optional[str] = None,
     save_path: Optional[Path] = None,
     rolling_window: int = 10,
     show: bool = False,
@@ -40,6 +41,7 @@ def plot_step_metrics(
                    `pneumonia.visualization.persistence.save_step_metrics`).
                    Row counts may differ across models.
         metric:    Metric key, e.g. 'mae', 'rmse', 'r2'.
+        department: Optional label (e.g. department name) shown in the figure title.
         save_path: Where to save the PNG. Returns None if not provided.
         rolling_window: Number of steps to average over for the time-series
                    overlay (default: 10).
@@ -65,10 +67,13 @@ def plot_step_metrics(
     palette = plt.cm.tab10.colors
     colors  = {m: palette[i % len(palette)] for i, m in enumerate(models)}
     ylabel  = METRIC_LABELS[metric]
-    better  = "↑ higher is better" if metric in HIGHER_IS_BETTER else "↓ lower is better"
+    better  = better_label(metric)
 
     fig, (ax_box, ax_time) = plt.subplots(1, 2, figsize=(14, 5.5))
-    fig.suptitle(f"Per-step Walk-forward Diagnostics — {ylabel}", fontsize=14, fontweight="bold")
+    title = f"Per-step Walk-forward Diagnostics — {ylabel}"
+    if department:
+        title = f"{department} — {title}"
+    fig.suptitle(title, fontsize=14, fontweight="bold")
 
     # ------------------------------------------------------------------ #
     # Panel 1: distribution across steps (boxplot + mean marker)
@@ -99,7 +104,7 @@ def plot_step_metrics(
     ax_box.set_title(f"Distribution across steps — {better}")
     ax_box.grid(axis="y", alpha=0.25)
     ax_box.legend(fontsize=9)
-    if metric == "r2":
+    if metric in {"r2", "me"}:
         ax_box.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
     # ------------------------------------------------------------------ #
@@ -116,7 +121,7 @@ def plot_step_metrics(
     ax_time.set_title(f"{ylabel} over time (rolling mean, window={rolling_window}) — {better}")
     ax_time.legend(fontsize=9)
     ax_time.grid(alpha=0.25)
-    if metric == "r2":
+    if metric in {"r2", "me"}:
         ax_time.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
     fig.autofmt_xdate()
 

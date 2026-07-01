@@ -99,18 +99,24 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
     """
     Metric change from h_short to h_long per model.
 
-    For error metrics (mae, rmse, smape): (v_long/v_short - 1) × 100 % — positive = worse.
-    For score metrics (mda, r2):          v_long - v_short (absolute) — negative = worse.
+    For error metrics (mae, rmse, smape, mape): (v_long/v_short - 1) × 100 % — positive = worse.
+    For score metrics (mda, r2):                v_long - v_short (absolute) — negative = worse.
+    For bias (me): ideal value is 0, not min/max, so direction doesn't indicate "better" —
+        only |ME| growing means the model's over/under-prediction is getting worse:
+        |v_long| - |v_short| (absolute) — positive = bias grew.
     """
     result = {}
     label  = TABLE_HEADERS.get(metric, metric.upper())
     higher_is_better = metric in {"mda", "r2"}
+    is_bias = metric == "me"
 
     for model, by_h in metrics.items():
         v_s = by_h.get(h_short, {}).get(metric, np.nan)
         v_l = by_h.get(h_long,  {}).get(metric, np.nan)
         if np.isnan(v_s) or np.isnan(v_l):
             result[model] = np.nan
+        elif is_bias:
+            result[model] = round(abs(v_l) - abs(v_s), 3)
         elif higher_is_better:
             result[model] = round(v_l - v_s, 3)
         elif v_s > 0:
@@ -118,7 +124,10 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
         else:
             result[model] = np.nan
 
-    unit = "" if higher_is_better else " (%)"
+    if is_bias:
+        label, unit = f"{label} magnitude", ""
+    else:
+        unit = "" if higher_is_better else " (%)"
     return pd.Series(result, name=f"{label} change h{h_short}→h{h_long}{unit}")
 
 
@@ -159,7 +168,7 @@ def compare(
 
     for metric in metric_names:
         degr = degradation_pct(metrics, h_short, h_long, metric)
-        change_label = "change" if metric in {"mda", "r2"} else "degradation"
+        change_label = "change" if metric in {"mda", "r2", "me"} else "degradation"
         print(f"\n--- {METRIC_LABELS[metric]} {change_label} h={h_short}→h={h_long} ---")
         print(degr.sort_values().to_string())
         full_table[degr.name] = degr
@@ -171,6 +180,7 @@ def compare(
             h_short    = h_short,
             h_long     = h_long,
             metric     = metric,
+            department = department,
             save_path  = fig_path,
         )
     print(f"{'='*70}\n")
@@ -200,6 +210,7 @@ def compare(
                 plot_step_metrics(
                     step_data      = step_data,
                     metric         = metric,
+                    department     = department,
                     save_path      = fig_path,
                     rolling_window = rolling_window,
                 )

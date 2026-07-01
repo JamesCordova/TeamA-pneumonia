@@ -120,7 +120,8 @@ def plot_classic(
     clip_axes(ax, df, plot_min, plot_max)
 
     if save_path is None:
-        save_path = Path(reports_dir) / department / age_group / "forecast_plot.png"
+        suffix = f"_{year}" if year is not None else ""
+        save_path = Path(reports_dir) / department / age_group / f"forecast_plot{suffix}.png"
 
     path = save_figure(fig, save_path, show)
     logger.info(f"Classic plot saved: {path}")

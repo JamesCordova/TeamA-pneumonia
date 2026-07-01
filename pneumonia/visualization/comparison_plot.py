@@ -24,7 +24,17 @@ METRIC_LABELS = {
 }
 
 HIGHER_IS_BETTER = {"mda", "r2"}
+ZERO_IS_BETTER   = {"me"}
 VALID_METRICS = set(METRIC_LABELS)
+
+
+def better_label(metric: str) -> str:
+    """Direction hint for a metric: higher/lower-is-better, or closer-to-0 for bias metrics."""
+    if metric in HIGHER_IS_BETTER:
+        return "↑ higher is better"
+    if metric in ZERO_IS_BETTER:
+        return "→ 0 is ideal (over/under-prediction)"
+    return "↓ lower is better"
 
 
 def plot_model_comparison(
@@ -33,6 +43,7 @@ def plot_model_comparison(
     h_short: int,
     h_long: int,
     metric: str = "mae",
+    department: Optional[str] = None,
     save_path: Optional[Path] = None,
     show: bool = False,
 ) -> Optional[Path]:
@@ -40,13 +51,14 @@ def plot_model_comparison(
     Generate a two-panel model comparison figure.
 
     Args:
-        metrics:   {model_name: {horizon_int: {metric_key: value}}}
-        horizons:  All available horizons (used for the line chart).
-        h_short:   Short horizon for bar chart (e.g. 1).
-        h_long:    Long horizon for bar chart (e.g. 4).
-        metric:    Metric to plot: 'mae', 'rmse', 'smape', 'mda', or 'r2'.
-        save_path: Where to save the PNG. Returns None if not provided.
-        show:      Call plt.show() after saving.
+        metrics:    {model_name: {horizon_int: {metric_key: value}}}
+        horizons:   All available horizons (used for the line chart).
+        h_short:    Short horizon for bar chart (e.g. 1).
+        h_long:     Long horizon for bar chart (e.g. 4).
+        metric:     Metric to plot: 'mae', 'rmse', 'smape', 'mda', 'me', or 'r2'.
+        department: Optional label (e.g. department name) shown in the figure title.
+        save_path:  Where to save the PNG. Returns None if not provided.
+        show:       Call plt.show() after saving.
 
     Returns:
         Path to saved PNG, or None.
@@ -73,7 +85,10 @@ def plot_model_comparison(
     ylabel  = METRIC_LABELS[metric]
 
     fig, (ax_bar, ax_line) = plt.subplots(1, 2, figsize=(14, 5.5))
-    fig.suptitle(f"Model Evaluation Comparison — {ylabel}", fontsize=14, fontweight="bold")
+    title = f"Model Evaluation Comparison — {ylabel}"
+    if department:
+        title = f"{department} — {title}"
+    fig.suptitle(title, fontsize=14, fontweight="bold")
 
     # ------------------------------------------------------------------ #
     # Panel 1: Grouped bar chart at h_short and h_long
@@ -120,22 +135,18 @@ def plot_model_comparison(
     ax_bar.set_xticks(x)
     ax_bar.set_xticklabels(models, rotation=25, ha="right", fontsize=9)
     ax_bar.set_ylabel(ylabel)
-    better = "↑ higher is better" if metric in HIGHER_IS_BETTER else "↓ lower is better"
+    better = better_label(metric)
     ax_bar.set_title(f"h={h_short} (solid) vs h={h_long} (faded) — {better}")
     ax_bar.yaxis.set_minor_locator(mticker.AutoMinorLocator())
     ax_bar.grid(axis="y", alpha=0.25)
     ax_bar.grid(axis="y", which="minor", alpha=0.12)
-    if metric == "r2":
+    if metric in {"r2", "me"}:
         ax_bar.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
     # ------------------------------------------------------------------ #
     # Panel 2: metric across all horizons
     # ------------------------------------------------------------------ #
-    line_title = (
-        f"{ylabel} across horizons — ↑ improves"
-        if metric in HIGHER_IS_BETTER
-        else f"{ylabel} across horizons — ↓ improves"
-    )
+    line_title = f"{ylabel} across horizons — {better}"
     for model in models:
         hs = sorted(h for h in horizons if h in metrics[model])
         vals = [metrics[model][h].get(metric, np.nan) for h in hs]
@@ -156,7 +167,7 @@ def plot_model_comparison(
     ax_line.set_title(line_title)
     ax_line.legend(fontsize=9, loc="upper left" if metric not in HIGHER_IS_BETTER else "lower left")
     ax_line.grid(alpha=0.25)
-    if metric == "r2":
+    if metric in {"r2", "me"}:
         ax_line.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
     fig.tight_layout()
