@@ -141,7 +141,7 @@ def compare(
     horizons: list,
     metric_names: list,
     step_metrics: bool = False,
-    rolling_window: int = 10,
+    trend_window: int = 13,
     year: int = None,
 ) -> None:
     department = department.upper()
@@ -208,11 +208,11 @@ def compare(
             for metric in metric_names:
                 fig_path = out_dir / f"step_metrics_{metric}{suffix}.png"
                 plot_step_metrics(
-                    step_data      = step_data,
-                    metric         = metric,
-                    department     = department,
-                    save_path      = fig_path,
-                    rolling_window = rolling_window,
+                    step_data        = step_data,
+                    metric           = metric,
+                    department       = department,
+                    save_path        = fig_path,
+                    trend_window = trend_window,
                 )
 
     # --- Plain-language summary ---
@@ -270,9 +270,10 @@ def main():
     parser.add_argument("--step_metrics", action="store_true",
                         help="Also render per-step diagnostic figures (boxplot + mean, "
                              "and metric evolution over time) from *_step_metrics.csv")
-    parser.add_argument("--rolling_window", type=int, default=10,
+    parser.add_argument("--trend_window", type=int, default=13,
                         help="[--step_metrics] Steps to average over for the time-series "
-                             "overlay (default: 10)")
+                             "overlay (default: 13). Not related to run_walkforward.py's "
+                             "--window_type — this only smooths the diagnostic plot.")
     parser.add_argument("--year", type=int, default=None,
                         help="[--step_metrics] Restrict step metrics (boxplot + time "
                              "evolution) to a single calendar year (default: all years)")
@@ -288,7 +289,7 @@ def main():
         try:
             compare(
                 dept, args.age_group, args.horizons, metric_names,
-                step_metrics=args.step_metrics, rolling_window=args.rolling_window,
+                step_metrics=args.step_metrics, trend_window=args.trend_window,
                 year=args.year,
             )
         except Exception as exc:

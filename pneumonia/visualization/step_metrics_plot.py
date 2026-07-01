@@ -29,7 +29,7 @@ def plot_step_metrics(
     metric: str,
     department: Optional[str] = None,
     save_path: Optional[Path] = None,
-    rolling_window: int = 10,
+    trend_window: int = 13,
     show: bool = False,
 ) -> Optional[Path]:
     """
@@ -43,8 +43,9 @@ def plot_step_metrics(
         metric:    Metric key, e.g. 'mae', 'rmse', 'r2'.
         department: Optional label (e.g. department name) shown in the figure title.
         save_path: Where to save the PNG. Returns None if not provided.
-        rolling_window: Number of steps to average over for the time-series
-                   overlay (default: 10).
+        trend_window: Number of steps to average over for the time-series
+                   overlay (default: 10). Not related to run_walkforward.py's
+                   --window_type (training window) — this only smooths the plot.
         show:      Call plt.show() after saving.
 
     Returns:
@@ -113,12 +114,12 @@ def plot_step_metrics(
     for m in models:
         df = step_data[m].sort_values("date")
         ax_time.plot(df["date"], df[metric], lw=0.8, alpha=0.3, color=colors[m])
-        rolling = df[metric].rolling(rolling_window, min_periods=1).mean()
+        rolling = df[metric].rolling(trend_window, min_periods=1).mean()
         ax_time.plot(df["date"], rolling, lw=2.0, color=colors[m], label=m)
 
     ax_time.set_xlabel("Forecast date")
     ax_time.set_ylabel(ylabel)
-    ax_time.set_title(f"{ylabel} over time (rolling mean, window={rolling_window}) — {better}")
+    ax_time.set_title(f"{ylabel} over time (rolling mean over {trend_window} steps) — {better}")
     ax_time.legend(fontsize=9)
     ax_time.grid(alpha=0.25)
     if metric in {"r2", "me"}:
