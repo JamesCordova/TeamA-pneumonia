@@ -252,6 +252,13 @@ Examples:
                           help="[XGB only] Row subsample ratio (default: 0.9)")
     ml_group.add_argument("--colsample_bytree", type=float, default=None,
                           help="[XGB only] Feature subsample ratio per tree (default: 0.9)")
+    ml_group.add_argument("--objective", type=str, default=None,
+                          choices=["reg:squarederror", "count:poisson"],
+                          help="[XGB only] Loss objective (default: reg:squarederror). "
+                               "Use count:poisson for count-data targets like weekly case counts.")
+    ml_group.add_argument("--max_delta_step", type=float, default=None,
+                          help="[XGB only] Caps per-step update; recommended with "
+                               "count:poisson on low/volatile counts (e.g. 0.7)")
     ml_group.add_argument("--lags", type=int, nargs="+", default=None,
                           help="Lag periods as features, e.g. --lags 1 2 4 8 52 (default: 1 2 4 8 13)")
     ml_group.add_argument("--windows", type=int, nargs="+", default=None,
@@ -360,7 +367,7 @@ def main():
     elif model_key == "xgboost":
         hp = {}
         for key in ("n_estimators", "max_depth", "learning_rate",
-                    "subsample", "colsample_bytree"):
+                    "subsample", "colsample_bytree", "objective", "max_delta_step"):
             val = getattr(args, key, None)
             if val is not None:
                 hp[key] = val
