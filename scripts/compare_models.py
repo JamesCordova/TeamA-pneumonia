@@ -53,7 +53,7 @@ TABLE_HEADERS = {
 # ---------------------------------------------------------------------------
 
 def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
-    """Return {model_name: {horizon_int: {metric: value}}} from walkforward JSONs."""
+    """Return {run_name: {horizon_int: {metric: value}}} from walkforward JSONs."""
     out_dir = Path(reports_dir) / department / age_group
     files   = sorted(out_dir.glob("*_walkforward_metrics.json"))
     if not files:
@@ -65,8 +65,8 @@ def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
     for f in files:
         with open(f, encoding="utf-8-sig") as fh:
             j = json.load(fh)
-        model      = j["model"]
-        data[model] = {int(h): v for h, v in j["metrics_by_horizon"].items()}
+        run_name       = j.get("run_name", j["model"])
+        data[run_name] = {int(h): v for h, v in j["metrics_by_horizon"].items()}
     return data
 
 

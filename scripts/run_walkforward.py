@@ -25,6 +25,12 @@ Usage:
     # SARIMA: orden fijo y más términos Fourier
     python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
         --sarima_order 2 1 1 --n_fourier_terms 10
+
+    # Comparar varias configuraciones del mismo modelo con --run_name
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
+        --sarima_order 2 1 1 --run_name SARIMAv1.1
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
+        --sarima_order 3 1 2 --run_name SARIMAv1.2
     # SARIMA clásico (sin Fourier)
     python scripts/run_walkforward.py --department AMAZONAS --model SARIMA --no_fourier
 
@@ -108,8 +114,10 @@ def run_walkforward_for(
     refit_every: int,
     extra_model_params: dict,
     start_year: Optional[int] = None,
+    run_name: Optional[str] = None,
 ) -> int:
-    logger.info(f"Walk-forward: {department}/{age_group} model={model_name}")
+    run_name = run_name or model_name
+    logger.info(f"Walk-forward: {department}/{age_group} model={model_name} run={run_name}")
 
     data = get_departmental_data(department, age_group=age_group, start_year=start_year)
     validate_time_series(data)
@@ -130,7 +138,7 @@ def run_walkforward_for(
     results = validator.run(data)
 
     print(f"\n{'='*70}")
-    print(f"Walk-forward results — {department}/{age_group}  model={model_name}")
+    print(f"Walk-forward results — {department}/{age_group}  run={run_name} (model={model_name})")
     print(f"  steps={results['n_steps']}  horizon={horizon}  step={step}  window={window_type}")
     print(f"  train_size={results['config']['train_size']}  refit_every={refit_every}")
     for h in range(1, horizon + 1):
@@ -142,7 +150,7 @@ def run_walkforward_for(
         reports_dir=REPORTS_PATH,
         department=department,
         age_group=age_group,
-        model_name=model_name,
+        model_name=run_name,
         predictions_df=results["predictions"],
     )
     print(f"Predictions saved -> {csv_path}")
@@ -150,11 +158,12 @@ def run_walkforward_for(
     # Save metrics JSON alongside other model JSONs
     out_dir = REPORTS_PATH / department / age_group
     out_dir.mkdir(parents=True, exist_ok=True)
-    metrics_file = out_dir / f"{model_name.lower()}_walkforward_metrics.json"
+    metrics_file = out_dir / f"{run_name.lower()}_walkforward_metrics.json"
     payload = {
         "department": department,
         "age_group": age_group,
         "model": model_name,
+        "run_name": run_name,
         "config": results["config"],
         "metrics_by_horizon": {
             str(h): m for h, m in results["metrics_by_horizon"].items()
@@ -191,6 +200,10 @@ Examples:
                         help="Age group (default: under5)")
     parser.add_argument("--model", "-m", type=str, required=True,
                         help="Model to evaluate: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters, Prophet")
+    parser.add_argument("--run_name", type=str, default=None,
+                        help="Label for this run's saved files/comparisons, e.g. "
+                             "'SARIMAv1.1' to distinguish it from other SARIMA configs "
+                             "(default: same as --model)")
 
     # Walk-forward parameters
     parser.add_argument("--train_size", type=int, default=520,
@@ -396,6 +409,7 @@ def main():
                 refit_every=args.refit_every,
                 extra_model_params=extra_model_params,
                 start_year=args.start_year,
+                run_name=args.run_name,
             )
         except Exception as exc:
             logger.error(f"Failed for {dept}: {exc}")
