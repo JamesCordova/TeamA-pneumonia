@@ -24,7 +24,7 @@ Use --mode to pick the aggregation strategy:
                              are excluded from the default metric list in this mode, since averaging
                per-step ratios is not equivalent to computing them on pooled data.
                Pass --metric explicitly to include them anyway.
-  microaverage — table + a two-panel figure per metric from every backtest
+    microaverage — table + a two-panel figure per metric from every backtest
                prediction pooled across ALL steps/horizons (like 'horizon' but
                without splitting by h): a bar chart of the final pooled snapshot,
                plus a heatmap (rows=models, columns=date) of the same pooled
