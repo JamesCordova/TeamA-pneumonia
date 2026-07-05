@@ -32,6 +32,13 @@ Use --mode to pick the aggregation strategy:
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage --year 2020
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage --metric r2
     python scripts/compare_models.py --department AMAZONAS --mode microaverage
+
+Add --interactive to open the plot in a window (plt.show()) instead of just
+saving it to disk. Requires exactly one --metric, so you only ever have one
+window to close:
+    python scripts/compare_models.py --department AMAZONAS --metric r2 --interactive
+    python scripts/compare_models.py --department AMAZONAS --mode microaverage \\
+        --metric r2 --interactive
 """
 
 import argparse
@@ -195,6 +202,7 @@ def compare_macroaverage(
     metric_names: list,
     trend_window: int = 13,
     year: int = None,
+    interactive: bool = False,
 ) -> None:
     """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
     department = department.upper()
@@ -222,6 +230,7 @@ def compare_macroaverage(
             department   = department,
             save_path    = fig_path,
             trend_window = trend_window,
+            show         = interactive,
         )
 
 
@@ -229,6 +238,7 @@ def compare_microaverage(
     department: str,
     age_group: str,
     metric_names: list,
+    interactive: bool = False,
 ) -> None:
     """
     Model comparison pooling every backtest prediction across all steps/horizons —
@@ -262,6 +272,7 @@ def compare_microaverage(
             metric     = metric,
             department = department,
             save_path  = fig_path,
+            show       = interactive,
         )
 
 
@@ -273,14 +284,17 @@ def compare(
     mode: str = "horizon",
     trend_window: int = 13,
     year: int = None,
+    interactive: bool = False,
 ) -> None:
     department = department.upper()
 
     if mode == "macroaverage":
-        compare_macroaverage(department, age_group, metric_names, trend_window, year)
+        compare_macroaverage(
+            department, age_group, metric_names, trend_window, year, interactive
+        )
         return
     if mode == "microaverage":
-        compare_microaverage(department, age_group, metric_names)
+        compare_microaverage(department, age_group, metric_names, interactive)
         return
 
     metrics = load_metrics(REPORTS_PATH, department, age_group)
@@ -320,6 +334,7 @@ def compare(
             metric     = metric,
             department = department,
             save_path  = fig_path,
+            show       = interactive,
         )
     print(f"{'='*70}\n")
 
@@ -400,6 +415,10 @@ def main():
     parser.add_argument("--year", type=int, default=None,
                         help="[--mode macroaverage] Restrict step metrics (boxplot + time "
                              "evolution) to a single calendar year (default: all years)")
+    parser.add_argument("--interactive", action="store_true",
+                        help="Open the plot in a window (plt.show()) instead of just saving "
+                             "it to disk. Requires exactly one --metric, so only one window "
+                             "needs to be closed.")
     args = parser.parse_args()
 
     departments = []
@@ -417,6 +436,12 @@ def main():
     else:
         metric_names = sorted(VALID_METRICS)
 
+    if args.interactive and len(metric_names) != 1:
+        parser.error(
+            f"--interactive requires exactly one metric, got {metric_names}. "
+            "Pass a single --metric <name>."
+        )
+
     if args.trend_window is not None:
         trend_window = args.trend_window
     else:
@@ -427,7 +452,7 @@ def main():
             compare(
                 dept, args.age_group, args.horizons, metric_names,
                 mode=args.mode, trend_window=trend_window,
-                year=args.year,
+                year=args.year, interactive=args.interactive,
             )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")

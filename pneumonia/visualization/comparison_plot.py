@@ -182,15 +182,12 @@ def plot_model_comparison(
     if save_path is not None:
         save_path = Path(save_path)
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        if not show:
-            plt.close(fig)
         print(f"Figure saved: {save_path}")
-        return save_path
 
     if show:
         plt.show()
     plt.close(fig)
-    return None
+    return save_path
 
 
 def plot_micro_comparison(
@@ -258,12 +255,9 @@ def plot_micro_comparison(
     if save_path is not None:
         save_path = Path(save_path)
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        if not show:
-            plt.close(fig)
         print(f"Figure saved: {save_path}")
-        return save_path
 
     if show:
         plt.show()
     plt.close(fig)
-    return None
+    return save_path
