@@ -24,9 +24,14 @@ Use --mode to pick the aggregation strategy:
                are excluded from the default metric list in this mode, since averaging
                per-step ratios is not equivalent to computing them on pooled data.
                Pass --metric explicitly to include them anyway.
+  microaverage — table + bar charts from every backtest prediction pooled across
+               ALL steps/horizons at once (each metric computed once per model, like
+               'horizon' but without splitting by h). r2 is valid here (not excluded)
+               because it's computed once on the full pool, not averaged per group.
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage --year 2020
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage --metric r2
+    python scripts/compare_models.py --department AMAZONAS --mode microaverage
 """
 
 import argparse
@@ -40,11 +45,14 @@ import numpy as np
 import pandas as pd
 
 from pneumonia.config import REPORTS_PATH
+from pneumonia.evaluation.metrics import compute_all_metrics
 from pneumonia.utils import setup_logger
+from pneumonia.visualization._utils import read_predictions
 from pneumonia.visualization.comparison_plot import (
     METRIC_LABELS,
     NON_ADDITIVE_METRICS,
     VALID_METRICS,
+    plot_micro_comparison,
     plot_model_comparison,
 )
 from pneumonia.visualization.persistence import load_step_metrics
@@ -86,6 +94,32 @@ def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
     return data
 
 
+def load_micro_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
+    """
+    Return {run_name: {metric: value}} computed once over every backtest
+    prediction pooled across all steps/horizons (no per-horizon split) —
+    same underlying computation as metrics_by_horizon, just not divided by h.
+    """
+    df = read_predictions(reports_dir, department, age_group)
+    if df is None:
+        raise FileNotFoundError(
+            f"No predictions found for {department}/{age_group}.\n"
+            "Run scripts/run_walkforward.py first."
+        )
+    backtest = df[df["split"] == "backtest"]
+    if backtest.empty:
+        raise FileNotFoundError(
+            f"No backtest predictions found for {department}/{age_group}.\n"
+            "Run scripts/run_walkforward.py first."
+        )
+    data = {}
+    for run_name, g in backtest.groupby("model"):
+        data[run_name] = compute_all_metrics(
+            g["actual"].values, g["predicted"].values, warn_on_nan=False
+        )
+    return data
+
+
 def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
     """Build model × (horizon × metric) DataFrame for all TABLE_METRICS."""
     rows = []
@@ -99,6 +133,18 @@ def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
                 row[f"h={h} {TABLE_HEADERS[key]}"] = (
                     round(val, 2) if not np.isnan(val) else np.nan
                 )
+        rows.append(row)
+    return pd.DataFrame(rows).set_index("Model")
+
+
+def build_micro_table(micro_metrics: dict) -> pd.DataFrame:
+    """Build model × metric DataFrame for all TABLE_METRICS, pooled (no horizon split)."""
+    rows = []
+    for model, m in micro_metrics.items():
+        row = {"Model": model}
+        for key in TABLE_METRICS:
+            val = m.get(key, np.nan)
+            row[TABLE_HEADERS[key]] = round(val, 2) if not np.isnan(val) else np.nan
         rows.append(row)
     return pd.DataFrame(rows).set_index("Model")
 
@@ -179,6 +225,46 @@ def compare_macroaverage(
         )
 
 
+def compare_microaverage(
+    department: str,
+    age_group: str,
+    metric_names: list,
+) -> None:
+    """
+    Model comparison pooling every backtest prediction across all steps/horizons —
+    each metric computed once per model (same philosophy as horizon mode, just not
+    divided by horizon).
+    """
+    department = department.upper()
+    out_dir    = Path(REPORTS_PATH) / department / age_group
+
+    try:
+        micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group)
+    except FileNotFoundError as exc:
+        logger.warning(f"Skipping microaverage for {department}: {exc}")
+        return
+
+    table = build_micro_table(micro_metrics)
+    print(f"\n{'='*70}")
+    print(f"Model comparison (microaverage) — {department} / {age_group}")
+    print(f"{'='*70}")
+    print(table.to_string())
+    print(f"{'='*70}\n")
+
+    csv_path = out_dir / "model_comparison_microaverage.csv"
+    table.to_csv(csv_path)
+    print(f"Table saved: {csv_path}")
+
+    for metric in metric_names:
+        fig_path = out_dir / f"model_comparison_micro_{metric}.png"
+        plot_micro_comparison(
+            metrics    = micro_metrics,
+            metric     = metric,
+            department = department,
+            save_path  = fig_path,
+        )
+
+
 def compare(
     department: str,
     age_group: str,
@@ -192,6 +278,9 @@ def compare(
 
     if mode == "macroaverage":
         compare_macroaverage(department, age_group, metric_names, trend_window, year)
+        return
+    if mode == "microaverage":
+        compare_microaverage(department, age_group, metric_names)
         return
 
     metrics = load_metrics(REPORTS_PATH, department, age_group)
@@ -293,11 +382,15 @@ def main():
                              "all metrics for 'horizon', or all except "
                              f"{sorted(NON_ADDITIVE_METRICS)} for 'macroaverage' (pass this "
                              "explicitly to include them anyway).")
-    parser.add_argument("--mode", choices=["horizon", "macroaverage"], default="horizon",
+    parser.add_argument("--mode", choices=["horizon", "macroaverage", "microaverage"],
+                        default="horizon",
                         help="Aggregation strategy: 'horizon' (default) — table + bar/line "
                              "charts from metrics_by_horizon. 'macroaverage' — per-step "
                              "diagnostic figures (boxplot + mean, and metric evolution over "
-                             "time) from *_step_metrics.csv.")
+                             "time) from *_step_metrics.csv. 'microaverage' — table + bar "
+                             "charts from every backtest prediction pooled across all "
+                             "steps/horizons, each metric computed once per model (like "
+                             "'horizon' but without splitting by h).")
     parser.add_argument("--trend_window", type=int, default=None,
                         help="[--mode macroaverage] Steps to average over for the time-series "
                              "overlay. Default: 13 normally, or 4 when --year is set (a "

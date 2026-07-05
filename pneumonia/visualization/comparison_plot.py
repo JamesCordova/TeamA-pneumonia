@@ -191,3 +191,79 @@ def plot_model_comparison(
         plt.show()
     plt.close(fig)
     return None
+
+
+def plot_micro_comparison(
+    metrics: dict,
+    metric: str,
+    department: Optional[str] = None,
+    save_path: Optional[Path] = None,
+    show: bool = False,
+) -> Optional[Path]:
+    """
+    Bar chart comparing one metric across models, microaverage mode: the metric is
+    computed once over every backtest prediction pooled across all steps/horizons
+    (no per-horizon split, unlike plot_model_comparison).
+
+    Args:
+        metrics:    {model_name: {metric_key: value}} — flat, no horizon axis.
+        metric:     Metric to plot: 'mae', 'rmse', 'smape', 'mda', 'me', or 'r2'.
+        department: Optional label (e.g. department name) shown in the figure title.
+        save_path:  Where to save the PNG. Returns None if not provided.
+        show:       Call plt.show() after saving.
+
+    Returns:
+        Path to saved PNG, or None.
+    """
+    if metric not in VALID_METRICS:
+        raise ValueError(f"metric must be one of {sorted(VALID_METRICS)}, got '{metric}'")
+
+    values = {m: v.get(metric, np.nan) for m, v in metrics.items()}
+    values = {m: v for m, v in values.items() if not np.isnan(v)}
+    if not values:
+        print(
+            f"[comparison_plot] No data for metric '{metric}' in any model — "
+            "re-run scripts/run_walkforward.py to regenerate predictions."
+        )
+        return None
+
+    higher_is_better = metric in HIGHER_IS_BETTER
+    models  = sorted(values, key=lambda m: values[m], reverse=higher_is_better)
+    palette = plt.cm.tab10.colors
+    colors  = [palette[i % len(palette)] for i in range(len(models))]
+    ylabel  = METRIC_LABELS[metric]
+    better  = better_label(metric)
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.8))
+    title = f"Model Evaluation Comparison (microaverage) — {ylabel}"
+    if department:
+        title = f"{department} — {title}"
+    ax.set_title(title, fontsize=12, fontweight="bold")
+
+    bars = ax.bar(models, [values[m] for m in models], color=colors, alpha=0.85)
+    fmt = "%.2f" if metric == "r2" else "%.1f"
+    ax.bar_label(bars, fmt=fmt, fontsize=8.5, padding=2)
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(f"Model — {better} (sorted best → worst)")
+    plt.setp(ax.get_xticklabels(), rotation=20, ha="right", fontsize=9)
+    ax.yaxis.set_minor_locator(mticker.AutoMinorLocator())
+    ax.grid(axis="y", alpha=0.25)
+    ax.grid(axis="y", which="minor", alpha=0.12)
+    if metric in {"r2", "me"}:
+        ax.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
+
+    fig.tight_layout()
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        if not show:
+            plt.close(fig)
+        print(f"Figure saved: {save_path}")
+        return save_path
+
+    if show:
+        plt.show()
+    plt.close(fig)
+    return None
