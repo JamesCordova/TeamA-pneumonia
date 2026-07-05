@@ -18,10 +18,10 @@ Usage:
 Use --mode to pick the aggregation strategy:
   horizon      (default) — table + bar/line charts from metrics_by_horizon, where
                each metric is computed once over all steps pooled per horizon.
-  macroaverage — per-step diagnostic figures (boxplot + mean, and metric evolution
-               over time) via pneumonia.visualization.step_metrics_plot. Non-additive
-               ratio metrics (e.g. r2 — see NON_ADDITIVE_METRICS in comparison_plot.py)
-               are excluded from the default metric list in this mode, since averaging
+    macroaverage — per-step diagnostic figures (boxplot + mean, and metric heatmap
+                             by forecast date) via pneumonia.visualization.step_metrics_plot.
+                             Non-additive ratio metrics (e.g. r2 — see NON_ADDITIVE_METRICS in comparison_plot.py)
+                             are excluded from the default metric list in this mode, since averaging
                per-step ratios is not equivalent to computing them on pooled data.
                Pass --metric explicitly to include them anyway.
   microaverage — table + a two-panel figure per metric from every backtest
@@ -459,21 +459,19 @@ def main():
                         default="horizon",
                         help="Aggregation strategy: 'horizon' (default) — table + bar/line "
                              "charts from metrics_by_horizon. 'macroaverage' — per-step "
-                             "diagnostic figures (boxplot + mean, and metric evolution over "
-                             "time) from *_step_metrics.csv. 'microaverage' — table + bar "
-                             "charts from every backtest prediction pooled across all "
-                             "steps/horizons, each metric computed once per model (like "
-                             "'horizon' but without splitting by h).")
+                            "diagnostic figures (boxplot + mean, and metric heatmap by "
+                            "forecast date) from *_step_metrics.csv. 'microaverage' — "
+                            "table + bar/heatmap comparison from every backtest prediction "
+                            "pooled across all steps/horizons, each metric computed once "
+                            "per model (like 'horizon' but without splitting by h).")
     parser.add_argument("--trend_window", type=int, default=None,
-                        help="[--mode macroaverage] Steps to average over for the time-series "
-                             "overlay. Default: 13 normally, or 4 when --year is set (a "
-                             "single year has too few steps for a 13-step window). Not "
-                             "related to run_walkforward.py's --window_type — this only "
-                             "smooths the diagnostic plot.")
+                        help="[--mode macroaverage] Retained for backward compatibility; "
+                            "the current macroaverage right panel is a heatmap and does not use "
+                            "rolling smoothing. Default: 13 normally, or 4 when --year is set.")
     parser.add_argument("--year", type=int, default=None,
                         help="[--mode macroaverage/microaverage] Restrict to a single "
                              "calendar year (default: all years). macroaverage: filters "
-                             "step metrics (boxplot + time evolution). microaverage: pools "
+                            "step metrics (boxplot + heatmap). microaverage: pools "
                              "only that year's backtest predictions, and the cumulative "
                              "heatmap window starts fresh at that year instead of the full "
                              "history.")
