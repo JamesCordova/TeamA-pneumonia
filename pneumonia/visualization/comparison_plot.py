@@ -11,10 +11,17 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from matplotlib.colors import Normalize, TwoSlopeNorm
 import numpy as np
+import pandas as pd
 
 from pneumonia.visualization._utils import enable_legend_picking
+from pneumonia.visualization.theme import DIVERGING_CMAP, NO_DATA_COLOR, SEQUENTIAL_CMAP
 
+# Color ramps are centralized in pneumonia.visualization.theme so both panels
+# use the same visual language. Sequential: one hue (blue), light→dark, step
+# 100→700. Diverging: blue↔red poles with a near-white neutral midpoint
+# (fades into the figure background at 0 — only meaningful bias stands out).
 METRIC_LABELS = {
     "mae":   "MAE (cases)",
     "rmse":  "RMSE (cases)",
@@ -197,20 +204,109 @@ def plot_model_comparison(
     return save_path
 
 
+def _draw_micro_heatmap(fig, ax, cumulative_metrics: dict, metric: str, models_order: list) -> bool:
+    """
+    Draw the cumulative (expanding-window) heatmap onto `ax`: rows are models
+    (in `models_order`), columns are forecast dates, color is the metric's
+    pooled value computed on every backtest prediction from the start of the
+    backtest up to that date. Returns False (and leaves `ax` with just a note)
+    if no model has data for `metric`.
+
+    Color encodes magnitude, not "goodness": the module's color ramps are
+    defined once at the top of the file, and this heatmap maps values onto them
+    through numeric normalization. Lower/higher-is-better metrics use a
+    light→dark sequential ramp reversed so light always means "better" and
+    dark always means "worse" (a consistent reading rule across metrics); the
+    zero-is-ideal bias metric (me) uses a diverging ramp centered on 0, which
+    fades into the figure background near zero.
+    """
+    models = [
+        m for m in models_order
+        if m in cumulative_metrics
+        and metric in cumulative_metrics[m].columns
+        and cumulative_metrics[m][metric].notna().any()
+    ]
+    if not models:
+        ax.text(0.5, 0.5, "No cumulative data", ha="center", va="center", transform=ax.transAxes)
+        ax.set_axis_off()
+        return False
+
+    all_dates = sorted(set().union(*(set(cumulative_metrics[m]["date"]) for m in models)))
+    date_index = pd.DatetimeIndex(all_dates)
+
+    matrix = np.full((len(models), len(date_index)), np.nan)
+    for i, m in enumerate(models):
+        s = cumulative_metrics[m].set_index("date")[metric].reindex(date_index)
+        matrix[i] = s.ffill().to_numpy()
+
+    finite = matrix[np.isfinite(matrix)]
+    if finite.size == 0:
+        ax.text(0.5, 0.5, "No cumulative data", ha="center", va="center", transform=ax.transAxes)
+        ax.set_axis_off()
+        return False
+
+    higher_is_better = metric in HIGHER_IS_BETTER
+    zero_is_better   = metric in ZERO_IS_BETTER
+
+    if zero_is_better:
+        max_abs = float(np.max(np.abs(finite)))
+        max_abs = max(max_abs, 1.0)
+        norm = TwoSlopeNorm(vmin=-max_abs, vcenter=0.0, vmax=max_abs)
+        cmap = DIVERGING_CMAP
+    else:
+        vmin, vmax = float(np.min(finite)), float(np.max(finite))
+        if np.isclose(vmin, vmax):
+            pad = max(abs(vmin) * 0.05, 1.0)
+            vmin -= pad
+            vmax += pad
+        norm = Normalize(vmin=vmin, vmax=vmax)
+        cmap = SEQUENTIAL_CMAP.reversed() if higher_is_better else SEQUENTIAL_CMAP
+    cmap = cmap.copy()
+    cmap.set_bad(color=NO_DATA_COLOR)
+
+    masked = np.ma.masked_invalid(matrix)
+    im = ax.imshow(masked, cmap=cmap, norm=norm, aspect="auto", interpolation="none")
+
+    ax.set_yticks(range(len(models)))
+    ax.set_yticklabels(models, fontsize=9)
+
+    n_ticks = min(8, len(date_index))
+    tick_pos = np.linspace(0, len(date_index) - 1, n_ticks).astype(int)
+    ax.set_xticks(tick_pos)
+    ax.set_xticklabels(
+        [date_index[i].strftime("%Y-%m") for i in tick_pos],
+        rotation=30, ha="right", fontsize=8,
+    )
+
+    cbar = fig.colorbar(im, ax=ax, pad=0.02)
+    cbar.set_label(METRIC_LABELS[metric], fontsize=9)
+    return True
+
+
 def plot_micro_comparison(
     metrics: dict,
+    cumulative_metrics: dict,
     metric: str,
     department: Optional[str] = None,
     save_path: Optional[Path] = None,
     show: bool = False,
 ) -> Optional[Path]:
     """
-    Bar chart comparing one metric across models, microaverage mode: the metric is
-    computed once over every backtest prediction pooled across all steps/horizons
-    (no per-horizon split, unlike plot_model_comparison).
+    Two-panel microaverage figure: the metric is computed once over every
+    backtest prediction pooled across all steps/horizons (no per-horizon split,
+    unlike plot_model_comparison).
+
+      Left  — bar chart: final pooled value per model (one snapshot number).
+      Right — heatmap: same pooled computation but as an expanding window over
+              time (rows=models, columns=date), showing how the score evolves
+              and stabilizes rather than just its final value.
 
     Args:
-        metrics:    {model_name: {metric_key: value}} — flat, no horizon axis.
+        metrics:            {model_name: {metric_key: value}} — final snapshot,
+                             flat, no horizon axis.
+        cumulative_metrics: {model_name: DataFrame(date, metric_key, ...)} — one
+                             row per evaluated date (expanding window), as
+                             returned by compute_cumulative_micro_metrics.
         metric:     Metric to plot: 'mae', 'rmse', 'smape', 'mda', 'me', or 'r2'.
         department: Optional label (e.g. department name) shown in the figure title.
         save_path:  Where to save the PNG. Returns None if not provided.
@@ -238,24 +334,40 @@ def plot_micro_comparison(
     ylabel  = METRIC_LABELS[metric]
     better  = better_label(metric)
 
-    fig, ax = plt.subplots(figsize=(7.5, 4.8))
+    fig, (ax_bar, ax_heat) = plt.subplots(
+        1, 2, figsize=(15, 5.5), gridspec_kw={"width_ratios": [1, 1.6]}
+    )
     title = f"Model Evaluation Comparison (microaverage) — {ylabel}"
     if department:
         title = f"{department} — {title}"
-    ax.set_title(title, fontsize=12, fontweight="bold")
+    fig.suptitle(title, fontsize=14, fontweight="bold")
 
-    bars = ax.bar(models, [values[m] for m in models], color=colors, alpha=0.85)
+    # ------------------------------------------------------------------ #
+    # Panel 1: bar chart — final pooled snapshot
+    # ------------------------------------------------------------------ #
+    bars = ax_bar.bar(models, [values[m] for m in models], color=colors, alpha=0.85)
     fmt = "%.2f" if metric == "r2" else "%.1f"
-    ax.bar_label(bars, fmt=fmt, fontsize=8.5, padding=2)
+    ax_bar.bar_label(bars, fmt=fmt, fontsize=8.5, padding=2)
 
-    ax.set_ylabel(ylabel)
-    ax.set_xlabel(f"Model — {better} (sorted best → worst)")
-    plt.setp(ax.get_xticklabels(), rotation=20, ha="right", fontsize=9)
-    ax.yaxis.set_minor_locator(mticker.AutoMinorLocator())
-    ax.grid(axis="y", alpha=0.25)
-    ax.grid(axis="y", which="minor", alpha=0.12)
+    ax_bar.set_ylabel(ylabel)
+    ax_bar.set_title("Final pooled snapshot — sorted best → worst")
+    ax_bar.set_xlabel(better)
+    plt.setp(ax_bar.get_xticklabels(), rotation=20, ha="right", fontsize=9)
+    ax_bar.yaxis.set_minor_locator(mticker.AutoMinorLocator())
+    ax_bar.grid(axis="y", alpha=0.25)
+    ax_bar.grid(axis="y", which="minor", alpha=0.12)
     if metric in {"r2", "me"}:
-        ax.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
+        ax_bar.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
+
+    # ------------------------------------------------------------------ #
+    # Panel 2: cumulative heatmap — same models, ordered to match the bars
+    # ------------------------------------------------------------------ #
+    _draw_micro_heatmap(fig, ax_heat, cumulative_metrics, metric, models)
+    heat_title = "Cumulative over time (light = better, dark = worse)"
+    if metric == "me":
+        heat_title = "Cumulative over time (neutral = 0, darker = farther from 0)"
+    ax_heat.set_title(heat_title)
+    ax_heat.set_xlabel("Forecast date")
 
     fig.tight_layout()
 
