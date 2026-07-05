@@ -204,13 +204,21 @@ def plot_model_comparison(
     return save_path
 
 
-def _draw_micro_heatmap(fig, ax, cumulative_metrics: dict, metric: str, models_order: list) -> bool:
+def _draw_model_date_heatmap(
+    fig,
+    ax,
+    model_frames: dict,
+    metric: str,
+    models_order: list,
+    fill_method: Optional[str] = "ffill",
+) -> bool:
     """
-    Draw the cumulative (expanding-window) heatmap onto `ax`: rows are models
-    (in `models_order`), columns are forecast dates, color is the metric's
-    pooled value computed on every backtest prediction from the start of the
-    backtest up to that date. Returns False (and leaves `ax` with just a note)
-    if no model has data for `metric`.
+    Draw a model-by-date heatmap onto `ax`: rows are models (in `models_order`),
+    columns are dates, color is the selected metric value for that date. When
+    `fill_method` is 'ffill', values are forward-filled after reindexing so the
+    heatmap can represent cumulative or expanding-window metrics.
+    Returns False (and leaves `ax` with just a note) if no model has data for
+    `metric`.
 
     Color encodes magnitude, not "goodness": the module's color ramps are
     defined once at the top of the file, and this heatmap maps values onto them
@@ -222,22 +230,26 @@ def _draw_micro_heatmap(fig, ax, cumulative_metrics: dict, metric: str, models_o
     """
     models = [
         m for m in models_order
-        if m in cumulative_metrics
-        and metric in cumulative_metrics[m].columns
-        and cumulative_metrics[m][metric].notna().any()
+        if m in model_frames
+        and metric in model_frames[m].columns
+        and model_frames[m][metric].notna().any()
     ]
     if not models:
         ax.text(0.5, 0.5, "No cumulative data", ha="center", va="center", transform=ax.transAxes)
         ax.set_axis_off()
         return False
 
-    all_dates = sorted(set().union(*(set(cumulative_metrics[m]["date"]) for m in models)))
+    all_dates = sorted(set().union(*(set(model_frames[m]["date"]) for m in models)))
     date_index = pd.DatetimeIndex(all_dates)
 
     matrix = np.full((len(models), len(date_index)), np.nan)
     for i, m in enumerate(models):
-        s = cumulative_metrics[m].set_index("date")[metric].reindex(date_index)
-        matrix[i] = s.ffill().to_numpy()
+        s = model_frames[m].set_index("date")[metric].reindex(date_index)
+        if fill_method == "ffill":
+            s = s.ffill()
+        elif fill_method == "bfill":
+            s = s.bfill()
+        matrix[i] = s.to_numpy()
 
     finite = matrix[np.isfinite(matrix)]
     if finite.size == 0:
@@ -362,7 +374,7 @@ def plot_micro_comparison(
     # ------------------------------------------------------------------ #
     # Panel 2: cumulative heatmap — same models, ordered to match the bars
     # ------------------------------------------------------------------ #
-    _draw_micro_heatmap(fig, ax_heat, cumulative_metrics, metric, models)
+    _draw_model_date_heatmap(fig, ax_heat, cumulative_metrics, metric, models, fill_method="ffill")
     heat_title = "Cumulative over time (light = better, dark = worse)"
     if metric == "me":
         heat_title = "Cumulative over time (neutral = 0, darker = farther from 0)"
