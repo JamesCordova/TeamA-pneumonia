@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 
+from pneumonia.visualization._utils import enable_legend_picking
+
 METRIC_LABELS = {
     "mae":   "MAE (cases)",
     "rmse":  "RMSE (cases)",
@@ -154,10 +156,11 @@ def plot_model_comparison(
     # Panel 2: metric across all horizons
     # ------------------------------------------------------------------ #
     line_title = f"{ylabel} across horizons — {better}"
+    lines_by_model = {}
     for model in models:
         hs = sorted(h for h in horizons if h in metrics[model])
         vals = [metrics[model][h].get(metric, np.nan) for h in hs]
-        ax_line.plot(
+        (line,) = ax_line.plot(
             hs, vals,
             marker="o",
             markersize=6,
@@ -167,12 +170,16 @@ def plot_model_comparison(
             label=model,
             color=colors[model],
         )
+        lines_by_model[model] = line
 
     ax_line.set_xticks(horizons)
     ax_line.set_xlabel("Forecast horizon (weeks ahead)")
     ax_line.set_ylabel(ylabel)
     ax_line.set_title(line_title)
-    ax_line.legend(fontsize=9, loc="upper left" if metric not in HIGHER_IS_BETTER else "lower left")
+    legend = ax_line.legend(
+        fontsize=9, loc="upper left" if metric not in HIGHER_IS_BETTER else "lower left"
+    )
+    enable_legend_picking(fig, legend, lines_by_model)
     ax_line.grid(alpha=0.25)
     if metric in {"r2", "me"}:
         ax_line.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)

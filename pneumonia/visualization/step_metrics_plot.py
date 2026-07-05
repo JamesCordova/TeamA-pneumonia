@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from pneumonia.visualization._utils import enable_legend_picking
 from pneumonia.visualization.comparison_plot import (
     METRIC_LABELS,
     VALID_METRICS,
@@ -111,16 +112,19 @@ def plot_step_metrics(
     # ------------------------------------------------------------------ #
     # Panel 2: metric over time, anchored by forecast date
     # ------------------------------------------------------------------ #
+    lines_by_model = {}
     for m in models:
         df = step_data[m].sort_values("date")
-        ax_time.plot(df["date"], df[metric], lw=0.8, alpha=0.3, color=colors[m])
+        (raw_line,) = ax_time.plot(df["date"], df[metric], lw=0.8, alpha=0.3, color=colors[m])
         rolling = df[metric].rolling(trend_window, min_periods=1).mean()
-        ax_time.plot(df["date"], rolling, lw=2.0, color=colors[m], label=m)
+        (line,) = ax_time.plot(df["date"], rolling, lw=2.0, color=colors[m], label=m)
+        lines_by_model[m] = [raw_line, line]
 
     ax_time.set_xlabel("Forecast date")
     ax_time.set_ylabel(ylabel)
     ax_time.set_title(f"{ylabel} over time (rolling mean over {trend_window} steps) — {better}")
-    ax_time.legend(fontsize=9)
+    time_legend = ax_time.legend(fontsize=9)
+    enable_legend_picking(fig, time_legend, lines_by_model)
     ax_time.grid(alpha=0.25)
     if metric in {"r2", "me"}:
         ax_time.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
