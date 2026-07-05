@@ -3,9 +3,9 @@
 Plot forecast results from stored predictions CSV.
 
 Two plot types:
-  classic   — train/val/test comparison  → forecast_plot.png
-  backtest  — walk-forward backtest      → backtest_plot.png
-  both      — generate both files
+    classic   — train/val/test comparison  → forecast_classic[_YYYY].png
+    backtest  — walk-forward backtest      → forecast_backtest[_YYYY][_shaded].png
+    both      — generate both files
 
 Usage:
     python scripts/plot_forecasting.py --department AMAZONAS --age_group under5

@@ -7,7 +7,7 @@ Shows:
   - One dashed coloured line per model over the val + test range
   - Vertical markers at the val and test split boundaries
 
-Saved to: reports/{DEPT}/{AGE_GROUP}/forecast_plot.png
+Saved to: reports/{DEPT}/{AGE_GROUP}/forecast_classic[_YYYY].png
 """
 
 from pathlib import Path
@@ -121,7 +121,7 @@ def plot_classic(
 
     if save_path is None:
         suffix = f"_{year}" if year is not None else ""
-        save_path = Path(reports_dir) / department / age_group / f"forecast_plot{suffix}.png"
+        save_path = Path(reports_dir) / department / age_group / f"forecast_classic{suffix}.png"
 
     path = save_figure(fig, save_path, show)
     logger.info(f"Classic plot saved: {path}")

@@ -9,6 +9,10 @@ produces:
        - Grouped bar chart: selected metric at h_short vs h_long
        - Line chart: metric across all horizons per model
 
+Output filenames follow the project convention:
+    - Horizon comparisons: `comparison_horizon_{metric}[_YYYY].png` and `comparison_horizon.csv`
+    - Microaverage:         `comparison_microaverage_{metric}[_YYYY].png` and `comparison_microaverage[_YYYY].csv`
+
 Usage:
     python scripts/compare_models.py --department AMAZONAS
     python scripts/compare_models.py --department AMAZONAS --age_group 60plus
@@ -318,12 +322,12 @@ def compare_microaverage(
     print(f"{'='*70}\n")
 
     suffix = f"_{year}" if year is not None else ""
-    csv_path = out_dir / f"model_comparison_microaverage{suffix}.csv"
+    csv_path = out_dir / f"comparison_microaverage{suffix}.csv"
     table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
 
     for metric in metric_names:
-        fig_path = out_dir / f"model_comparison_micro_{metric}{suffix}.png"
+        fig_path = out_dir / f"comparison_microaverage_{metric}{suffix}.png"
         plot_micro_comparison(
             metrics             = micro_metrics,
             cumulative_metrics  = cumulative_metrics,
@@ -383,7 +387,8 @@ def compare(
         print(degr.sort_values().to_string())
         full_table[degr.name] = degr
 
-        fig_path = out_dir / f"model_comparison_{metric}.png"
+        suffix = f"_{year}" if year is not None else ""
+        fig_path = out_dir / f"comparison_horizon_{metric}{suffix}.png"
         plot_model_comparison(
             metrics    = metrics,
             horizons   = available_horizons,
@@ -396,7 +401,7 @@ def compare(
         )
     print(f"{'='*70}\n")
 
-    csv_path = out_dir / "model_comparison.csv"
+    csv_path = out_dir / "comparison_horizon.csv"
     full_table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
 

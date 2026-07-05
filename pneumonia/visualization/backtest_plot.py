@@ -13,7 +13,7 @@ actual series on top.
 The x-axis extends to the earliest backtest date so the full rolling-origin
 history is visible, unlike the classic plot which only shows the last few years.
 
-Saved to: reports/{DEPT}/{AGE_GROUP}/backtest_plot.png
+Saved to: reports/{DEPT}/{AGE_GROUP}/forecast_backtest[_YYYY][_shaded].png
 """
 
 from pathlib import Path
@@ -184,7 +184,7 @@ def plot_backtest(
     if save_path is None:
         suffix = f"_{year}" if year is not None else ""
         suffix += "_shaded" if shaded else ""
-        save_path = Path(reports_dir) / department / age_group / f"backtest_plot{suffix}.png"
+        save_path = Path(reports_dir) / department / age_group / f"forecast_backtest{suffix}.png"
 
     path = save_figure(fig, save_path, show)
     logger.info(f"Backtest plot saved: {path}")
