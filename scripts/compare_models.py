@@ -15,11 +15,18 @@ Usage:
     python scripts/compare_models.py --department AMAZONAS --metric rmse
     python scripts/compare_models.py --department AMAZONAS --horizons 1 4
 
-Add --step_metrics to also render the per-step diagnostic figures (boxplot +
-mean, and metric evolution over time) via pneumonia.visualization.step_metrics_plot
-— same data source used standalone by scripts/plot_step_metrics.py:
-    python scripts/compare_models.py --department AMAZONAS --step_metrics
-    python scripts/compare_models.py --department AMAZONAS --step_metrics --year 2020
+Use --mode to pick the aggregation strategy:
+  horizon      (default) — table + bar/line charts from metrics_by_horizon, where
+               each metric is computed once over all steps pooled per horizon.
+  macroaverage — per-step diagnostic figures (boxplot + mean, and metric evolution
+               over time) via pneumonia.visualization.step_metrics_plot. Non-additive
+               ratio metrics (e.g. r2 — see NON_ADDITIVE_METRICS in comparison_plot.py)
+               are excluded from the default metric list in this mode, since averaging
+               per-step ratios is not equivalent to computing them on pooled data.
+               Pass --metric explicitly to include them anyway.
+    python scripts/compare_models.py --department AMAZONAS --mode macroaverage
+    python scripts/compare_models.py --department AMAZONAS --mode macroaverage --year 2020
+    python scripts/compare_models.py --department AMAZONAS --mode macroaverage --metric r2
 """
 
 import argparse
@@ -36,6 +43,7 @@ from pneumonia.config import REPORTS_PATH
 from pneumonia.utils import setup_logger
 from pneumonia.visualization.comparison_plot import (
     METRIC_LABELS,
+    NON_ADDITIVE_METRICS,
     VALID_METRICS,
     plot_model_comparison,
 )
@@ -135,17 +143,58 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
 # Main
 # ---------------------------------------------------------------------------
 
+def compare_macroaverage(
+    department: str,
+    age_group: str,
+    metric_names: list,
+    trend_window: int = 13,
+    year: int = None,
+) -> None:
+    """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
+    department = department.upper()
+    out_dir    = Path(REPORTS_PATH) / department / age_group
+
+    try:
+        step_data = load_step_metrics(REPORTS_PATH, department, age_group)
+    except FileNotFoundError as exc:
+        logger.warning(f"Skipping step metrics for {department}: {exc}")
+        return
+
+    if year is not None:
+        step_data = {m: df[df["date"].dt.year == year] for m, df in step_data.items()}
+        step_data = {m: df for m, df in step_data.items() if not df.empty}
+        if not step_data:
+            logger.warning(f"No step metrics found for year={year} in {department}")
+            return
+
+    suffix = f"_{year}" if year is not None else ""
+    for metric in metric_names:
+        fig_path = out_dir / f"step_metrics_{metric}{suffix}.png"
+        plot_step_metrics(
+            step_data    = step_data,
+            metric       = metric,
+            department   = department,
+            save_path    = fig_path,
+            trend_window = trend_window,
+        )
+
+
 def compare(
     department: str,
     age_group: str,
     horizons: list,
     metric_names: list,
-    step_metrics: bool = False,
+    mode: str = "horizon",
     trend_window: int = 13,
     year: int = None,
 ) -> None:
     department = department.upper()
-    metrics    = load_metrics(REPORTS_PATH, department, age_group)
+
+    if mode == "macroaverage":
+        compare_macroaverage(department, age_group, metric_names, trend_window, year)
+        return
+
+    metrics = load_metrics(REPORTS_PATH, department, age_group)
 
     available_horizons = sorted({h for m in metrics.values() for h in m})
     horizons = [h for h in horizons if h in available_horizons]
@@ -188,32 +237,6 @@ def compare(
     csv_path = out_dir / "model_comparison.csv"
     full_table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
-
-    # --- Per-step diagnostic figures (optional) ---
-    if step_metrics:
-        try:
-            step_data = load_step_metrics(REPORTS_PATH, department, age_group)
-        except FileNotFoundError as exc:
-            logger.warning(f"Skipping step metrics for {department}: {exc}")
-        else:
-            if year is not None:
-                step_data = {
-                    m: df[df["date"].dt.year == year] for m, df in step_data.items()
-                }
-                step_data = {m: df for m, df in step_data.items() if not df.empty}
-                if not step_data:
-                    logger.warning(f"No step metrics found for year={year} in {department}")
-
-            suffix = f"_{year}" if year is not None else ""
-            for metric in metric_names:
-                fig_path = out_dir / f"step_metrics_{metric}{suffix}.png"
-                plot_step_metrics(
-                    step_data        = step_data,
-                    metric           = metric,
-                    department       = department,
-                    save_path        = fig_path,
-                    trend_window = trend_window,
-                )
 
     # --- Plain-language summary ---
     mae_s  = {m: metrics[m].get(h_short, {}).get("mae", np.nan) for m in metrics}
@@ -264,20 +287,25 @@ def main():
                         help="Age group (default: under5)")
     parser.add_argument("--horizons", type=int, nargs="+", default=[1, 2, 3, 4],
                         help="Horizons to include in the table (default: 1 2 3 4)")
-    parser.add_argument("--metric", "-m", nargs="+", default=["all"],
+    parser.add_argument("--metric", "-m", nargs="+", default=None,
                         choices=sorted(VALID_METRICS) + ["all"],
-                        help="Metric(s) for the bar/line charts (default: all)")
-    parser.add_argument("--step_metrics", action="store_true",
-                        help="Also render per-step diagnostic figures (boxplot + mean, "
-                             "and metric evolution over time) from *_step_metrics.csv")
+                        help="Metric(s) for the bar/line charts. Default depends on --mode: "
+                             "all metrics for 'horizon', or all except "
+                             f"{sorted(NON_ADDITIVE_METRICS)} for 'macroaverage' (pass this "
+                             "explicitly to include them anyway).")
+    parser.add_argument("--mode", choices=["horizon", "macroaverage"], default="horizon",
+                        help="Aggregation strategy: 'horizon' (default) — table + bar/line "
+                             "charts from metrics_by_horizon. 'macroaverage' — per-step "
+                             "diagnostic figures (boxplot + mean, and metric evolution over "
+                             "time) from *_step_metrics.csv.")
     parser.add_argument("--trend_window", type=int, default=None,
-                        help="[--step_metrics] Steps to average over for the time-series "
+                        help="[--mode macroaverage] Steps to average over for the time-series "
                              "overlay. Default: 13 normally, or 4 when --year is set (a "
                              "single year has too few steps for a 13-step window). Not "
                              "related to run_walkforward.py's --window_type — this only "
                              "smooths the diagnostic plot.")
     parser.add_argument("--year", type=int, default=None,
-                        help="[--step_metrics] Restrict step metrics (boxplot + time "
+                        help="[--mode macroaverage] Restrict step metrics (boxplot + time "
                              "evolution) to a single calendar year (default: all years)")
     args = parser.parse_args()
 
@@ -285,7 +313,16 @@ def main():
     for d in args.department:
         departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
 
-    metric_names = sorted(VALID_METRICS) if "all" in args.metric else args.metric
+    if args.metric is not None:
+        metric_names = sorted(VALID_METRICS) if "all" in args.metric else args.metric
+    elif args.mode == "macroaverage":
+        metric_names = sorted(VALID_METRICS - NON_ADDITIVE_METRICS)
+        print(
+            f"[macroaverage] Excluding non-additive metrics by default: "
+            f"{sorted(NON_ADDITIVE_METRICS)} (pass --metric to include them explicitly)"
+        )
+    else:
+        metric_names = sorted(VALID_METRICS)
 
     if args.trend_window is not None:
         trend_window = args.trend_window
@@ -296,7 +333,7 @@ def main():
         try:
             compare(
                 dept, args.age_group, args.horizons, metric_names,
-                step_metrics=args.step_metrics, trend_window=trend_window,
+                mode=args.mode, trend_window=trend_window,
                 year=args.year,
             )
         except Exception as exc:

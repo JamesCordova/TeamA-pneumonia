@@ -27,6 +27,13 @@ HIGHER_IS_BETTER = {"mda", "r2"}
 ZERO_IS_BETTER   = {"me"}
 VALID_METRICS = set(METRIC_LABELS)
 
+# Ratio metrics computed relative to a per-window baseline (e.g. r2's SS_tot from
+# that window's own mean). Averaging per-step values of these is not equivalent to
+# computing them on pooled data, and is unstable when a window's baseline ≈ 0.
+# Excluded by default from macroaverage mode; extend this set if similar ratio
+# metrics (e.g. MASE, RMSSE) are added later.
+NON_ADDITIVE_METRICS = {"r2"}
+
 
 def better_label(metric: str) -> str:
     """Direction hint for a metric: higher/lower-is-better, or closer-to-0 for bias metrics."""
