@@ -24,14 +24,18 @@ Use --mode to pick the aggregation strategy:
                are excluded from the default metric list in this mode, since averaging
                per-step ratios is not equivalent to computing them on pooled data.
                Pass --metric explicitly to include them anyway.
-  microaverage — table + bar charts from every backtest prediction pooled across
-               ALL steps/horizons at once (each metric computed once per model, like
-               'horizon' but without splitting by h). r2 is valid here (not excluded)
-               because it's computed once on the full pool, not averaged per group.
+  microaverage — table + a two-panel figure per metric from every backtest
+               prediction pooled across ALL steps/horizons (like 'horizon' but
+               without splitting by h): a bar chart of the final pooled snapshot,
+               plus a heatmap (rows=models, columns=date) of the same pooled
+               metric as an expanding window over time. r2 is valid here (not
+               excluded) because it's computed once on the full pool, not
+               averaged per group. --year restricts to one calendar year.
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage --year 2020
     python scripts/compare_models.py --department AMAZONAS --mode macroaverage --metric r2
     python scripts/compare_models.py --department AMAZONAS --mode microaverage
+    python scripts/compare_models.py --department AMAZONAS --mode microaverage --year 2020
 
 Add --interactive to open the plot in a window (plt.show()) instead of just
 saving it to disk. Requires exactly one --metric, so you only ever have one
@@ -101,12 +105,10 @@ def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
     return data
 
 
-def load_micro_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
-    """
-    Return {run_name: {metric: value}} computed once over every backtest
-    prediction pooled across all steps/horizons (no per-horizon split) —
-    same underlying computation as metrics_by_horizon, just not divided by h.
-    """
+def _load_backtest_predictions(
+    reports_dir: Path, department: str, age_group: str, year: int = None
+) -> pd.DataFrame:
+    """Return backtest-split rows from *_predictions.csv, or raise FileNotFoundError."""
     df = read_predictions(reports_dir, department, age_group)
     if df is None:
         raise FileNotFoundError(
@@ -114,16 +116,64 @@ def load_micro_metrics(reports_dir: Path, department: str, age_group: str) -> di
             "Run scripts/run_walkforward.py first."
         )
     backtest = df[df["split"] == "backtest"]
+    if year is not None:
+        backtest = backtest[backtest["date"].dt.year == year]
     if backtest.empty:
+        suffix = f" in year={year}" if year is not None else ""
         raise FileNotFoundError(
-            f"No backtest predictions found for {department}/{age_group}.\n"
+            f"No backtest predictions found for {department}/{age_group}{suffix}.\n"
             "Run scripts/run_walkforward.py first."
         )
+    return backtest
+
+
+def load_micro_metrics(
+    reports_dir: Path, department: str, age_group: str, year: int = None
+) -> dict:
+    """
+    Return {run_name: {metric: value}} computed once over every backtest
+    prediction pooled across all steps/horizons (no per-horizon split) —
+    same underlying computation as metrics_by_horizon, just not divided by h.
+    If `year` is given, restricts to backtest predictions from that calendar year.
+    """
+    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
     data = {}
     for run_name, g in backtest.groupby("model"):
         data[run_name] = compute_all_metrics(
             g["actual"].values, g["predicted"].values, warn_on_nan=False
         )
+    return data
+
+
+def compute_cumulative_micro_metrics(
+    reports_dir: Path, department: str, age_group: str, min_obs: int = 8, year: int = None
+) -> dict:
+    """
+    Return {run_name: DataFrame(date, mae, rmse, me, mape, smape, mda, r2)} — one
+    row per evaluated backtest date from the min_obs'th evaluation onward, each
+    computed once on every prediction pooled from the start of the backtest up
+    to and including that date (expanding window). Shows how the pooled metric
+    evolves/stabilizes over time, unlike load_micro_metrics's single final
+    snapshot. If `year` is given, the window starts fresh at that year (not
+    blended with prior years' history), matching macroaverage's --year semantics.
+
+    min_obs skips the earliest, tiniest windows (e.g. r2's SS_tot from just 1-2
+    points can be near zero, sending it to wild outliers that would otherwise
+    dominate a shared color scale).
+    """
+    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
+    data = {}
+    for run_name, g in backtest.groupby("model"):
+        g = g.sort_values("date")
+        actual    = g["actual"].to_numpy()
+        predicted = g["predicted"].to_numpy()
+        start = min(min_obs, len(g))
+        rows = []
+        for i in range(start, len(g) + 1):
+            m = compute_all_metrics(actual[:i], predicted[:i], warn_on_nan=False)
+            m["date"] = g["date"].iloc[i - 1]
+            rows.append(m)
+        data[run_name] = pd.DataFrame(rows)
     return data
 
 
@@ -239,40 +289,48 @@ def compare_microaverage(
     age_group: str,
     metric_names: list,
     interactive: bool = False,
+    year: int = None,
 ) -> None:
     """
     Model comparison pooling every backtest prediction across all steps/horizons —
     each metric computed once per model (same philosophy as horizon mode, just not
-    divided by horizon).
+    divided by horizon). If `year` is given, restricted to that calendar year only
+    (same semantics as macroaverage's --year).
     """
     department = department.upper()
     out_dir    = Path(REPORTS_PATH) / department / age_group
 
     try:
-        micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group)
+        micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group, year=year)
+        cumulative_metrics = compute_cumulative_micro_metrics(
+            REPORTS_PATH, department, age_group, year=year
+        )
     except FileNotFoundError as exc:
         logger.warning(f"Skipping microaverage for {department}: {exc}")
         return
 
     table = build_micro_table(micro_metrics)
+    label = f"{department} / {age_group}" + (f" ({year})" if year is not None else "")
     print(f"\n{'='*70}")
-    print(f"Model comparison (microaverage) — {department} / {age_group}")
+    print(f"Model comparison (microaverage) — {label}")
     print(f"{'='*70}")
     print(table.to_string())
     print(f"{'='*70}\n")
 
-    csv_path = out_dir / "model_comparison_microaverage.csv"
+    suffix = f"_{year}" if year is not None else ""
+    csv_path = out_dir / f"model_comparison_microaverage{suffix}.csv"
     table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
 
     for metric in metric_names:
-        fig_path = out_dir / f"model_comparison_micro_{metric}.png"
+        fig_path = out_dir / f"model_comparison_micro_{metric}{suffix}.png"
         plot_micro_comparison(
-            metrics    = micro_metrics,
-            metric     = metric,
-            department = department,
-            save_path  = fig_path,
-            show       = interactive,
+            metrics             = micro_metrics,
+            cumulative_metrics  = cumulative_metrics,
+            metric              = metric,
+            department          = department,
+            save_path           = fig_path,
+            show                = interactive,
         )
 
 
@@ -294,7 +352,7 @@ def compare(
         )
         return
     if mode == "microaverage":
-        compare_microaverage(department, age_group, metric_names, interactive)
+        compare_microaverage(department, age_group, metric_names, interactive, year)
         return
 
     metrics = load_metrics(REPORTS_PATH, department, age_group)
@@ -413,8 +471,12 @@ def main():
                              "related to run_walkforward.py's --window_type — this only "
                              "smooths the diagnostic plot.")
     parser.add_argument("--year", type=int, default=None,
-                        help="[--mode macroaverage] Restrict step metrics (boxplot + time "
-                             "evolution) to a single calendar year (default: all years)")
+                        help="[--mode macroaverage/microaverage] Restrict to a single "
+                             "calendar year (default: all years). macroaverage: filters "
+                             "step metrics (boxplot + time evolution). microaverage: pools "
+                             "only that year's backtest predictions, and the cumulative "
+                             "heatmap window starts fresh at that year instead of the full "
+                             "history.")
     parser.add_argument("--interactive", action="store_true",
                         help="Open the plot in a window (plt.show()) instead of just saving "
                              "it to disk. Requires exactly one --metric, so only one window "
