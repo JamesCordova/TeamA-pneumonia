@@ -3,11 +3,9 @@ Per-step walk-forward diagnostic figure.
 
 Two-panel figure per metric:
   Left  — boxplot of the metric's distribution across all steps, with a
-          marker for the mean.
-  Right — metric value over time, one point per step, anchored by the
-          step's forecast date (not by step index — models can have a
-          different number of steps and still align correctly by date),
-          with a rolling-mean overlay to cut through step-to-step noise.
+      marker for the mean.
+  Right — heatmap of the metric by forecast date (rows=models, columns=date),
+      so each cell shows the metric for that step/date directly.
 """
 
 from pathlib import Path
@@ -17,11 +15,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pneumonia.visualization._utils import enable_legend_picking
 from pneumonia.visualization.comparison_plot import (
     METRIC_LABELS,
     VALID_METRICS,
     better_label,
+    _draw_model_date_heatmap,
 )
 
 
@@ -44,9 +42,8 @@ def plot_step_metrics(
         metric:    Metric key, e.g. 'mae', 'rmse', 'r2'.
         department: Optional label (e.g. department name) shown in the figure title.
         save_path: Where to save the PNG. Returns None if not provided.
-        trend_window: Number of steps to average over for the time-series
-                   overlay (default: 10). Not related to run_walkforward.py's
-                   --window_type (training window) — this only smooths the plot.
+        trend_window: Retained for backward compatibility. The right panel is now a
+                       heatmap and does not use rolling smoothing.
         show:      Call plt.show() after saving.
 
     Returns:
@@ -110,26 +107,13 @@ def plot_step_metrics(
         ax_box.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
     # ------------------------------------------------------------------ #
-    # Panel 2: metric over time, anchored by forecast date
+    # Panel 2: metric heatmap over time, anchored by forecast date
     # ------------------------------------------------------------------ #
-    lines_by_model = {}
-    for m in models:
-        df = step_data[m].sort_values("date")
-        (raw_line,) = ax_time.plot(df["date"], df[metric], lw=0.8, alpha=0.3, color=colors[m])
-        rolling = df[metric].rolling(trend_window, min_periods=1).mean()
-        (line,) = ax_time.plot(df["date"], rolling, lw=2.0, color=colors[m], label=m)
-        lines_by_model[m] = [raw_line, line]
-
+    step_frames = {m: step_data[m].sort_values("date") for m in models}
+    _draw_model_date_heatmap(fig, ax_time, step_frames, metric, models, fill_method=None)
+    ax_time.set_title(f"{ylabel} by forecast date — {better}")
     ax_time.set_xlabel("Forecast date")
-    ax_time.set_ylabel(ylabel)
-    ax_time.set_title(f"{ylabel} over time (rolling mean over {trend_window} steps) — {better}")
-    time_legend = ax_time.legend(fontsize=9)
-    enable_legend_picking(fig, time_legend, lines_by_model)
-    ax_time.grid(alpha=0.25)
-    if metric in {"r2", "me"}:
-        ax_time.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
-    fig.autofmt_xdate()
-
+    ax_time.set_ylabel("Model")
     fig.tight_layout()
 
     if save_path is not None:
