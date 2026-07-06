@@ -26,6 +26,7 @@ from pneumonia.utils import setup_logger
 from pneumonia.visualization._utils import (
     clip_axes,
     configure_date_axis,
+    get_output_path,
     read_predictions,
     save_figure,
 )
@@ -184,7 +185,9 @@ def plot_backtest(
     if save_path is None:
         suffix = f"_{year}" if year is not None else ""
         suffix += "_shaded" if shaded else ""
-        save_path = Path(reports_dir) / department / age_group / f"forecast_backtest{suffix}.png"
+        filename = f"forecast_backtest{suffix}.png"
+        base_dir = Path(reports_dir) / department / age_group
+        save_path = get_output_path(base_dir, filename, output_type="figures")
 
     path = save_figure(fig, save_path, show)
     logger.info(f"Backtest plot saved: {path}")

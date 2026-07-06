@@ -62,7 +62,7 @@ import pandas as pd
 from pneumonia.config import REPORTS_PATH
 from pneumonia.evaluation.metrics import compute_all_metrics
 from pneumonia.utils import setup_logger
-from pneumonia.visualization._utils import read_predictions
+from pneumonia.visualization._utils import get_output_path, read_predictions
 from pneumonia.visualization.comparison_plot import (
     METRIC_LABELS,
     NON_ADDITIVE_METRICS,
@@ -277,7 +277,8 @@ def compare_macroaverage(
 
     suffix = f"_{year}" if year is not None else ""
     for metric in metric_names:
-        fig_path = out_dir / f"step_metrics_{metric}{suffix}.png"
+        fig_filename = f"step_metrics_{metric}{suffix}.png"
+        fig_path = get_output_path(out_dir, fig_filename, output_type="figures")
         plot_step_metrics(
             step_data    = step_data,
             metric       = metric,
@@ -322,12 +323,14 @@ def compare_microaverage(
     print(f"{'='*70}\n")
 
     suffix = f"_{year}" if year is not None else ""
-    csv_path = out_dir / f"comparison_microaverage{suffix}.csv"
+    csv_filename = f"comparison_microaverage{suffix}.csv"
+    csv_path = get_output_path(out_dir, csv_filename, output_type="tables")
     table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
 
     for metric in metric_names:
-        fig_path = out_dir / f"comparison_microaverage_{metric}{suffix}.png"
+        fig_filename = f"comparison_microaverage_{metric}{suffix}.png"
+        fig_path = get_output_path(out_dir, fig_filename, output_type="figures")
         plot_micro_comparison(
             metrics             = micro_metrics,
             cumulative_metrics  = cumulative_metrics,
@@ -388,7 +391,8 @@ def compare(
         full_table[degr.name] = degr
 
         suffix = f"_{year}" if year is not None else ""
-        fig_path = out_dir / f"comparison_horizon_{metric}{suffix}.png"
+        fig_filename = f"comparison_horizon_{metric}{suffix}.png"
+        fig_path = get_output_path(out_dir, fig_filename, output_type="figures")
         plot_model_comparison(
             metrics    = metrics,
             horizons   = available_horizons,
@@ -401,7 +405,8 @@ def compare(
         )
     print(f"{'='*70}\n")
 
-    csv_path = out_dir / "comparison_horizon.csv"
+    csv_filename = "comparison_horizon.csv"
+    csv_path = get_output_path(out_dir, csv_filename, output_type="tables")
     full_table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
 
