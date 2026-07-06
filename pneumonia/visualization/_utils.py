@@ -110,3 +110,30 @@ def save_figure(fig, save_path: Path, show: bool = False) -> Path:
     if show:
         plt.show()
     return Path(save_path)
+
+
+def get_output_path(
+    base_dir: Path, filename: str, output_type: str = "figures"
+) -> Path:
+    """
+    Return a path in the appropriate subdirectory and create it if needed.
+
+    Args:
+        base_dir:    Base output directory (e.g. reports/DEPT/age_group).
+        filename:    Filename to save (e.g. 'forecast_classic.png').
+        output_type: Subdirectory type: 'figures', 'tables', or 'data'.
+                     (default: 'figures')
+
+    Returns:
+        Full path in subdirectory, which is created if it does not exist.
+    """
+    allowed_types = {"figures", "tables", "data"}
+    if output_type not in allowed_types:
+        logger.warning(
+            f"output_type '{output_type}' not in {allowed_types}, using 'figures'"
+        )
+        output_type = "figures"
+
+    subdir = Path(base_dir) / output_type
+    subdir.mkdir(parents=True, exist_ok=True)
+    return subdir / filename
