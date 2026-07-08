@@ -59,9 +59,15 @@ class RandomForestModel(BaseForecaster):
         self.lags    = lags    or FEATURE_ENGINEERING_CONFIG['lag_periods']
         self.windows = windows or FEATURE_ENGINEERING_CONFIG['rolling_windows']
 
-        # Merge: defaults → department config → caller overrides
+        # Merge: defaults → department config → optimized params → caller overrides
         params = {**RANDOM_FOREST_DEFAULT_PARAMS}
         params.update(DEPARTMENTAL_CONFIGS.get(self.department, {}).get('random_forest_params', {}))
+        
+        # Load automatically optimized parameters if they exist
+        from pneumonia.models.utils import load_optimized_params
+        opt_params = load_optimized_params("RandomForest", self.department, self.age_group)
+        params.update(opt_params)
+        
         if rf_params:
             params.update(rf_params)
         self._params = params

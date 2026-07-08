@@ -481,3 +481,51 @@ def get_available_departments(filepath: Optional[Path] = None) -> list:
     )
     
     return sorted(available)
+
+
+def load_optimized_params(model_name: str, department: str, age_group: str) -> dict:
+    """
+    Load optimized hyperparameters for a model, department, and age group if they exist.
+    
+    Args:
+        model_name: Name of the model (e.g. 'RandomForest', 'XGBoost', 'Prophet', 'LSTM', 'GRU')
+        department: Department name (e.g. 'LIMA')
+        age_group: 'under5' or '60plus'
+        
+    Returns:
+        Dictionary of optimized hyperparameters, or empty dict if not found.
+    """
+    import json
+    from pneumonia.config import REPORTS_PATH
+    
+    # Standardize names
+    model_name_clean = model_name.lower().replace("_", "").replace("-", "")
+    
+    # Map to saved file naming convention
+    if "randomforest" in model_name_clean:
+        filename = "best_randomforest_params.json"
+    elif "xgboost" in model_name_clean:
+        filename = "best_xgboost_params.json"
+    elif "prophet" in model_name_clean:
+        filename = "best_prophet_params.json"
+    elif "lstm" in model_name_clean:
+        filename = "best_lstm_params.json"
+    elif "gru" in model_name_clean:
+        filename = "best_gru_params.json"
+    else:
+        filename = f"best_{model_name_clean}_params.json"
+        
+    filepath = Path(REPORTS_PATH) / department.upper() / age_group / filename
+    
+    if filepath.exists():
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                best_params = data.get("best_params", {})
+                logger.info(f"Loaded optimized parameters for {model_name} ({department}/{age_group}) from {filepath}")
+                return best_params
+        except Exception as exc:
+            logger.warning(f"Failed to load optimized parameters from {filepath}: {exc}")
+            
+    return {}
+

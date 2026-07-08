@@ -76,41 +76,69 @@ class BaseRNNModel(BaseForecaster):
         name: str,
         department: str,
         age_group: str,
-        lookback: int         = RNN_DEFAULT_PARAMS["lookback"],
-        forecast_horizon: int = RNN_DEFAULT_PARAMS["forecast_horizon"],
-        epochs: int           = RNN_DEFAULT_PARAMS["epochs"],
-        batch_size: int       = RNN_DEFAULT_PARAMS["batch_size"],
-        val_weeks: int        = RNN_DEFAULT_PARAMS["val_weeks"],
-        units_1: int          = RNN_DEFAULT_PARAMS["units_1"],
-        units_2: int          = RNN_DEFAULT_PARAMS["units_2"],
-        dropout_rate: float   = RNN_DEFAULT_PARAMS["dropout_rate"],
-        smooth_window: int    = RNN_DEFAULT_PARAMS["smooth_window"],
+        lookback: Optional[int]         = None,
+        forecast_horizon: Optional[int] = None,
+        epochs: Optional[int]           = None,
+        batch_size: Optional[int]       = None,
+        val_weeks: Optional[int]        = None,
+        units_1: Optional[int]          = None,
+        units_2: Optional[int]          = None,
+        dropout_rate: Optional[float]   = None,
+        smooth_window: Optional[int]    = None,
     ):
         super().__init__(name=name, department=department, age_group=age_group)
 
-        self.lookback         = lookback
-        self.forecast_horizon = forecast_horizon
-        self.epochs           = epochs
-        self.batch_size       = batch_size
-        self.val_weeks        = val_weeks
-        self.units_1          = units_1
-        self.units_2          = units_2
-        self.dropout_rate     = dropout_rate
-        self.smooth_window    = smooth_window
+        # Merge config parameters: defaults -> optimized params -> caller overrides
+        params = {**RNN_DEFAULT_PARAMS}
+
+        # Load automatically optimized parameters if they exist
+        from pneumonia.models.utils import load_optimized_params
+        opt_params = load_optimized_params(name, department, age_group)
+        params.update(opt_params)
+
+        # Override with caller-specified non-None values
+        if lookback is not None:
+            params["lookback"] = lookback
+        if forecast_horizon is not None:
+            params["forecast_horizon"] = forecast_horizon
+        if epochs is not None:
+            params["epochs"] = epochs
+        if batch_size is not None:
+            params["batch_size"] = batch_size
+        if val_weeks is not None:
+            params["val_weeks"] = val_weeks
+        if units_1 is not None:
+            params["units_1"] = units_1
+        if units_2 is not None:
+            params["units_2"] = units_2
+        if dropout_rate is not None:
+            params["dropout_rate"] = dropout_rate
+        if smooth_window is not None:
+            params["smooth_window"] = smooth_window
+
+        self.lookback         = params["lookback"]
+        self.forecast_horizon = params["forecast_horizon"]
+        self.epochs           = params["epochs"]
+        self.batch_size       = params["batch_size"]
+        self.val_weeks        = params["val_weeks"]
+        self.units_1          = params["units_1"]
+        self.units_2          = params["units_2"]
+        self.dropout_rate     = params["dropout_rate"]
+        self.smooth_window    = params["smooth_window"]
 
         self._keras_model = None
         self._scaler: Optional[MinMaxScaler] = None
 
         self.metadata.update({
-            "lookback":         lookback,
-            "forecast_horizon": forecast_horizon,
-            "epochs":           epochs,
-            "batch_size":       batch_size,
-            "val_weeks":        val_weeks,
-            "units_1":          units_1,
-            "units_2":          units_2,
-            "dropout_rate":     dropout_rate,
-            "smooth_window":    smooth_window,
+            "lookback":         self.lookback,
+            "forecast_horizon": self.forecast_horizon,
+            "epochs":           self.epochs,
+            "batch_size":       self.batch_size,
+            "val_weeks":        self.val_weeks,
+            "units_1":          self.units_1,
+            "units_2":          self.units_2,
+            "dropout_rate":     self.dropout_rate,
+            "smooth_window":    self.smooth_window,
         })
 
     def get_params(self) -> dict:

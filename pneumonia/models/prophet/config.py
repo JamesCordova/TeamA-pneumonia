@@ -23,3 +23,11 @@ DEPARTMENTAL_CONFIGS = {
     #     "changepoint_prior_scale": 0.08,
     # }
 }
+
+# Hyperparameter search ranges for Prophet tuning
+PROPHET_SEARCH_RANGES = {
+    "changepoint_prior_scale": [0.001, 0.01, 0.05, 0.1, 0.3, 0.5],
+    "seasonality_prior_scale": [0.1, 1.0, 5.0, 10.0, 20.0],
+    "seasonality_mode": ["additive", "multiplicative"],
+}
+

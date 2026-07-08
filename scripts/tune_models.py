@@ -30,12 +30,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pneumonia.config import REPORTS_PATH, RANDOM_SEED
 from pneumonia.models.utils import get_departmental_data, temporal_split
-from pneumonia.models.ml.config import (
-    XGBOOST_SEARCH_RANGES,
-    RANDOM_FOREST_SEARCH_RANGES,
-)
-from pneumonia.models.ml.random_forest import RandomForestModel
-from pneumonia.models.ml.xgboost import XGBoostModel
 from pneumonia.evaluation.metrics import compute_all_metrics
 from pneumonia.utils import setup_logger
 
@@ -44,20 +38,28 @@ logger = setup_logger(__name__)
 
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Optimize hyperparameters for RandomForest or XGBoost forecasters",
+        description="Optimize hyperparameters for forecasting models (RandomForest, XGBoost, Prophet, LSTM, GRU)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Random search for RandomForest
   python scripts/tune_models.py --department AMAZONAS --model RandomForest --n_iter 15
+  
+  # Grid search for XGBoost
   python scripts/tune_models.py --department LIMA --model XGBoost --search_method grid
-  python scripts/tune_models.py --department AMAZONAS --model XGBoost --metric smape
+  
+  # Tune Prophet seasonality/trend scales
+  python scripts/tune_models.py --department LIMA --model Prophet --n_iter 10
+  
+  # Tune LSTM units/epochs (using n_iter=10 for speed)
+  python scripts/tune_models.py --department LIMA --model LSTM --n_iter 10
         """,
     )
 
     parser.add_argument("--department", "-d", type=str, required=True,
                         help="Department name (e.g. AMAZONAS, LIMA)")
     parser.add_argument("--model", "-m", type=str, required=True,
-                        choices=["RandomForest", "XGBoost"],
+                        choices=["RandomForest", "XGBoost", "Prophet", "LSTM", "GRU"],
                         help="Model class to tune")
     parser.add_argument("--age_group", "-g", type=str,
                         choices=["under5", "60plus"], default="under5",
@@ -65,8 +67,8 @@ Examples:
     parser.add_argument("--search_method", type=str,
                         choices=["grid", "random"], default="random",
                         help="Search strategy: 'grid' (exhaustive) or 'random' (sampled)")
-    parser.add_argument("--n_iter", type=int, default=20,
-                        help="Number of parameter combinations to sample for random search (default: 20)")
+    parser.add_argument("--n_iter", type=int, default=None,
+                        help="Number of parameter combinations to sample for random search (default: 20, or 10 for LSTM/GRU)")
     parser.add_argument("--metric", type=str, default="mae",
                         choices=["mae", "rmse", "smape"],
                         help="Validation metric to minimize (default: mae)")
@@ -117,13 +119,35 @@ def tune_model(
 
     # 3. Setup Parameter Space
     if model_name == "RandomForest":
+        from pneumonia.models.ml.config import RANDOM_FOREST_SEARCH_RANGES
+        from pneumonia.models.ml.random_forest import RandomForestModel
         search_ranges = RANDOM_FOREST_SEARCH_RANGES
         model_class = RandomForestModel
         param_override_key = "rf_params"
     elif model_name == "XGBoost":
+        from pneumonia.models.ml.config import XGBOOST_SEARCH_RANGES
+        from pneumonia.models.ml.xgboost import XGBoostModel
         search_ranges = XGBOOST_SEARCH_RANGES
         model_class = XGBoostModel
         param_override_key = "xgb_params"
+    elif model_name == "Prophet":
+        from pneumonia.models.prophet.config import PROPHET_SEARCH_RANGES
+        from pneumonia.models.prophet.model import ProphetModel
+        search_ranges = PROPHET_SEARCH_RANGES
+        model_class = ProphetModel
+        param_override_key = None
+    elif model_name == "LSTM":
+        from pneumonia.models.rnn.config import RNN_SEARCH_RANGES
+        from pneumonia.models.rnn.lstm import LSTMModel
+        search_ranges = RNN_SEARCH_RANGES
+        model_class = LSTMModel
+        param_override_key = None
+    elif model_name == "GRU":
+        from pneumonia.models.rnn.config import RNN_SEARCH_RANGES
+        from pneumonia.models.rnn.gru import GRUModel
+        search_ranges = RNN_SEARCH_RANGES
+        model_class = GRUModel
+        param_override_key = None
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -151,13 +175,20 @@ def tune_model(
             logger.info(f"[{idx}/{len(param_list)}] Evaluating params: {params}")
             
             # Map parameters to fit method
-            model_kwargs = {
-                "department": department,
-                "age_group": age_group,
-                "lags": lags,
-                "windows": windows,
-                param_override_key: params
-            }
+            if param_override_key is not None:
+                model_kwargs = {
+                    "department": department,
+                    "age_group": age_group,
+                    "lags": lags,
+                    "windows": windows,
+                    param_override_key: params
+                }
+            else:
+                model_kwargs = {
+                    "department": department,
+                    "age_group": age_group,
+                    **params
+                }
             
             model = model_class(**model_kwargs)
             
@@ -222,13 +253,17 @@ def main():
     elif args.verbose:
         logging.getLogger("pneumonia").setLevel(logging.DEBUG)
 
+    n_iter = args.n_iter
+    if n_iter is None:
+        n_iter = 10 if args.model in ("LSTM", "GRU") else 20
+
     try:
         results = tune_model(
             department=args.department,
             model_name=args.model,
             age_group=args.age_group,
             search_method=args.search_method,
-            n_iter=args.n_iter,
+            n_iter=n_iter,
             metric_to_optimize=args.metric,
             split_strategy=args.split_strategy,
             start_year=args.start_year,
@@ -241,16 +276,29 @@ def main():
         print(f"RECOMMENDED BEST PARAMETERS FOR {results['model']} ({results['department']}/{results['age_group']})")
         print("=" * 80)
         print(f"Validation {results['metric_optimized'].upper()}: {results['best_score']:.4f}")
-        print("\nTo use these parameters, you can add them to the 'DEPARTMENTAL_CONFIGS' dictionary")
-        print("inside pneumonia/models/ml/config.py:")
-        print("-" * 80)
         
         dept_key = results['department']
-        param_dict_name = "random_forest_params" if results['model'] == "RandomForest" else "xgboost_params"
         
-        print(f'    "{dept_key}": {{')
-        print(f'        "{param_dict_name}": {json.dumps(results["best_params"])}')
-        print(f'    }},')
+        if results['model'] in ("RandomForest", "XGBoost"):
+            param_dict_name = "random_forest_params" if results['model'] == "RandomForest" else "xgboost_params"
+            print("\nTo use these parameters, you can add them to the 'DEPARTMENTAL_CONFIGS' dictionary")
+            print("inside pneumonia/models/ml/config.py:")
+            print("-" * 80)
+            print(f'    "{dept_key}": {{')
+            print(f'        "{param_dict_name}": {json.dumps(results["best_params"])}')
+            print(f'    }},')
+        elif results['model'] == "Prophet":
+            print("\nTo use these parameters, you can add them to the 'DEPARTMENTAL_CONFIGS' dictionary")
+            print("inside pneumonia/models/prophet/config.py:")
+            print("-" * 80)
+            print(f'    "{dept_key}": {json.dumps(results["best_params"])}')
+        elif results['model'] in ("LSTM", "GRU"):
+            print("\nTo use these parameters, you can update the default parameters in")
+            print("pneumonia/models/rnn/config.py (under RNN_DEFAULT_PARAMS) or pass them as CLI flags")
+            print("to scripts/run_walkforward.py, e.g.:")
+            print("-" * 80)
+            cli_flags = " ".join([f"--{k} {v}" for k, v in results["best_params"].items()])
+            print(f"python scripts/run_walkforward.py --department {dept_key} --model {results['model']} {cli_flags}")
         print("-" * 80)
         print("=" * 80 + "\n")
         

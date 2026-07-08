@@ -59,10 +59,15 @@ class ProphetModel(BaseForecaster):
     ):
         super().__init__(name="Prophet", department=department, age_group=age_group)
 
-        # Merge config parameters: defaults -> department config -> caller overrides
+        # Merge config parameters: defaults -> department config -> optimized params -> caller overrides
         params = {**PROPHET_DEFAULT_PARAMS}
         dept_cfg = DEPARTMENTAL_CONFIGS.get(self.department, {})
         params.update(dept_cfg)
+
+        # Load automatically optimized parameters if they exist
+        from pneumonia.models.utils import load_optimized_params
+        opt_params = load_optimized_params("Prophet", self.department, self.age_group)
+        params.update(opt_params)
 
         if growth is not None:
             params["growth"] = growth

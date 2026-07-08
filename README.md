@@ -12,6 +12,9 @@ Pipeline de series temporales para pronosticar casos semanales de neumonía en l
 | SARIMA | Auto-ARIMA estacional (`pmdarima`) |
 | RandomForest | Ensamble con features de calendario y lag |
 | XGBoost | Gradient boosting con features de calendario y lag |
+| Prophet | Modelo aditivo/multiplicativo de Meta para series temporales (con feriados de Perú) |
+| LSTM | Red neuronal recurrente (RNN) Long Short-Term Memory para dependencias secuenciales |
+| GRU | Red neuronal recurrente (RNN) Gated Recurrent Unit, alternativa más ligera a LSTM |
 
 ## Flujo de trabajo
 
@@ -32,7 +35,7 @@ git clone https://github.com/JamesCordova/Modelado-Pneumonia
 cd Modelado-Pneumonia
 
 # 2. Crear y activar entorno virtual
-python -m venv .venv
+python -3.12 -m venv .venv
 .venv\Scripts\activate      # Windows
 # source .venv/bin/activate   # Linux/macOS
 
@@ -69,13 +72,37 @@ python scripts/train_baselines.py   --department AMAZONAS
 python scripts/train_sarima.py      --department AMAZONAS
 python scripts/train_random_forest.py --department AMAZONAS
 python scripts/train_xgboost.py     --department AMAZONAS
+python scripts/train_prophet.py      --department AMAZONAS
 
 # Grupo de edad (default: under5)
 python scripts/train_sarima.py --department LIMA --age_group 60plus
+
+# Sobreescribir hiperparámetros en Prophet
+python scripts/train_prophet.py --department LIMA --age_group 60plus --changepoint_prior_scale 0.1
 ```
 
 > **Subregistro:** MOQUEGUA, TACNA y TUMBES presentan ceros sistemáticos antes de 2008/2009.
 > Se recomienda usar `--start_year 2009` (MOQUEGUA) o `--start_year 2008` (TACNA, TUMBES).
+
+### 2.1 Optimización automática de hiperparámetros (Tuning)
+
+Optimiza hiperparámetros para modelos de predicción (`RandomForest`, `XGBoost`, `Prophet`, `LSTM` y `GRU`) evaluando diferentes combinaciones de parámetros en el set de validación.
+
+> **Nota sobre RNN (LSTM/GRU):** Para los modelos basados en redes neuronales recurrentes, la sintonización establece el valor por defecto de `--n_iter` en 10 combinaciones para mantener un tiempo de ejecución eficiente. Dado que estos modelos requieren TensorFlow, se recomienda ejecutarlos dentro del entorno de Docker del proyecto.
+
+```bash
+# Búsqueda aleatoria para RandomForest (default: 20 iteraciones)
+python scripts/tune_models.py --department AMAZONAS --model RandomForest --n_iter 15
+
+# Búsqueda por grilla para XGBoost
+python scripts/tune_models.py --department AMAZONAS --model XGBoost --search_method grid
+
+# Sintonización para Prophet (se guardarán las recomendaciones para config.py de Prophet)
+python scripts/tune_models.py --department LIMA --model Prophet --n_iter 10
+
+# Sintonización para LSTM (n_iter=10 por defecto para RNNs)
+python scripts/tune_models.py --department LIMA --model LSTM
+```
 
 ### 3. Validación walk-forward (rolling-origin)
 
@@ -96,9 +123,20 @@ python scripts/run_walkforward.py --all --model Naive --horizon 4
 
 # Cortar años con subregistro
 python scripts/run_walkforward.py --department MOQUEGUA --model SARIMA --start_year 2009
+
+# LSTM / GRU con hiperparámetros personalizados
+python scripts/run_walkforward.py --department UCAYALI --model LSTM \
+    --train_size 260 --horizon 4 --step 4 --refit_every 1 \
+    --lookback 52 --units_1 64 --units_2 32 --epochs 80
+
+python scripts/run_walkforward.py --all --model GRU --age_group 60plus \
+    --train_size 260 --horizon 4 --refit_every 1 --smooth_window 1
+
+# Prophet en walk-forward
+python scripts/run_walkforward.py --department LIMA --model Prophet --horizon 4
 ```
 
-Modelos disponibles en `--model`: `SARIMA`, `RandomForest`, `XGBoost`, `HoltWinters`, `SeasonalNaive`, `Naive`
+Modelos disponibles en `--model`: `SARIMA`, `RandomForest`, `XGBoost`, `LSTM`, `GRU`, `HoltWinters`, `SeasonalNaive`, `Naive`, `Prophet`
 
 ### 4. Graficar resultados
 
@@ -151,7 +189,9 @@ Modelado-Pneumonia/
 │   │   ├── utils.py             # get_departmental_data, temporal_split
 │   │   ├── baselines/           # Naive, SeasonalNaive, HoltWinters
 │   │   ├── sarima/              # SARIMAModel (pmdarima)
-│   │   └── ml/                  # RandomForestModel, XGBoostModel
+│   │   ├── ml/                  # RandomForestModel, XGBoostModel, EnsembleModel
+│   │   ├── prophet/             # ProphetModel
+│   │   └── rnn/                 # LSTMModel, GRUModel (Redes Neuronales Recurrentes)
 │   ├── evaluation/
 │   │   ├── metrics.py           # MAE, RMSE, SMAPE, MDA, MAPE
 │   │   └── walkforward.py       # WalkForwardValidator
@@ -169,6 +209,8 @@ Modelado-Pneumonia/
 │   ├── train_sarima.py
 │   ├── train_random_forest.py
 │   ├── train_xgboost.py
+│   ├── train_prophet.py         # Entrenar modelo Prophet
+│   ├── tune_models.py           # Optimización automática de hiperparámetros (ML)
 │   ├── run_walkforward.py       # Walk-forward para cualquier modelo
 │   ├── plot_forecasting.py      # Visualización de resultados
 │   └── compare_models.py        # Comparación cruzada de modelos
