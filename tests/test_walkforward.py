@@ -50,15 +50,6 @@ def dummy_timeseries():
     return pd.Series(values, index=dates)
 
 
-@pytest.fixture
-def dummy_features():
-    """Create dummy features with same index length of 20."""
-    dates = pd.date_range(start="2023-01-01", periods=20, freq="W")
-    return pd.DataFrame({
-        "feat1": np.arange(10.0, 30.0),
-        "feat2": np.arange(20.0, 40.0)
-    }, index=dates)
-
 
 # =============================================================================
 # TESTS

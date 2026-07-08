@@ -229,7 +229,7 @@ class RandomForestPipeline:
             val_forecast = self.model.predict(self.train, steps=len(self.val))
             self.val_forecasts["RandomForest"] = val_forecast
 
-            metrics = compute_all_metrics(self.val.values, val_forecast, training_actual=self.train.values)
+            metrics = compute_all_metrics(self.val.values, val_forecast)
             self.results["stages"]["validation"] = {
                 "n_val_obs": len(self.val),
                 "metrics": {k: float(v) if not np.isnan(v) else None for k, v in metrics.items()},
@@ -251,7 +251,7 @@ class RandomForestPipeline:
             )
             self.test_forecasts["RandomForest"] = test_forecast
 
-            metrics = compute_all_metrics(self.test.values, test_forecast, training_actual=pd.concat([self.train, self.val]).values)
+            metrics = compute_all_metrics(self.test.values, test_forecast)
             self.results["stages"]["testing"] = {
                 "n_test_obs": len(self.test),
                 "metrics": {k: float(v) if not np.isnan(v) else None for k, v in metrics.items()},

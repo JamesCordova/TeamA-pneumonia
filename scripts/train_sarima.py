@@ -84,8 +84,13 @@ Examples:
     sarima_group = parser.add_argument_group("SARIMA manual parameters")
     sarima_group.add_argument(
         "--sarima_order", type=int, nargs=3, default=None,
-        metavar=("P", "D", "Q"),
+        metavar=("p", "d", "q"),
         help="[SARIMA] Non-seasonal order (p d q), e.g. --sarima_order 2 1 1",
+    )
+    sarima_group.add_argument(
+        "--seasonal_order", type=int, nargs=4, default=None,
+        metavar=("P", "D", "Q", "m"),
+        help="[SARIMA] Seasonal order (P D Q m), e.g. --seasonal_order 1 1 1 52",
     )
     sarima_group.add_argument(
         "--n_fourier_terms", type=int, default=None,
@@ -148,6 +153,7 @@ def train_single_department(
     split_strategy: str = None,
     forecast_steps: int = 52,
     order: tuple = None,
+    seasonal_order: tuple = None,
     n_fourier_terms: int = None,
     use_fourier: bool = None,
     start_year: int = None,
@@ -177,6 +183,7 @@ def train_single_department(
             forecast_steps=forecast_steps,
             split_strategy=split_strategy,
             order=order,
+            seasonal_order=seasonal_order,
             n_fourier_terms=n_fourier_terms,
             use_fourier=use_fourier,
             start_year=start_year,
@@ -198,6 +205,7 @@ def train_all_departments(
     split_strategy: str = None,
     forecast_steps: int = 52,
     order: tuple = None,
+    seasonal_order: tuple = None,
     n_fourier_terms: int = None,
     use_fourier: bool = None,
     start_year: int = None,
@@ -229,6 +237,7 @@ def train_all_departments(
             split_strategy=split_strategy,
             forecast_steps=forecast_steps,
             order=order,
+            seasonal_order=seasonal_order,
             n_fourier_terms=n_fourier_terms,
             use_fourier=use_fourier,
             start_year=start_year,
@@ -278,6 +287,7 @@ def main():
 
     # Build SARIMA manual parameters
     order = tuple(args.sarima_order) if args.sarima_order else None
+    seasonal_order = tuple(args.seasonal_order) if args.seasonal_order else None
     use_fourier = None
     if args.no_fourier:
         use_fourier = False
@@ -293,18 +303,17 @@ def main():
                 split_strategy=args.split_strategy,
                 forecast_steps=args.forecast_steps,
                 order=order,
+                seasonal_order=seasonal_order,
                 n_fourier_terms=args.n_fourier_terms,
                 use_fourier=use_fourier,
                 start_year=args.start_year,
             )
         else:
-            # Parse list of departments
             departments = []
             for d in args.department:
                 departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
-            
-            # Loop through specified departments
-            exit_code = 0
+
+            failed = []
             for dept in departments:
                 code = train_single_department(
                     department=dept,
@@ -313,13 +322,18 @@ def main():
                     split_strategy=args.split_strategy,
                     forecast_steps=args.forecast_steps,
                     order=order,
+                    seasonal_order=seasonal_order,
                     n_fourier_terms=args.n_fourier_terms,
                     use_fourier=use_fourier,
                     start_year=args.start_year,
                 )
                 if code != 0:
-                    exit_code = code
-        
+                    failed.append(dept)
+
+            if failed:
+                print(f"\nFailed departments: {', '.join(failed)}")
+            exit_code = 1 if failed else 0
+
         return exit_code
         
     except KeyboardInterrupt:

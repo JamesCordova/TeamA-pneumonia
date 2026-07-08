@@ -168,12 +168,7 @@ def tune_model(
             val_forecast = model.predict(train, steps=len(val))
             
             # Calculate evaluation metrics
-            metrics = compute_all_metrics(
-                val.values, 
-                val_forecast, 
-                warn_on_nan=False, 
-                training_actual=train.values
-            )
+            metrics = compute_all_metrics(val.values, val_forecast, warn_on_nan=False)
             
             score = metrics[metric_to_optimize]
             logger.info(f"  Result -> {metric_to_optimize.upper()}: {score:.4f} | MAE: {metrics['mae']:.4f} | SMAPE: {metrics['smape']:.4f}")

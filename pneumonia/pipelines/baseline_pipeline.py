@@ -315,6 +315,7 @@ class BaselinePipeline:
 def run_baselines_for_all_departments(
     age_group: str = "under5",
     split_strategy: Optional[str] = None,
+    season_length: int = 52,
     start_year: Optional[int] = None,
 ) -> Dict[str, Dict[str, Any]]:
     """Run baseline pipeline for every available department."""
@@ -329,6 +330,7 @@ def run_baselines_for_all_departments(
                 department=dept,
                 age_group=age_group,
                 split_strategy=split_strategy,
+                season_length=season_length,
                 start_year=start_year,
             )
             results = pipeline.run()

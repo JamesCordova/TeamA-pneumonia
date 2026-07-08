@@ -168,6 +168,39 @@ def symmetric_mean_absolute_percentage_error(
     return float(smape)
 
 
+def r2_score(
+    actual: Union[np.ndarray, pd.Series],
+    predicted: Union[np.ndarray, pd.Series]
+) -> float:
+    """
+    Calculate the coefficient of determination (R²).
+
+    R² = 1 - SS_res / SS_tot
+      SS_res = Σ(actual - predicted)²
+      SS_tot = Σ(actual - mean(actual))²
+
+    Interpretation:
+      R² = 1.0  — perfect prediction
+      R² = 0.0  — equivalent to predicting the mean
+      R² < 0    — worse than predicting the mean
+
+    Returns NaN when SS_tot = 0 (all actual values are identical).
+    """
+    actual = np.asarray(actual, dtype=float)
+    predicted = np.asarray(predicted, dtype=float)
+
+    if actual.shape != predicted.shape:
+        raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
+
+    ss_tot = np.sum((actual - np.mean(actual)) ** 2)
+    if ss_tot == 0:
+        logger.warning("R²: all actual values are identical (SS_tot=0); returning NaN.")
+        return np.nan
+
+    ss_res = np.sum((actual - predicted) ** 2)
+    return float(1.0 - ss_res / ss_tot)
+
+
 def mean_directional_accuracy(
     actual: Union[np.ndarray, pd.Series],
     predicted: Union[np.ndarray, pd.Series]
@@ -230,112 +263,45 @@ def mean_error(
     return float(me)
 
 
-def r2_score(
-    actual: Union[np.ndarray, pd.Series],
-    predicted: Union[np.ndarray, pd.Series]
-) -> float:
-    """
-    Calculate Coefficient of Determination (R2).
-    
-    Args:
-        actual: Actual values
-        predicted: Predicted values
-        
-    Returns:
-        R2 value
-    """
-    actual = np.asarray(actual, dtype=float)
-    predicted = np.asarray(predicted, dtype=float)
-    
-    if actual.shape != predicted.shape:
-        raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
-    
-    ss_res = np.sum((actual - predicted) ** 2)
-    ss_tot = np.sum((actual - np.mean(actual)) ** 2)
-    if ss_tot < 1e-10:
-        return 0.0
-    return float(1.0 - (ss_res / ss_tot))
-
-
-def mean_absolute_scaled_error(
-    actual: Union[np.ndarray, pd.Series],
-    predicted: Union[np.ndarray, pd.Series],
-    training_actual: Union[np.ndarray, pd.Series] = None,
-    seasonality: int = 1
-) -> float:
-    """
-    Calculate Mean Absolute Scaled Error (MASE).
-    
-    Args:
-        actual: Actual values
-        predicted: Predicted values
-        training_actual: Optional training values to estimate naive baseline error
-        seasonality: Seasonal period (default 1)
-        
-    Returns:
-        MASE value
-    """
-    actual = np.asarray(actual, dtype=float)
-    predicted = np.asarray(predicted, dtype=float)
-    
-    if actual.shape != predicted.shape:
-        raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
-    
-    denom_data = np.asarray(training_actual, dtype=float) if training_actual is not None else actual
-    if len(denom_data) <= seasonality:
-        return np.nan
-    
-    mae_naive = np.mean(np.abs(denom_data[seasonality:] - denom_data[:-seasonality]))
-    if mae_naive < 1e-10:
-        return np.nan
-    
-    mae_model = np.mean(np.abs(actual - predicted))
-    return float(mae_model / mae_naive)
-
-
 def compute_all_metrics(
     actual: Union[np.ndarray, pd.Series],
     predicted: Union[np.ndarray, pd.Series],
     warn_on_nan: bool = True,
-    training_actual: Union[np.ndarray, pd.Series] = None,
 ) -> dict:
     """
     Compute all evaluation metrics.
-    
+
     Args:
         actual: Actual values
         predicted: Predicted values
         warn_on_nan: If True, log warning for any NaN metric values
-        training_actual: Optional training values for MASE computation
-        
+
     Returns:
         Dictionary with metric names and values (may contain NaN)
-        
+
     Raises:
         ValueError: If shapes don't match
     """
     actual = np.asarray(actual)
     predicted = np.asarray(predicted)
-    
+
     if actual.shape != predicted.shape:
         raise ValueError(f"Shape mismatch: {actual.shape} vs {predicted.shape}")
-    
+
     metrics = {
-        "mae": mean_absolute_error(actual, predicted),
-        "rmse": root_mean_squared_error(actual, predicted),
-        "mape": mean_absolute_percentage_error(actual, predicted),
+        "mae":   mean_absolute_error(actual, predicted),
+        "rmse":  root_mean_squared_error(actual, predicted),
+        "me":    mean_error(actual, predicted),
+        "mape":  mean_absolute_percentage_error(actual, predicted),
         "smape": symmetric_mean_absolute_percentage_error(actual, predicted),
-        "mda": mean_directional_accuracy(actual, predicted),
-        "me": mean_error(actual, predicted),
-        "r2": r2_score(actual, predicted),
-        "mase": mean_absolute_scaled_error(actual, predicted, training_actual=training_actual),
+        "mda":   mean_directional_accuracy(actual, predicted),
+        "r2":    r2_score(actual, predicted),
     }
-    
-    # Check for NaN values
-    nan_metrics = [k for k, v in metrics.items() if np.isnan(v)]
+
+    nan_metrics = [k for k, v in metrics.items() if isinstance(v, float) and np.isnan(v)]
     if nan_metrics and warn_on_nan:
         logger.warning(f"Metrics with NaN values: {nan_metrics}. Check data quality.")
-    
+
     return metrics
 
 

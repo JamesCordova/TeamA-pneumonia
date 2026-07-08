@@ -25,10 +25,23 @@ Usage:
     # SARIMA: orden fijo y más términos Fourier
     python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
         --sarima_order 2 1 1 --n_fourier_terms 10
+
+    # Comparar varias configuraciones del mismo modelo con --run_name
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
+        --sarima_order 2 1 1 --run_name SARIMAv1.1
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
+        --sarima_order 3 1 2 --run_name SARIMAv1.2
     # SARIMA clásico (sin Fourier)
     python scripts/run_walkforward.py --department AMAZONAS --model SARIMA --no_fourier
 
-Available models: SARIMA, RandomForest, XGBoost, SeasonalNaive, Naive, HoltWinters
+    # LSTM / GRU con hiperparámetros personalizados
+    python scripts/run_walkforward.py --department UCAYALI --model LSTM \\
+        --train_size 260 --horizon 4 --step 4 --refit_every 1 \\
+        --lookback 52 --units_1 64 --units_2 32 --epochs 80
+    python scripts/run_walkforward.py --all --model GRU --age_group 60plus \\
+        --train_size 260 --horizon 4 --refit_every 1 --smooth_window 1
+
+Available models: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters, Prophet
 """
 
 import argparse
@@ -48,7 +61,10 @@ from pneumonia.models.utils import (
     validate_time_series,
 )
 from pneumonia.utils import setup_logger
-from pneumonia.visualization.persistence import save_walkforward_predictions
+from pneumonia.visualization.persistence import (
+    save_step_metrics,
+    save_walkforward_predictions,
+)
 
 logger = setup_logger(__name__)
 
@@ -56,6 +72,8 @@ _MODEL_REGISTRY = {
     "sarima":        ("pneumonia.models.sarima.model",             "SARIMAModel"),
     "randomforest":  ("pneumonia.models.ml.random_forest",         "RandomForestModel"),
     "xgboost":       ("pneumonia.models.ml.xgboost",               "XGBoostModel"),
+    "lstm":          ("pneumonia.models.rnn.lstm",                   "LSTMModel"),
+    "gru":           ("pneumonia.models.rnn.gru",                    "GRUModel"),
     "seasonalnaive": ("pneumonia.models.baselines.seasonal_naive",  "SeasonalNaiveForecaster"),
     "naive":         ("pneumonia.models.baselines.naive",           "NaiveForecaster"),
     "holtwinters":   ("pneumonia.models.baselines.holt_winters",    "HoltWintersForecaster"),
@@ -81,7 +99,7 @@ def _print_metrics(label: str, metrics: dict) -> None:
         print(f"  {label}: no metrics computed")
         return
     parts = []
-    for k in ("mae", "rmse", "me", "r2", "mase", "smape", "mda"):
+    for k in ("mae", "rmse", "me", "r2", "smape", "mda"):
         v = metrics.get(k)
         if v is not None and not (isinstance(v, float) and v != v):
             parts.append(f"{k.upper()}={v:.4f}")
@@ -99,8 +117,10 @@ def run_walkforward_for(
     refit_every: int,
     extra_model_params: dict,
     start_year: Optional[int] = None,
+    run_name: Optional[str] = None,
 ) -> int:
-    logger.info(f"Walk-forward: {department}/{age_group} model={model_name}")
+    run_name = run_name or model_name
+    logger.info(f"Walk-forward: {department}/{age_group} model={model_name} run={run_name}")
 
     data = get_departmental_data(department, age_group=age_group, start_year=start_year)
     validate_time_series(data)
@@ -121,7 +141,7 @@ def run_walkforward_for(
     results = validator.run(data)
 
     print(f"\n{'='*70}")
-    print(f"Walk-forward results — {department}/{age_group}  model={model_name}")
+    print(f"Walk-forward results — {department}/{age_group}  run={run_name} (model={model_name})")
     print(f"  steps={results['n_steps']}  horizon={horizon}  step={step}  window={window_type}")
     print(f"  train_size={results['config']['train_size']}  refit_every={refit_every}")
     for h in range(1, horizon + 1):
@@ -133,20 +153,31 @@ def run_walkforward_for(
         reports_dir=REPORTS_PATH,
         department=department,
         age_group=age_group,
-        model_name=model_name,
+        model_name=run_name,
         predictions_df=results["predictions"],
     )
     print(f"Predictions saved -> {csv_path}")
 
+    step_csv_path = save_step_metrics(
+        reports_dir=REPORTS_PATH,
+        department=department,
+        age_group=age_group,
+        model_name=run_name,
+        step_results=results["step_results"],
+    )
+    print(f"Step metrics saved -> {step_csv_path}")
+
     # Save metrics JSON alongside other model JSONs
     out_dir = REPORTS_PATH / department / age_group
     out_dir.mkdir(parents=True, exist_ok=True)
-    metrics_file = out_dir / f"{model_name.lower()}_walkforward_metrics.json"
+    metrics_file = out_dir / f"{run_name.lower()}_walkforward_metrics.json"
     payload = {
         "department": department,
         "age_group": age_group,
         "model": model_name,
+        "run_name": run_name,
         "config": results["config"],
+        "model_params": results["model_params"],
         "metrics_by_horizon": {
             str(h): m for h, m in results["metrics_by_horizon"].items()
         },
@@ -181,7 +212,11 @@ Examples:
                         choices=["under5", "60plus"], default="under5",
                         help="Age group (default: under5)")
     parser.add_argument("--model", "-m", type=str, required=True,
-                        help="Model to evaluate: SARIMA, RandomForest, XGBoost, SeasonalNaive, Naive")
+                        help="Model to evaluate: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters, Prophet")
+    parser.add_argument("--run_name", type=str, default=None,
+                        help="Label for this run's saved files/comparisons, e.g. "
+                             "'SARIMAv1.1' to distinguish it from other SARIMA configs "
+                             "(default: same as --model)")
 
     # Walk-forward parameters
     parser.add_argument("--train_size", type=int, default=520,
@@ -217,18 +252,55 @@ Examples:
                           help="[XGB only] Row subsample ratio (default: 0.9)")
     ml_group.add_argument("--colsample_bytree", type=float, default=None,
                           help="[XGB only] Feature subsample ratio per tree (default: 0.9)")
+    ml_group.add_argument("--objective", type=str, default=None,
+                          choices=["reg:squarederror", "count:poisson"],
+                          help="[XGB only] Loss objective (default: reg:squarederror). "
+                               "Use count:poisson for count-data targets like weekly case counts.")
+    ml_group.add_argument("--max_delta_step", type=float, default=None,
+                          help="[XGB only] Caps per-step update; recommended with "
+                               "count:poisson on low/volatile counts (e.g. 0.7)")
     ml_group.add_argument("--lags", type=int, nargs="+", default=None,
                           help="Lag periods as features, e.g. --lags 1 2 4 8 52 (default: 1 2 4 8 13)")
     ml_group.add_argument("--windows", type=int, nargs="+", default=None,
                           help="Rolling window sizes, e.g. --windows 4 13 26 52 (default: 4 13 26)")
 
+    # RNN hyperparameters (LSTM / GRU)
+    rnn_group = parser.add_argument_group("RNN hyperparameters (LSTM / GRU)")
+    rnn_group.add_argument("--lookback", type=int, default=None,
+                           help="[RNN] Weeks of history fed to the network (default: 52)")
+    rnn_group.add_argument("--rnn_horizon", type=int, default=None,
+                           help="[RNN] Internal Dense output size / prediction block "
+                                "(default: 4). Usually matches --horizon.")
+    rnn_group.add_argument("--units_1", type=int, default=None,
+                           help="[RNN] Units in the first recurrent layer (default: 48)")
+    rnn_group.add_argument("--units_2", type=int, default=None,
+                           help="[RNN] Units in the second recurrent layer (default: 24)")
+    rnn_group.add_argument("--dropout_rate", type=float, default=None,
+                           help="[RNN] Dropout rate after each recurrent layer (default: 0.3)")
+    rnn_group.add_argument("--epochs", type=int, default=None,
+                           help="[RNN] Maximum training epochs (default: 60)")
+    rnn_group.add_argument("--batch_size", type=int, default=None,
+                           help="[RNN] Mini-batch size (default: 8)")
+    rnn_group.add_argument("--val_weeks", type=int, default=None,
+                           help="[RNN] In-window validation sequences for EarlyStopping "
+                                "(default: 26)")
+    rnn_group.add_argument("--smooth_window", type=int, default=None,
+                           help="[RNN] Rolling-mean smoothing window before scaling "
+                                "(default: 3; set 1 to disable)")
+
     # SARIMA hyperparameters
     sarima_group = parser.add_argument_group("SARIMA hyperparameters")
     sarima_group.add_argument(
         "--sarima_order", type=int, nargs=3, default=None,
-        metavar=("P", "D", "Q"),
+        metavar=("p", "d", "q"),
         help="[SARIMA] Non-seasonal order (p d q), e.g. --sarima_order 2 1 1 "
              "(default: auto_arima or config fallback)",
+    )
+    sarima_group.add_argument(
+        "--sarima_seasonal_order", type=int, nargs=4, default=None,
+        metavar=("P", "D", "Q", "s"),
+        help="[SARIMA] Seasonal order (P D Q s), e.g. --sarima_seasonal_order 1 1 1 52 "
+             "(only applies with --no_fourier; default: 1 1 1 52)",
     )
     sarima_group.add_argument(
         "--n_fourier_terms", type=int, default=None,
@@ -295,16 +367,34 @@ def main():
     elif model_key == "xgboost":
         hp = {}
         for key in ("n_estimators", "max_depth", "learning_rate",
-                    "subsample", "colsample_bytree"):
+                    "subsample", "colsample_bytree", "objective", "max_delta_step"):
             val = getattr(args, key, None)
             if val is not None:
                 hp[key] = val
         if hp:
             extra_model_params["xgb_params"] = hp
 
+    elif model_key in ("lstm", "gru"):
+        for src, dst in [
+            ("lookback",     "lookback"),
+            ("rnn_horizon",  "forecast_horizon"),
+            ("units_1",      "units_1"),
+            ("units_2",      "units_2"),
+            ("dropout_rate", "dropout_rate"),
+            ("epochs",       "epochs"),
+            ("batch_size",   "batch_size"),
+            ("val_weeks",    "val_weeks"),
+            ("smooth_window","smooth_window"),
+        ]:
+            val = getattr(args, src, None)
+            if val is not None:
+                extra_model_params[dst] = val
+
     elif model_key == "sarima":
         if args.sarima_order:
             extra_model_params["order"] = tuple(args.sarima_order)
+        if args.sarima_seasonal_order:
+            extra_model_params["seasonal_order"] = tuple(args.sarima_seasonal_order)
         if args.n_fourier_terms is not None:
             extra_model_params["n_fourier_terms"] = args.n_fourier_terms
         if args.no_fourier:
@@ -339,6 +429,7 @@ def main():
                 refit_every=args.refit_every,
                 extra_model_params=extra_model_params,
                 start_year=args.start_year,
+                run_name=args.run_name,
             )
         except Exception as exc:
             logger.error(f"Failed for {dept}: {exc}")

@@ -88,6 +88,7 @@ def train_single(
 def train_all(
     age_group: str = "under5",
     split_strategy: str = None,
+    season_length: int = 52,
     start_year: int = None,
 ) -> int:
     try:
@@ -97,6 +98,7 @@ def train_all(
         results = run_baselines_for_all_departments(
             age_group=age_group,
             split_strategy=split_strategy,
+            season_length=season_length,
             start_year=start_year,
         )
         successes = sum(1 for r in results.values() if r["status"] == "success")
@@ -125,16 +127,15 @@ def main():
             code = train_all(
                 age_group=args.age_group,
                 split_strategy=args.split_strategy,
+                season_length=args.season_length,
                 start_year=args.start_year,
             )
         else:
-            # Parse list of departments
             departments = []
             for d in args.department:
                 departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
-            
-            # Loop through departments
-            code = 0
+
+            failed = []
             for dept in departments:
                 c = train_single(
                     department=dept,
@@ -144,7 +145,11 @@ def main():
                     start_year=args.start_year,
                 )
                 if c != 0:
-                    code = c
+                    failed.append(dept)
+
+            if failed:
+                print(f"\nFailed departments: {', '.join(failed)}")
+            code = 1 if failed else 0
         return code
     except KeyboardInterrupt:
         logger.info("\nInterrupted by user")

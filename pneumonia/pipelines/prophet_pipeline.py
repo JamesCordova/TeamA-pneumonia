@@ -234,9 +234,7 @@ class ProphetPipeline:
             self.val_forecasts["Prophet"] = val_forecast
 
             # Compute metrics
-            val_metrics = compute_all_metrics(
-                self.val.values, val_forecast, training_actual=self.train.values
-            )
+            val_metrics = compute_all_metrics(self.val.values, val_forecast)
 
             # Compute baseline for comparison
             baseline = baseline_metrics(self.val.values)
@@ -281,11 +279,7 @@ class ProphetPipeline:
             self.test_forecasts["Prophet"] = test_forecast
 
             # Compute metrics
-            test_metrics = compute_all_metrics(
-                self.test.values,
-                test_forecast,
-                training_actual=pd.concat([self.train, self.val]).values,
-            )
+            test_metrics = compute_all_metrics(self.test.values, test_forecast)
 
             # Compute baseline
             baseline = baseline_metrics(self.test.values)
@@ -317,7 +311,6 @@ class ProphetPipeline:
         try:
             # Save model
             model_path = self.model.save()
-            self.results["model_path"] = str(model_path)
 
             # Save results JSON
             results_dir = REPORTS_PATH / self.department / self.age_group
@@ -342,8 +335,8 @@ class ProphetPipeline:
             )
 
             self.results["stages"]["reporting"] = {
-                "model_path": str(model_path),
-                "results_file": str(results_file),
+                "model_path":      str(model_path),
+                "results_file":    str(results_file),
                 "predictions_csv": str(pred_csv),
                 "status": "success",
             }

@@ -101,8 +101,8 @@ Examples:
     )
     parser.add_argument(
         "--plot", "-p",
-        type=str, choices=["classic", "backtest", "both"], default="classic",
-        help="Plot type: classic (val/test), backtest (walk-forward), or both (default: classic)",
+        type=str, choices=["classic", "backtest", "both"], default="backtest",
+        help="Plot type: classic (val/test), backtest (walk-forward), or both (default: backtest)",
     )
     parser.add_argument("--output", "-o", type=str,
                         help="Output file path (only for --plot classic or backtest, not both)")

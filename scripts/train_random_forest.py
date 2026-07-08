@@ -164,13 +164,11 @@ def main():
                 start_year=args.start_year,
             )
         else:
-            # Parse list of departments
             departments = []
             for d in args.department:
                 departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
-            
-            # Loop through departments
-            code = 0
+
+            failed = []
             for dept in departments:
                 c = train_single(
                     department=dept,
@@ -182,7 +180,11 @@ def main():
                     start_year=args.start_year,
                 )
                 if c != 0:
-                    code = c
+                    failed.append(dept)
+
+            if failed:
+                print(f"\nFailed departments: {', '.join(failed)}")
+            code = 1 if failed else 0
         return code
     except KeyboardInterrupt:
         logger.info("\nInterrupted by user")

@@ -54,6 +54,7 @@ class ProphetModel(BaseForecaster):
         seasonality_mode: Optional[str] = None,
         changepoint_prior_scale: Optional[float] = None,
         seasonality_prior_scale: Optional[float] = None,
+        interval_width: float = 0.95,
         **kwargs,
     ):
         super().__init__(name="Prophet", department=department, age_group=age_group)
@@ -77,6 +78,7 @@ class ProphetModel(BaseForecaster):
             params["changepoint_prior_scale"] = changepoint_prior_scale
         if seasonality_prior_scale is not None:
             params["seasonality_prior_scale"] = seasonality_prior_scale
+        params["interval_width"] = interval_width
 
         params.update(kwargs)
         self._params = params
@@ -86,6 +88,9 @@ class ProphetModel(BaseForecaster):
             f"Initialized Prophet Model for {self.department} ({self.age_group}) — "
             f"growth={params['growth']}, seasonality={params['seasonality_mode']}"
         )
+
+    def get_params(self) -> dict:
+        return dict(self._params)
 
     # ------------------------------------------------------------------
     # BaseForecaster interface
@@ -130,6 +135,7 @@ class ProphetModel(BaseForecaster):
             seasonality_mode=self._params["seasonality_mode"],
             changepoint_prior_scale=self._params["changepoint_prior_scale"],
             seasonality_prior_scale=self._params["seasonality_prior_scale"],
+            interval_width=self._params["interval_width"],
         )
 
         # Add official Peru holidays
@@ -159,8 +165,6 @@ class ProphetModel(BaseForecaster):
     def predict(self, data: pd.Series, steps: int = 52) -> np.ndarray:
         """
         Predict steps ahead starting after the end of data.
-        To ensure the trend is properly updated and anchored to the end of data
-        in walk-forward scenarios, we refit the model on data.
 
         Args:
             data:  Real observations available at prediction time.
@@ -177,39 +181,16 @@ class ProphetModel(BaseForecaster):
         )
 
         try:
-            from prophet import Prophet
-
-            df = pd.DataFrame({
-                "ds": data.index,
-                "y": data.values,
-            })
-
-            # Re-fit on current data window
-            model = Prophet(
-                growth=self._params["growth"],
-                yearly_seasonality=self._params["yearly_seasonality"],
-                weekly_seasonality=self._params["weekly_seasonality"],
-                daily_seasonality=self._params["daily_seasonality"],
-                seasonality_mode=self._params["seasonality_mode"],
-                changepoint_prior_scale=self._params["changepoint_prior_scale"],
-                seasonality_prior_scale=self._params["seasonality_prior_scale"],
-            )
-            model.add_country_holidays(country_name="PE")
-            model.fit(df)
-
-            # Generate future date range starting after the end of data
             last_date = data.index[-1]
             future_dates = pd.date_range(
                 start=last_date,
                 periods=steps + 1,
-                freq=data.index.freq or "7D",
+                freq=pd.infer_freq(data.index) or "7D",
             )[1:]
 
             future_df = pd.DataFrame({"ds": future_dates})
-            forecast = model.predict(future_df)
-            preds = forecast["yhat"].values
-
-            return np.maximum(0.0, preds)
+            forecast = self._model.predict(future_df)
+            return np.maximum(0.0, forecast["yhat"].values)
 
         except Exception as e:
             logger.error(f"Prophet prediction failed: {e}")
@@ -219,15 +200,14 @@ class ProphetModel(BaseForecaster):
         self,
         data: pd.Series,
         steps: int = 52,
-        alpha: float = 0.05,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Point forecasts plus confidence interval anchored to data.
+        The interval width is determined by the interval_width parameter set at construction.
 
         Args:
             data:  Real observations available at prediction time.
             steps: Weeks to forecast ahead.
-            alpha: Significance level (default 0.05 -> 95% CI).
 
         Returns:
             (predictions, lower_bound, upper_bound)
@@ -236,42 +216,21 @@ class ProphetModel(BaseForecaster):
             raise ValueError("Model must be fitted before predicting")
 
         logger.info(
-            f"Prophet CI forecast — {steps} steps, {(1-alpha)*100:.0f}% CI"
+            f"Prophet CI forecast — {steps} steps, "
+            f"{self._params['interval_width']*100:.0f}% CI"
         )
 
         try:
-            from prophet import Prophet
-
-            df = pd.DataFrame({
-                "ds": data.index,
-                "y": data.values,
-            })
-
-            # Re-fit on current data window with specific interval width
-            model = Prophet(
-                growth=self._params["growth"],
-                yearly_seasonality=self._params["yearly_seasonality"],
-                weekly_seasonality=self._params["weekly_seasonality"],
-                daily_seasonality=self._params["daily_seasonality"],
-                seasonality_mode=self._params["seasonality_mode"],
-                changepoint_prior_scale=self._params["changepoint_prior_scale"],
-                seasonality_prior_scale=self._params["seasonality_prior_scale"],
-                interval_width=1.0 - alpha,
-            )
-            model.add_country_holidays(country_name="PE")
-            model.fit(df)
-
-            # Generate future date range starting after the end of data
             last_date = data.index[-1]
             future_dates = pd.date_range(
                 start=last_date,
                 periods=steps + 1,
-                freq=data.index.freq or "7D",
+                freq=pd.infer_freq(data.index) or "7D",
             )[1:]
 
             future_df = pd.DataFrame({"ds": future_dates})
-            forecast = model.predict(future_df)
-            
+            forecast = self._model.predict(future_df)
+
             preds = np.maximum(0.0, forecast["yhat"].values)
             lower = np.maximum(0.0, forecast["yhat_lower"].values)
             upper = np.maximum(0.0, forecast["yhat_upper"].values)

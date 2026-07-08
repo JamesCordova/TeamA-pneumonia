@@ -63,13 +63,17 @@ class SARIMAPipeline:
     ):
         """
         Initialize pipeline.
-        
+
         Args:
             department: Department name
             age_group: 'under5' or '60plus'
             use_auto_arima: Override config setting for auto_arima search
             forecast_steps: Number of steps to forecast (default: 52 weeks = 1 year)
             split_strategy: Override config 'dynamic' or 'years' splitting
+            order: Non-seasonal ARIMA order (p, d, q); None uses config/auto_arima
+            seasonal_order: Seasonal order (P, D, Q, m); None uses config/auto_arima
+            use_fourier: Override Fourier seasonality setting from config
+            n_fourier_terms: Number of Fourier sin/cos pairs for seasonality
         """
         self.department = department.upper()
         self.age_group = age_group.lower()
@@ -242,7 +246,7 @@ class SARIMAPipeline:
             self.val_forecasts['SARIMA'] = val_forecast
             
             # Compute metrics
-            val_metrics = compute_all_metrics(self.val.values, val_forecast, training_actual=self.train.values)
+            val_metrics = compute_all_metrics(self.val.values, val_forecast)
             
             # Compute baseline for comparison
             baseline = baseline_metrics(self.val.values)
@@ -283,7 +287,7 @@ class SARIMAPipeline:
             self.test_forecasts['SARIMA'] = test_forecast
             
             # Compute metrics
-            test_metrics = compute_all_metrics(self.test.values, test_forecast, training_actual=pd.concat([self.train, self.val]).values)
+            test_metrics = compute_all_metrics(self.test.values, test_forecast)
             
             # Compute baseline for comparison
             baseline = baseline_metrics(self.test.values)

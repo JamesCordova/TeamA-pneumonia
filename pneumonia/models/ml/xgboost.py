@@ -73,6 +73,13 @@ class XGBoostModel(BaseForecaster):
         self._min_history: int = 0
         self._fit_size: int = 0
 
+    def get_params(self) -> dict:
+        return {
+            "xgb_params": dict(self._params),
+            "lags":       self.lags,
+            "windows":    self.windows,
+        }
+
     # ------------------------------------------------------------------
     # BaseForecaster interface
     # ------------------------------------------------------------------
