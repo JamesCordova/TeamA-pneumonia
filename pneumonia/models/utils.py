@@ -402,8 +402,9 @@ def handle_missing_values(
     data = data.copy()
     
     if method == "interpolate":
-        # Linear interpolation for missing values in the middle
-        data = data.interpolate(method="linear", limit_direction="both")
+        # Linear interpolation for missing values in the middle.
+        # Case counts are discrete, so round to avoid fractional cases (e.g. 12.5).
+        data = data.interpolate(method="linear", limit_direction="both").round()
     elif method == "forward_fill":
         # Forward fill then backward fill for edge cases
         data = data.ffill().bfill()
