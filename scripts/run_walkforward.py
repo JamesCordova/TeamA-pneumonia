@@ -54,7 +54,8 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pneumonia.config import REPORTS_PATH
-from pneumonia.evaluation.results_db import save_walkforward_run
+from pneumonia.evaluation.results_db import find_existing_run, save_walkforward_run
+from pneumonia.evaluation.results_db_query import reconstruct_results_from_run
 from pneumonia.evaluation.walkforward import WalkForwardValidator
 from pneumonia.models.utils import (
     get_available_departments,
@@ -129,17 +130,44 @@ def run_walkforward_for(
     model_class = _resolve_model_class(model_name)
     model_params = {"department": department, "age_group": age_group, **extra_model_params}
 
-    validator = WalkForwardValidator(
-        model_class=model_class,
-        model_params=model_params,
-        initial_train_size=train_size,
-        horizon=horizon,
-        step=step,
-        window_type=window_type,
-        refit_every=refit_every,
-    )
+    # Skip retraining if results_unsa_ira already has an identical configuration
+    # (department, age_group, model, horizon, step, window_type, train_size,
+    # refit_every, model_params) saved from a previous run: reconstruct the
+    # local files from its stored predictions instead. Reliable here because
+    # get_params() on a freshly-constructed (unfitted) instance already
+    # matches what it would be after fit() for every model this script can
+    # invoke — including SARIMA, whose only exception (auto_arima re-resolving
+    # (p,d,q) post-fit) is never triggered from this CLI (no --use_auto_arima
+    # flag or fit_kwargs wiring here).
+    config_probe = {
+        "horizon": horizon, "step": step, "window_type": window_type,
+        "train_size": train_size, "refit_every": refit_every,
+    }
+    reused_run_id = None
+    try:
+        probe = model_class(**model_params)
+        reused_run_id = find_existing_run(
+            department=department, age_group=age_group, model=model_name,
+            config=config_probe, model_params=probe.get_params(),
+        )
+    except Exception as exc:
+        logger.warning(f"Could not check results_unsa_ira for an existing run: {exc}")
 
-    results = validator.run(data)
+    if reused_run_id is not None:
+        print(f"Identical configuration already exists as run_id={reused_run_id} "
+              f"— reconstructing local files without retraining.")
+        results = reconstruct_results_from_run(reused_run_id)
+    else:
+        validator = WalkForwardValidator(
+            model_class=model_class,
+            model_params=model_params,
+            initial_train_size=train_size,
+            horizon=horizon,
+            step=step,
+            window_type=window_type,
+            refit_every=refit_every,
+        )
+        results = validator.run(data)
 
     print(f"\n{'='*70}")
     print(f"Walk-forward results — {department}/{age_group}  run={run_name} (model={model_name})")
@@ -190,20 +218,24 @@ def run_walkforward_for(
 
     # Additive: also persist to results_unsa_ira (db/migrations/0001_walkforward_results).
     # Never blocks the file-based outputs above if the database is unreachable.
-    try:
-        run_id = save_walkforward_run(
-            department=department,
-            age_group=age_group,
-            model=model_name,
-            run_name=run_name,
-            config=results["config"],
-            model_params=results["model_params"],
-            n_steps=results["n_steps"],
-            step_results=results["step_results"],
-        )
-        print(f"Saved to database: run_id={run_id}")
-    except Exception as exc:
-        logger.warning(f"Could not save results to database: {exc}")
+    # Skipped when reused_run_id is set — that data already exists there.
+    if reused_run_id is not None:
+        print(f"Database: reusing existing run_id={reused_run_id} (no new insert)")
+    else:
+        try:
+            run_id = save_walkforward_run(
+                department=department,
+                age_group=age_group,
+                model=model_name,
+                run_name=run_name,
+                config=results["config"],
+                model_params=results["model_params"],
+                n_steps=results["n_steps"],
+                step_results=results["step_results"],
+            )
+            print(f"Saved to database: run_id={run_id}")
+        except Exception as exc:
+            logger.warning(f"Could not save results to database: {exc}")
 
     return 0
 
