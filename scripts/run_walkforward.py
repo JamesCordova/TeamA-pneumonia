@@ -54,6 +54,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pneumonia.config import REPORTS_PATH
+from pneumonia.evaluation.results_db import save_walkforward_run
 from pneumonia.evaluation.walkforward import WalkForwardValidator
 from pneumonia.models.utils import (
     get_available_departments,
@@ -186,6 +187,24 @@ def run_walkforward_for(
     with open(metrics_file, "w") as f:
         json.dump(payload, f, indent=2, default=str)
     logger.info(f"Metrics JSON saved: {metrics_file}")
+
+    # Additive: also persist to results_unsa_ira (db/migrations/0001_walkforward_results).
+    # Never blocks the file-based outputs above if the database is unreachable.
+    try:
+        run_id = save_walkforward_run(
+            department=department,
+            age_group=age_group,
+            model=model_name,
+            run_name=run_name,
+            config=results["config"],
+            model_params=results["model_params"],
+            n_steps=results["n_steps"],
+            step_results=results["step_results"],
+        )
+        print(f"Saved to database: run_id={run_id}")
+    except Exception as exc:
+        logger.warning(f"Could not save results to database: {exc}")
+
     return 0
 
 
