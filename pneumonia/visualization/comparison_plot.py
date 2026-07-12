@@ -244,7 +244,12 @@ def _draw_model_date_heatmap(
 
     matrix = np.full((len(models), len(date_index)), np.nan)
     for i, m in enumerate(models):
-        s = model_frames[m].set_index("date")[metric].reindex(date_index)
+        # groupby(...).last() instead of set_index(...) — a date can repeat
+        # within one model's cumulative frame when horizon > step (overlapping
+        # walk-forward windows put more than one evaluation on the same
+        # calendar date); take the last (most complete) expanding-window
+        # value for that date so reindex() has a unique index to align to.
+        s = model_frames[m].groupby("date")[metric].last().reindex(date_index)
         if fill_method == "ffill":
             s = s.ffill()
         elif fill_method == "bfill":
