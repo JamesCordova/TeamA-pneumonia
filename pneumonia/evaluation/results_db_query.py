@@ -13,10 +13,12 @@ computed identically.
 
 from typing import Optional, Sequence
 
+import numpy as np
 import pandas as pd
 from sqlalchemy import bindparam, text
 
 from pneumonia.data.load_data import get_db_engine
+from pneumonia.evaluation.metrics import compute_all_metrics
 
 
 def latest_runs(
@@ -74,3 +76,101 @@ def predictions_for_runs(
     with engine.connect() as conn:
         df = pd.read_sql(stmt, conn, params={"run_ids": list(run_ids)}, parse_dates=["date"])
     return df
+
+
+def reconstruct_results_from_run(run_id: int, database_url: Optional[str] = None) -> dict:
+    """
+    Rebuild a WalkForwardValidator.run()-shaped dict (config, model_params,
+    n_steps, step_results, predictions, metrics_by_horizon) from an existing
+    run's stored walkforward_predictions — so scripts/run_walkforward.py can
+    regenerate the local *_predictions.csv / *_step_metrics.csv / JSON files
+    for a configuration that was already run, without retraining.
+
+    step_results entries won't have 'train_start'/'train_end'/'n_train' (not
+    persisted in walkforward_predictions) — set to None. Harmless: neither
+    pneumonia.visualization.persistence.save_step_metrics nor
+    save_walkforward_predictions reads those fields.
+    """
+    engine = get_db_engine(database_url)
+    with engine.connect() as conn:
+        run_row = conn.execute(
+            text("""
+                SELECT model, run_name, horizon, step, window_type, train_size,
+                       refit_every, model_params, n_steps
+                FROM results_unsa_ira.walkforward_runs
+                WHERE run_id = :run_id
+            """),
+            {"run_id": run_id},
+        ).mappings().first()
+        if run_row is None:
+            raise ValueError(f"run_id={run_id} not found in results_unsa_ira.walkforward_runs")
+
+        preds = pd.read_sql(
+            text("""
+                SELECT step_idx, horizon_offset, date, actual, predicted
+                FROM results_unsa_ira.walkforward_predictions
+                WHERE run_id = :run_id
+            """),
+            conn, params={"run_id": run_id}, parse_dates=["date"],
+        )
+
+    horizon = run_row["horizon"]
+    config = {
+        "horizon":     horizon,
+        "step":        run_row["step"],
+        "window_type": run_row["window_type"],
+        "train_size":  run_row["train_size"],
+        "refit_every": run_row["refit_every"],
+    }
+
+    metrics_by_horizon = {}
+    for h, g in preds.groupby("horizon_offset"):
+        metrics_by_horizon[int(h)] = compute_all_metrics(
+            g["actual"].values, g["predicted"].values, warn_on_nan=False
+        )
+
+    step_results = []
+    for step_idx, g in preds.groupby("step_idx"):
+        g = g.sort_values("horizon_offset")
+        step_results.append({
+            "step":           int(step_idx),
+            "train_start":    None,
+            "train_end":      None,
+            "forecast_start": str(g["date"].min().date()),
+            "forecast_end":   str(g["date"].max().date()),
+            "n_train":        None,
+            "dates":          [str(d.date()) for d in g["date"]],
+            "actuals":        g["actual"].tolist(),
+            "predictions":    g["predicted"].tolist(),
+            "metrics": compute_all_metrics(
+                g["actual"].values, g["predicted"].values, warn_on_nan=False
+            ),
+        })
+    step_results.sort(key=lambda s: s["step"])
+
+    # Wide predictions DataFrame: one row per date, one column per horizon
+    # offset (pred_h1..pred_hN) — the same shape WalkForwardValidator.run()
+    # builds directly. A date can have several offsets filled in (from
+    # different overlapping steps when horizon > step); each (date,
+    # horizon_offset) pair is unique by construction (one step per offset).
+    wide = preds.pivot_table(
+        index="date", columns="horizon_offset", values="predicted", aggfunc="first"
+    )
+    wide = wide.rename(columns=lambda h: f"pred_h{int(h)}")
+    for h in range(1, horizon + 1):
+        col = f"pred_h{h}"
+        if col not in wide.columns:
+            wide[col] = np.nan
+
+    actual_by_date = preds.groupby("date")["actual"].first()
+    pred_df = wide.sort_index()
+    pred_df.insert(0, "actual", actual_by_date.reindex(pred_df.index))
+
+    return {
+        "config":             config,
+        "model_params":       run_row["model_params"],
+        "n_steps":            run_row["n_steps"],
+        "step_results":       step_results,
+        "predictions":        pred_df,
+        "metrics_by_horizon": metrics_by_horizon,
+    }
