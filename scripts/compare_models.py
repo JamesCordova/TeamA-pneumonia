@@ -276,6 +276,51 @@ def compute_cumulative_micro_metrics_from_db(
     return data
 
 
+def _model_lookup_local(reports_dir: Path, department: str, age_group: str) -> dict:
+    """
+    {run_name: model} read from *_walkforward_metrics.json.
+
+    Local mode's *_step_metrics.csv / *_predictions.csv only carry run_name in
+    their filename — the model type is only recorded in the JSON — so
+    --models filtering in local mode needs this separate lookup.
+    """
+    out_dir = Path(reports_dir) / department / age_group
+    lookup = {}
+    for f in out_dir.glob("*_walkforward_metrics.json"):
+        with open(f, encoding="utf-8-sig") as fh:
+            j = json.load(fh)
+        lookup[j.get("run_name", j["model"])] = j["model"]
+    return lookup
+
+
+def _filter_by_model_and_name(
+    data: dict,
+    department: str,
+    age_group: str,
+    source: str,
+    models: list = None,
+    run_names: list = None,
+) -> dict:
+    """
+    Restrict a {run_name: ...} dict (metrics / step_data / micro_metrics /
+    cumulative_metrics — any of the four shapes used in this file) to the
+    requested --models and/or --run_names. Both filters combine with AND;
+    either left as None/empty is skipped.
+    """
+    if not models and not run_names:
+        return data
+    if source == "db":
+        runs_df = latest_runs(department, age_group)
+        model_of = dict(zip(runs_df["run_name"], runs_df["model"]))
+    else:
+        model_of = _model_lookup_local(REPORTS_PATH, department, age_group)
+    return {
+        k: v for k, v in data.items()
+        if (not run_names or k in run_names)
+        and (not models or model_of.get(k) in models)
+    }
+
+
 def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
     """Build model × (horizon × metric) DataFrame for all TABLE_METRICS."""
     rows = []
@@ -353,6 +398,8 @@ def compare_macroaverage(
     year: int = None,
     interactive: bool = False,
     source: str = "local",
+    models: list = None,
+    run_names: list = None,
 ) -> None:
     """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
     department = department.upper()
@@ -365,6 +412,13 @@ def compare_macroaverage(
             step_data = load_step_metrics(REPORTS_PATH, department, age_group)
     except FileNotFoundError as exc:
         logger.warning(f"Skipping step metrics for {department}: {exc}")
+        return
+
+    step_data = _filter_by_model_and_name(
+        step_data, department, age_group, source, models, run_names
+    )
+    if not step_data:
+        logger.warning(f"No runs left for {department} after applying --models/--run_names filters.")
         return
 
     if year is not None:
@@ -395,6 +449,8 @@ def compare_microaverage(
     interactive: bool = False,
     year: int = None,
     source: str = "local",
+    models: list = None,
+    run_names: list = None,
 ) -> None:
     """
     Model comparison pooling every backtest prediction across all steps/horizons —
@@ -418,6 +474,16 @@ def compare_microaverage(
             )
     except FileNotFoundError as exc:
         logger.warning(f"Skipping microaverage for {department}: {exc}")
+        return
+
+    micro_metrics = _filter_by_model_and_name(
+        micro_metrics, department, age_group, source, models, run_names
+    )
+    cumulative_metrics = _filter_by_model_and_name(
+        cumulative_metrics, department, age_group, source, models, run_names
+    )
+    if not micro_metrics:
+        logger.warning(f"No runs left for {department} after applying --models/--run_names filters.")
         return
 
     table = build_micro_table(micro_metrics)
@@ -457,22 +523,30 @@ def compare(
     year: int = None,
     interactive: bool = False,
     source: str = "local",
+    models: list = None,
+    run_names: list = None,
 ) -> None:
     department = department.upper()
 
     if mode == "macroaverage":
         compare_macroaverage(
-            department, age_group, metric_names, trend_window, year, interactive, source
+            department, age_group, metric_names, trend_window, year, interactive, source,
+            models, run_names,
         )
         return
     if mode == "microaverage":
-        compare_microaverage(department, age_group, metric_names, interactive, year, source)
+        compare_microaverage(
+            department, age_group, metric_names, interactive, year, source, models, run_names
+        )
         return
 
     metrics = (
         load_metrics_from_db(department, age_group) if source == "db"
         else load_metrics(REPORTS_PATH, department, age_group)
     )
+    metrics = _filter_by_model_and_name(metrics, department, age_group, source, models, run_names)
+    if not metrics:
+        raise ValueError("No runs left after applying --models/--run_names filters.")
 
     available_horizons = sorted({h for m in metrics.values() for h in m})
     horizons = [h for h in horizons if h in available_horizons]
@@ -607,6 +681,12 @@ def main():
                              "using the latest run per run_name. Requires DATABASE_URL to be "
                              "reachable; falls back to nothing automatically if not — the "
                              "error is raised so it's obvious the data wasn't found there.")
+    parser.add_argument("--models", nargs="+", default=None,
+                        help="Restrict to these model types (e.g. --models XGBoost RandomForest). "
+                             "Useful for reviewing every grid-search variant of a model type "
+                             "without listing each run_name. Combinable with --run_names (AND).")
+    parser.add_argument("--run_names", nargs="+", default=None,
+                        help="Restrict to these exact run_name labels. Combinable with --models (AND).")
     args = parser.parse_args()
 
     departments = []
@@ -641,6 +721,7 @@ def main():
                 dept, args.age_group, args.horizons, metric_names,
                 mode=args.mode, trend_window=trend_window,
                 year=args.year, interactive=args.interactive, source=args.source,
+                models=args.models, run_names=args.run_names,
             )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")
