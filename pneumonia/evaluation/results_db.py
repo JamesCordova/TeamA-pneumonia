@@ -22,6 +22,53 @@ from pneumonia.utils import setup_logger
 logger = setup_logger(__name__)
 
 
+_MATCH_CONFIG_QUERY = """
+    SELECT run_id FROM results_unsa_ira.walkforward_runs
+    WHERE department = :department AND age_group = :age_group AND measure = :measure
+      AND model = :model AND horizon = :horizon AND step = :step
+      AND window_type = :window_type AND train_size = :train_size
+      AND refit_every = :refit_every
+      AND model_params = CAST(:model_params AS jsonb)
+"""
+
+
+def find_existing_run(
+    department: str,
+    age_group: str,
+    model: str,
+    config: dict,
+    model_params: dict,
+    measure: str = "cases",
+    database_url: Optional[str] = None,
+) -> Optional[int]:
+    """
+    Return the run_id of an existing run with this exact configuration
+    (department, age_group, measure, model, horizon, step, window_type,
+    train_size, refit_every, model_params), or None if no such run exists.
+
+    Used both by save_walkforward_run() (to avoid inserting a duplicate) and
+    by scripts/run_walkforward.py (to skip retraining entirely when the same
+    configuration was already run).
+    """
+    engine = get_db_engine(database_url)
+    with engine.connect() as conn:
+        return conn.execute(
+            text(_MATCH_CONFIG_QUERY),
+            {
+                "department": department,
+                "age_group": age_group,
+                "measure": measure,
+                "model": model,
+                "horizon": config["horizon"],
+                "step": config["step"],
+                "window_type": config["window_type"],
+                "train_size": config["train_size"],
+                "refit_every": config["refit_every"],
+                "model_params": json.dumps(model_params, default=str),
+            },
+        ).scalar()
+
+
 def save_walkforward_run(
     department: str,
     age_group: str,
@@ -35,7 +82,25 @@ def save_walkforward_run(
     database_url: Optional[str] = None,
 ) -> int:
     """
-    Insert one walkforward_runs row plus its walkforward_predictions rows.
+    Insert one walkforward_runs row plus its walkforward_predictions rows —
+    unless an identical configuration already exists, in which case that
+    existing run_id is reused and nothing new is inserted.
+
+    Two safeguards against duplicate/colliding data, both scoped by an
+    advisory lock on (department, age_group, measure, run_name) so concurrent
+    callers (e.g. parallel grid-search workers) serialize correctly:
+
+      1. If a run with the exact same configuration (department, age_group,
+         measure, model, horizon, step, window_type, train_size, refit_every,
+         model_params) already exists under ANY run_name, that run_id is
+         reused — no new row, no new predictions.
+      2. Otherwise, if `run_name` is already used by a DIFFERENT configuration
+         in this (department, age_group, measure) scope — regardless of
+         model — the name is auto-suffixed: 'run_name(1)', 'run_name(2)', ...
+         This keeps run_name unique across all models within a department/
+         age_group, which the rest of the codebase (dict keys, groupby)
+         assumes. See db/migrations/0002_walkforward_runs_unique, which backs
+         this with a UNIQUE constraint as a defensive fallback.
 
     Args:
         department:    Department name (uppercase).
@@ -54,11 +119,58 @@ def save_walkforward_run(
         database_url:  Overrides config.DATABASE_URL if given.
 
     Returns:
-        The new run_id.
+        The run_id (new, or an existing one if reused).
     """
     engine = get_db_engine(database_url)
+    model_params_json = json.dumps(model_params, default=str)
 
     with engine.begin() as conn:
+        lock_key = f"{department}:{age_group}:{measure}:{run_name}"
+        conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": lock_key})
+
+        existing = conn.execute(
+            text(_MATCH_CONFIG_QUERY),
+            {
+                "department": department,
+                "age_group": age_group,
+                "measure": measure,
+                "model": model,
+                "horizon": config["horizon"],
+                "step": config["step"],
+                "window_type": config["window_type"],
+                "train_size": config["train_size"],
+                "refit_every": config["refit_every"],
+                "model_params": model_params_json,
+            },
+        ).scalar()
+        if existing is not None:
+            logger.info(
+                f"Identical configuration already exists as run_id={existing} "
+                f"({department}/{age_group}/{measure}/{model}) — reusing it, no new insert."
+            )
+            return existing
+
+        existing_names = set(
+            conn.execute(
+                text("""
+                    SELECT run_name FROM results_unsa_ira.walkforward_runs
+                    WHERE department = :department AND age_group = :age_group AND measure = :measure
+                """),
+                {"department": department, "age_group": age_group, "measure": measure},
+            ).scalars().all()
+        )
+
+        resolved_name = run_name
+        if resolved_name in existing_names:
+            n = 1
+            while f"{run_name}({n})" in existing_names:
+                n += 1
+            resolved_name = f"{run_name}({n})"
+            logger.info(
+                f"run_name '{run_name}' already used by a different configuration — "
+                f"saving this one as '{resolved_name}'."
+            )
+
         run_id = conn.execute(
             text("""
                 INSERT INTO results_unsa_ira.walkforward_runs
@@ -68,7 +180,7 @@ def save_walkforward_run(
                 VALUES
                     (:department, :age_group, :measure, :model, :run_name,
                      :horizon, :step, :window_type, :train_size, :refit_every,
-                     :model_params, :n_steps)
+                     CAST(:model_params AS jsonb), :n_steps)
                 RETURNING run_id
             """),
             {
@@ -76,13 +188,13 @@ def save_walkforward_run(
                 "age_group": age_group,
                 "measure": measure,
                 "model": model,
-                "run_name": run_name,
+                "run_name": resolved_name,
                 "horizon": config["horizon"],
                 "step": config["step"],
                 "window_type": config["window_type"],
                 "train_size": config["train_size"],
                 "refit_every": config["refit_every"],
-                "model_params": json.dumps(model_params, default=str),
+                "model_params": model_params_json,
                 "n_steps": n_steps,
             },
         ).scalar_one()
