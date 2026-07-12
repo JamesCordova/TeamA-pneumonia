@@ -61,6 +61,7 @@ import pandas as pd
 
 from pneumonia.config import REPORTS_PATH
 from pneumonia.evaluation.metrics import compute_all_metrics
+from pneumonia.evaluation.results_db_query import latest_runs, predictions_for_runs
 from pneumonia.utils import setup_logger
 from pneumonia.visualization._utils import get_output_path, read_predictions
 from pneumonia.visualization.comparison_plot import (
@@ -181,6 +182,100 @@ def compute_cumulative_micro_metrics(
     return data
 
 
+# ---------------------------------------------------------------------------
+# Data loading — from results_unsa_ira (db/migrations/0001_walkforward_results)
+# ---------------------------------------------------------------------------
+
+def _load_predictions_from_db(
+    department: str, age_group: str, measure: str = "cases", year: int = None
+) -> pd.DataFrame:
+    """
+    Raw predictions (joined to run_name) for the latest run of each run_name —
+    the DB equivalent of _load_backtest_predictions. Not deduplicated by date:
+    if a model was run with horizon > step, overlapping steps' predictions for
+    the same date are all kept (see db/migrations/0001_walkforward_results).
+    """
+    runs = latest_runs(department, age_group, measure)
+    if runs.empty:
+        raise FileNotFoundError(
+            f"No walkforward runs found in results_unsa_ira for "
+            f"{department}/{age_group}/{measure}.\nRun scripts/run_walkforward.py first."
+        )
+    preds = predictions_for_runs(runs["run_id"].tolist())
+    preds = preds.merge(runs[["run_id", "run_name"]], on="run_id", how="left")
+    if year is not None:
+        preds = preds[preds["date"].dt.year == year]
+    if preds.empty:
+        suffix = f" in year={year}" if year is not None else ""
+        raise FileNotFoundError(
+            f"No predictions found for {department}/{age_group}{suffix} in results_unsa_ira."
+        )
+    return preds
+
+
+def load_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+    """DB equivalent of load_metrics(): {run_name: {horizon_int: {metric: value}}}."""
+    preds = _load_predictions_from_db(department, age_group, measure)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        by_h = {}
+        for h, gh in g.groupby("horizon_offset"):
+            by_h[int(h)] = compute_all_metrics(
+                gh["actual"].values, gh["predicted"].values, warn_on_nan=False
+            )
+        data[run_name] = by_h
+    return data
+
+
+def load_step_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+    """DB equivalent of load_step_metrics(): {run_name: DataFrame(date, step, n_obs, mae, ...)}."""
+    preds = _load_predictions_from_db(department, age_group, measure)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        rows = []
+        for step_idx, gs in g.groupby("step_idx"):
+            m = compute_all_metrics(gs["actual"].values, gs["predicted"].values, warn_on_nan=False)
+            m["date"]   = gs["date"].min()
+            m["step"]   = int(step_idx)
+            m["n_obs"]  = len(gs)
+            rows.append(m)
+        data[run_name] = pd.DataFrame(rows).sort_values("step").reset_index(drop=True)
+    return data
+
+
+def load_micro_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", year: int = None
+) -> dict:
+    """DB equivalent of load_micro_metrics(): {run_name: {metric: value}}."""
+    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        data[run_name] = compute_all_metrics(
+            g["actual"].values, g["predicted"].values, warn_on_nan=False
+        )
+    return data
+
+
+def compute_cumulative_micro_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", min_obs: int = 8, year: int = None
+) -> dict:
+    """DB equivalent of compute_cumulative_micro_metrics()."""
+    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        g = g.sort_values("date")
+        actual    = g["actual"].to_numpy()
+        predicted = g["predicted"].to_numpy()
+        start = min(min_obs, len(g))
+        rows = []
+        for i in range(start, len(g) + 1):
+            m = compute_all_metrics(actual[:i], predicted[:i], warn_on_nan=False)
+            m["date"] = g["date"].iloc[i - 1]
+            rows.append(m)
+        data[run_name] = pd.DataFrame(rows)
+    return data
+
+
 def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
     """Build model × (horizon × metric) DataFrame for all TABLE_METRICS."""
     rows = []
@@ -257,13 +352,17 @@ def compare_macroaverage(
     trend_window: int = 13,
     year: int = None,
     interactive: bool = False,
+    source: str = "local",
 ) -> None:
     """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
     department = department.upper()
     out_dir    = Path(REPORTS_PATH) / department / age_group
 
     try:
-        step_data = load_step_metrics(REPORTS_PATH, department, age_group)
+        if source == "db":
+            step_data = load_step_metrics_from_db(department, age_group)
+        else:
+            step_data = load_step_metrics(REPORTS_PATH, department, age_group)
     except FileNotFoundError as exc:
         logger.warning(f"Skipping step metrics for {department}: {exc}")
         return
@@ -295,6 +394,7 @@ def compare_microaverage(
     metric_names: list,
     interactive: bool = False,
     year: int = None,
+    source: str = "local",
 ) -> None:
     """
     Model comparison pooling every backtest prediction across all steps/horizons —
@@ -306,10 +406,16 @@ def compare_microaverage(
     out_dir    = Path(REPORTS_PATH) / department / age_group
 
     try:
-        micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group, year=year)
-        cumulative_metrics = compute_cumulative_micro_metrics(
-            REPORTS_PATH, department, age_group, year=year
-        )
+        if source == "db":
+            micro_metrics = load_micro_metrics_from_db(department, age_group, year=year)
+            cumulative_metrics = compute_cumulative_micro_metrics_from_db(
+                department, age_group, year=year
+            )
+        else:
+            micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group, year=year)
+            cumulative_metrics = compute_cumulative_micro_metrics(
+                REPORTS_PATH, department, age_group, year=year
+            )
     except FileNotFoundError as exc:
         logger.warning(f"Skipping microaverage for {department}: {exc}")
         return
@@ -350,19 +456,23 @@ def compare(
     trend_window: int = 13,
     year: int = None,
     interactive: bool = False,
+    source: str = "local",
 ) -> None:
     department = department.upper()
 
     if mode == "macroaverage":
         compare_macroaverage(
-            department, age_group, metric_names, trend_window, year, interactive
+            department, age_group, metric_names, trend_window, year, interactive, source
         )
         return
     if mode == "microaverage":
-        compare_microaverage(department, age_group, metric_names, interactive, year)
+        compare_microaverage(department, age_group, metric_names, interactive, year, source)
         return
 
-    metrics = load_metrics(REPORTS_PATH, department, age_group)
+    metrics = (
+        load_metrics_from_db(department, age_group) if source == "db"
+        else load_metrics(REPORTS_PATH, department, age_group)
+    )
 
     available_horizons = sorted({h for m in metrics.values() for h in m})
     horizons = [h for h in horizons if h in available_horizons]
@@ -489,6 +599,14 @@ def main():
                         help="Open the plot in a window (plt.show()) instead of just saving "
                              "it to disk. Requires exactly one --metric, so only one window "
                              "needs to be closed.")
+    parser.add_argument("--source", choices=["local", "db"], default="local",
+                        help="Where to read results from. 'local' (default) — the "
+                             "*_walkforward_metrics.json / *_step_metrics.csv / "
+                             "*_predictions.csv files under reports/. 'db' — query "
+                             "results_unsa_ira directly (db/migrations/0001_walkforward_results), "
+                             "using the latest run per run_name. Requires DATABASE_URL to be "
+                             "reachable; falls back to nothing automatically if not — the "
+                             "error is raised so it's obvious the data wasn't found there.")
     args = parser.parse_args()
 
     departments = []
@@ -522,7 +640,7 @@ def main():
             compare(
                 dept, args.age_group, args.horizons, metric_names,
                 mode=args.mode, trend_window=trend_window,
-                year=args.year, interactive=args.interactive,
+                year=args.year, interactive=args.interactive, source=args.source,
             )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")
