@@ -175,6 +175,7 @@ class WalkForwardValidator:
                 "forecast_start":     str(y_val.index[0].date()),
                 "forecast_end":       str(y_val.index[-1].date()),
                 "n_train":            len(y_train),
+                "dates":              [str(d.date()) for d in y_val.index],
                 "actuals":            y_val.values.tolist(),
                 "predictions":        forecast.tolist(),
                 "metrics":            step_metrics,
