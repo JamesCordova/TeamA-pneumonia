@@ -22,6 +22,7 @@ from typing import List, Optional
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from pneumonia.evaluation.results_db_query import read_predictions_from_db
 from pneumonia.utils import setup_logger
 from pneumonia.visualization._utils import (
     clip_axes,
@@ -44,6 +45,7 @@ def plot_backtest(
     figsize: tuple = (15, 5),
     year: Optional[int] = None,
     shaded: bool = False,
+    source: str = "local",
 ) -> Optional[Path]:
     """
     Generate the walk-forward backtest figure.
@@ -59,11 +61,18 @@ def plot_backtest(
         year:         Restrict x-axis to a single calendar year.
         shaded:       If True, draw a shaded min/max band across the selected
                   models instead of plotting each model as a separate line.
+        source:       'local' (default) — *_predictions.csv under reports_dir.
+                  'db' — results_unsa_ira, latest run per run_name. DB-sourced
+                  data only has backtest rows (no classic train/val/test), so
+                  the pre-backtest actual line segment won't be drawn.
 
     Returns:
         Path to the saved PNG, or None if no backtest data was found.
     """
-    df = read_predictions(reports_dir, department, age_group)
+    df = (
+        read_predictions_from_db(department, age_group) if source == "db"
+        else read_predictions(reports_dir, department, age_group)
+    )
     if df is None:
         return None
 

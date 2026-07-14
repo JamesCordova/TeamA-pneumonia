@@ -38,6 +38,7 @@ def plot_one(
     output: Path = None,
     year: int = None,
     shaded: bool = False,
+    source: str = "local",
 ) -> None:
     dept  = department.upper()
     group = age_group.lower()
@@ -68,6 +69,7 @@ def plot_one(
             save_path=output if plot_type == "backtest" else None,
             year=year,
             shaded=shaded,
+            source=source,
         )
         if path:
             print(f"Backtest plot saved: {path}")
@@ -122,6 +124,14 @@ Examples:
         "--year", type=int,
         help="Restrict plot to a single year (e.g. --year 2022).",
     )
+    parser.add_argument(
+        "--source", choices=["local", "db"], default="local",
+        help="Where to read backtest predictions from. 'local' (default) — "
+             "*_predictions.csv under reports/. 'db' — query results_unsa_ira "
+             "directly, using the latest run per run_name. Only applies to "
+             "--plot backtest: the database doesn't store classic train/val/test "
+             "predictions.",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
 
     return parser
@@ -150,12 +160,18 @@ def main():
     if args.shaded and args.plot not in ("backtest", "both"):
         parser.error("--shaded only applies to --plot backtest or --plot both")
 
+    if args.source == "db" and args.plot != "backtest":
+        parser.error(
+            "--source db only applies to --plot backtest — the database doesn't "
+            "store classic train/val/test predictions."
+        )
+
     logger.info(f"Plotting {len(departments)} departments ({args.age_group}, {args.plot})")
     for dept in departments:
         try:
             plot_one(dept, args.age_group, plot_type=args.plot,
                      models=args.models, output=output, year=args.year,
-                     shaded=args.shaded)
+                     shaded=args.shaded, source=args.source)
         except Exception as exc:
             logger.warning(f"Failed for {dept}: {exc}")
 

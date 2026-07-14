@@ -78,6 +78,45 @@ def predictions_for_runs(
     return df
 
 
+def read_predictions_from_db(
+    department: str, age_group: str, measure: str = "cases", database_url: Optional[str] = None
+) -> Optional[pd.DataFrame]:
+    """
+    DB equivalent of pneumonia.visualization._utils.read_predictions(): shaped
+    like the local *_predictions.csv concat (date, split, model, actual,
+    predicted, horizon, department, age_group) — sourced from results_unsa_ira's
+    latest run per run_name. Every row has split='backtest'; the database only
+    stores walk-forward results, not the classic train/val/test predictions
+    (see pneumonia.evaluation.results_db).
+
+    When horizon > step, overlapping steps forecast the same date at different
+    horizon_offsets — kept to the smallest offset per (run_name, date), the
+    same tie-break pneumonia.visualization.persistence.save_walkforward_predictions
+    uses for the local CSV, so a given model only ever draws one line.
+    """
+    runs = latest_runs(department, age_group, measure, database_url)
+    if runs.empty:
+        return None
+    preds = predictions_for_runs(runs["run_id"].tolist(), database_url)
+    if preds.empty:
+        return None
+    preds = preds.merge(runs[["run_id", "run_name"]], on="run_id", how="left")
+    preds = (
+        preds.sort_values("horizon_offset")
+             .drop_duplicates(subset=["run_name", "date"], keep="first")
+    )
+    return pd.DataFrame({
+        "date":       preds["date"],
+        "split":      "backtest",
+        "model":      preds["run_name"],
+        "actual":     preds["actual"],
+        "predicted":  preds["predicted"],
+        "horizon":    preds["horizon_offset"],
+        "department": department,
+        "age_group":  age_group,
+    })
+
+
 def reconstruct_results_from_run(run_id: int, database_url: Optional[str] = None) -> dict:
     """
     Rebuild a WalkForwardValidator.run()-shaped dict (config, model_params,
