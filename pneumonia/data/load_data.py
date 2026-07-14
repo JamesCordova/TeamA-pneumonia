@@ -26,7 +26,11 @@ def get_db_engine(database_url: str):
         SQLAlchemy engine
     """
     from pneumonia.config import DATABASE_URL
-    return create_engine(database_url or DATABASE_URL)
+    return create_engine(
+        database_url or DATABASE_URL,
+        executemany_mode="values_plus_batch",
+        executemany_batch_page_size=500,
+    )
 
 def load_training_data(
     table_name: str,
