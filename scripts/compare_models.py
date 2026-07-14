@@ -93,20 +93,20 @@ TABLE_HEADERS = {
 # ---------------------------------------------------------------------------
 
 def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
-    """Return {run_name: {horizon_int: {metric: value}}} from walkforward JSONs."""
-    out_dir = Path(reports_dir) / department / age_group
-    files   = sorted(out_dir.glob("*_walkforward_metrics.json"))
-    if not files:
-        raise FileNotFoundError(
-            f"No walkforward metrics found in {out_dir}.\n"
-            "Run scripts/run_walkforward.py first."
-        )
+    """
+    Return {run_name: {horizon_int: {metric: value}}}, computed from the
+    'horizon' column of *_predictions.csv — the local equivalent of
+    load_metrics_from_db(), which groups by 'horizon_offset' instead.
+    """
+    backtest = _load_backtest_predictions(reports_dir, department, age_group)
     data = {}
-    for f in files:
-        with open(f, encoding="utf-8-sig") as fh:
-            j = json.load(fh)
-        run_name       = j.get("run_name", j["model"])
-        data[run_name] = {int(h): v for h, v in j["metrics_by_horizon"].items()}
+    for run_name, g in backtest.groupby("model"):
+        by_h = {}
+        for h, gh in g.groupby("horizon"):
+            by_h[int(h)] = compute_all_metrics(
+                gh["actual"].values, gh["predicted"].values, warn_on_nan=False
+            )
+        data[run_name] = by_h
     return data
 
 

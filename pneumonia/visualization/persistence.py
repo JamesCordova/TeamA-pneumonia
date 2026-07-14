@@ -2,9 +2,11 @@
 Prediction persistence — read/write per-model long-format prediction CSVs.
 
 Each model gets its own file: {model_name}_predictions.csv
-Columns: date, split, model, actual, predicted, department, age_group
-  split : 'train' | 'val' | 'test' | 'backtest'
-  model : model name (e.g. 'SARIMA', 'Naive') or 'actual' for train-only rows
+Columns: date, split, model, actual, predicted, horizon, department, age_group
+  split   : 'train' | 'val' | 'test' | 'backtest'
+  model   : model name (e.g. 'SARIMA', 'Naive') or 'actual' for train-only rows
+  horizon : weeks-ahead lead time of the prediction; only set for 'backtest'
+            rows (walk-forward), NaN for train/val/test rows
 
 Having one file per model allows pipelines to run in parallel without
 write conflicts.
@@ -20,7 +22,7 @@ from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
 
-_COLUMNS = ["date", "split", "model", "actual", "predicted", "department", "age_group"]
+_COLUMNS = ["date", "split", "model", "actual", "predicted", "horizon", "department", "age_group"]
 
 
 def _csv_path(reports_dir: Path, department: str, age_group: str, model_name: str) -> Path:
@@ -181,7 +183,8 @@ def save_walkforward_predictions(
     Save walk-forward validation predictions with split='backtest'.
 
     Combines all pred_h* columns so every evaluated date gets one prediction
-    (each date has exactly one non-NaN value across horizons with step==horizon).
+    (each date has exactly one non-NaN value across horizons with step==horizon),
+    keeping track of which pred_h* column it came from in the 'horizon' column.
     Existing backtest rows for this model are replaced; train/val/test rows
     are preserved.
 
@@ -205,19 +208,26 @@ def save_walkforward_predictions(
     if not pred_cols:
         raise ValueError("predictions_df has no 'pred_h*' columns")
 
-    # For each date take the first non-NaN prediction across all horizons.
-    # With step==horizon every date has exactly one filled column.
-    blended = predictions_df[pred_cols].stack().groupby(level=0).first()
-    blended = blended.reindex(predictions_df.index)
+    # For each date, take the smallest-horizon non-NaN prediction across all
+    # pred_h* columns (with step==horizon every date has exactly one filled
+    # column), keeping the horizon it came from.
+    molten = (
+        predictions_df[pred_cols]
+        .rename_axis("date")
+        .reset_index()
+        .melt(id_vars="date", value_vars=pred_cols, var_name="horizon_col", value_name="predicted")
+        .dropna(subset=["predicted"])
+    )
+    molten["horizon"] = molten["horizon_col"].str[6:].astype(int)
+    molten = molten.sort_values(["date", "horizon"]).drop_duplicates(subset="date", keep="first")
 
     rows = []
-    for date, pred_val in blended.items():
-        if pd.isna(pred_val):
-            continue
+    for _, r in molten.iterrows():
         rows.append({
-            "date": date, "split": "backtest", "model": model_name,
-            "actual": float(predictions_df.loc[date, "actual"]),
-            "predicted": float(pred_val),
+            "date": r["date"], "split": "backtest", "model": model_name,
+            "actual": float(predictions_df.loc[r["date"], "actual"]),
+            "predicted": float(r["predicted"]),
+            "horizon": int(r["horizon"]),
             "department": department, "age_group": age_group,
         })
     new_df = pd.DataFrame(rows, columns=_COLUMNS)
