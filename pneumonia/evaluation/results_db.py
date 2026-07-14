@@ -23,13 +23,91 @@ logger = setup_logger(__name__)
 
 
 _MATCH_CONFIG_QUERY = """
-    SELECT run_id FROM results_unsa_ira.walkforward_runs
+    SELECT run_id, run_name FROM results_unsa_ira.walkforward_runs
     WHERE department = :department AND age_group = :age_group AND measure = :measure
       AND model = :model AND horizon = :horizon AND step = :step
       AND window_type = :window_type AND train_size = :train_size
       AND refit_every = :refit_every
       AND model_params = CAST(:model_params AS jsonb)
 """
+
+
+def _resolve_run(conn, department, age_group, measure, model, run_name, config, model_params_json):
+    """
+    Return (existing_run_id_or_None, resolved_run_name) for this config/run_name
+    within one connection — shared by save_walkforward_run() (under an advisory
+    lock, for the real insert) and resolve_run_name() (read-only preview).
+    """
+    existing = conn.execute(
+        text(_MATCH_CONFIG_QUERY),
+        {
+            "department": department,
+            "age_group": age_group,
+            "measure": measure,
+            "model": model,
+            "horizon": config["horizon"],
+            "step": config["step"],
+            "window_type": config["window_type"],
+            "train_size": config["train_size"],
+            "refit_every": config["refit_every"],
+            "model_params": model_params_json,
+        },
+    ).first()
+    if existing is not None:
+        return existing.run_id, existing.run_name
+
+    existing_names = set(
+        conn.execute(
+            text("""
+                SELECT run_name FROM results_unsa_ira.walkforward_runs
+                WHERE department = :department AND age_group = :age_group AND measure = :measure
+            """),
+            {"department": department, "age_group": age_group, "measure": measure},
+        ).scalars().all()
+    )
+    resolved_name = run_name
+    if resolved_name in existing_names:
+        n = 1
+        while f"{run_name}({n})" in existing_names:
+            n += 1
+        resolved_name = f"{run_name}({n})"
+        logger.info(
+            f"run_name '{run_name}' already used by a different configuration — "
+            f"saving this one as '{resolved_name}'."
+        )
+    return None, resolved_name
+
+
+def resolve_run_name(
+    department: str,
+    age_group: str,
+    model: str,
+    run_name: str,
+    config: dict,
+    model_params: dict,
+    measure: str = "cases",
+    database_url: Optional[str] = None,
+) -> str:
+    """
+    Read-only preview of the run_name save_walkforward_run() would use for this
+    exact config/run_name combination — lets callers (scripts/run_walkforward.py)
+    name local files consistently with what will end up in results_unsa_ira,
+    including the auto-suffix applied when run_name collides with a different
+    configuration.
+
+    Best-effort: unlike save_walkforward_run(), this doesn't take the advisory
+    lock, so a concurrent writer could still change the outcome before the real
+    insert (which re-resolves under a lock). Fine for local file naming — the
+    goal is to avoid clobbering a differently configured run under the same
+    name, not to guarantee global uniqueness (that's results_unsa_ira's job).
+    """
+    engine = get_db_engine(database_url)
+    model_params_json = json.dumps(model_params, default=str)
+    with engine.connect() as conn:
+        _, resolved_name = _resolve_run(
+            conn, department, age_group, measure, model, run_name, config, model_params_json
+        )
+    return resolved_name
 
 
 def find_existing_run(
@@ -119,7 +197,9 @@ def save_walkforward_run(
         database_url:  Overrides config.DATABASE_URL if given.
 
     Returns:
-        The run_id (new, or an existing one if reused).
+        (run_id, resolved_run_name) — run_id new, or an existing one if reused;
+        resolved_run_name equal to run_name unless it collided with a
+        different configuration, in which case it's the auto-suffixed name.
     """
     engine = get_db_engine(database_url)
     model_params_json = json.dumps(model_params, default=str)
@@ -128,48 +208,15 @@ def save_walkforward_run(
         lock_key = f"{department}:{age_group}:{measure}:{run_name}"
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": lock_key})
 
-        existing = conn.execute(
-            text(_MATCH_CONFIG_QUERY),
-            {
-                "department": department,
-                "age_group": age_group,
-                "measure": measure,
-                "model": model,
-                "horizon": config["horizon"],
-                "step": config["step"],
-                "window_type": config["window_type"],
-                "train_size": config["train_size"],
-                "refit_every": config["refit_every"],
-                "model_params": model_params_json,
-            },
-        ).scalar()
-        if existing is not None:
+        existing_run_id, resolved_name = _resolve_run(
+            conn, department, age_group, measure, model, run_name, config, model_params_json
+        )
+        if existing_run_id is not None:
             logger.info(
-                f"Identical configuration already exists as run_id={existing} "
+                f"Identical configuration already exists as run_id={existing_run_id} "
                 f"({department}/{age_group}/{measure}/{model}) — reusing it, no new insert."
             )
-            return existing
-
-        existing_names = set(
-            conn.execute(
-                text("""
-                    SELECT run_name FROM results_unsa_ira.walkforward_runs
-                    WHERE department = :department AND age_group = :age_group AND measure = :measure
-                """),
-                {"department": department, "age_group": age_group, "measure": measure},
-            ).scalars().all()
-        )
-
-        resolved_name = run_name
-        if resolved_name in existing_names:
-            n = 1
-            while f"{run_name}({n})" in existing_names:
-                n += 1
-            resolved_name = f"{run_name}({n})"
-            logger.info(
-                f"run_name '{run_name}' already used by a different configuration — "
-                f"saving this one as '{resolved_name}'."
-            )
+            return existing_run_id, resolved_name
 
         run_id = conn.execute(
             text("""
@@ -228,4 +275,4 @@ def save_walkforward_run(
         f"Saved run_id={run_id} to results_unsa_ira "
         f"({department}/{age_group}/{measure}/{model}, {len(rows)} predictions)"
     )
-    return run_id
+    return run_id, resolved_name

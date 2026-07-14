@@ -54,7 +54,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pneumonia.config import REPORTS_PATH
-from pneumonia.evaluation.results_db import find_existing_run, save_walkforward_run
+from pneumonia.evaluation.results_db import find_existing_run, resolve_run_name, save_walkforward_run
 from pneumonia.evaluation.results_db_query import reconstruct_results_from_run
 from pneumonia.evaluation.walkforward import WalkForwardValidator
 from pneumonia.models.utils import (
@@ -64,6 +64,7 @@ from pneumonia.models.utils import (
 )
 from pneumonia.utils import setup_logger
 from pneumonia.visualization.persistence import (
+    resolve_local_run_name,
     save_step_metrics,
     save_walkforward_predictions,
 )
@@ -144,14 +145,28 @@ def run_walkforward_for(
         "train_size": train_size, "refit_every": refit_every,
     }
     reused_run_id = None
+    probe_params = model_params
     try:
         probe = model_class(**model_params)
+        probe_params = probe.get_params()
         reused_run_id = find_existing_run(
             department=department, age_group=age_group, model=model_name,
-            config=config_probe, model_params=probe.get_params(),
+            config=config_probe, model_params=probe_params,
+        )
+        # Preview the name results_unsa_ira would resolve this run to (it may
+        # auto-suffix if run_name is already used locally by a different
+        # config), so the local files below are named consistently with it.
+        run_name = resolve_run_name(
+            department=department, age_group=age_group, model=model_name,
+            run_name=run_name, config=config_probe, model_params=probe_params,
         )
     except Exception as exc:
         logger.warning(f"Could not check results_unsa_ira for an existing run: {exc}")
+        run_name = resolve_local_run_name(
+            reports_dir=REPORTS_PATH, department=department, age_group=age_group,
+            run_name=run_name, model=model_name, config=config_probe,
+            model_params=probe_params,
+        )
 
     if reused_run_id is not None:
         print(f"Identical configuration already exists as run_id={reused_run_id} "
@@ -223,7 +238,7 @@ def run_walkforward_for(
         print(f"Database: reusing existing run_id={reused_run_id} (no new insert)")
     else:
         try:
-            run_id = save_walkforward_run(
+            run_id, _ = save_walkforward_run(
                 department=department,
                 age_group=age_group,
                 model=model_name,
