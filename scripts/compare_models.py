@@ -52,6 +52,7 @@ window to close:
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -321,6 +322,57 @@ def _filter_by_model_and_name(
     }
 
 
+def _config_lookup(department: str, age_group: str, source: str) -> dict:
+    """
+    {run_name: (train_size, window_type, step)} — the config fields that
+    determine which calendar dates get evaluated in a walk-forward backtest
+    (unlike horizon or refit_every, which don't shift the evaluated dates).
+    """
+    if source == "db":
+        runs_df = latest_runs(department, age_group)
+        return {
+            row.run_name: (row.train_size, row.window_type, row.step)
+            for row in runs_df.itertuples()
+        }
+    out_dir = Path(REPORTS_PATH) / department / age_group
+    lookup = {}
+    for f in out_dir.glob("*_walkforward_metrics.json"):
+        with open(f, encoding="utf-8-sig") as fh:
+            j = json.load(fh)
+        cfg = j.get("config", {})
+        lookup[j.get("run_name", j.get("model"))] = (
+            cfg.get("train_size"), cfg.get("window_type"), cfg.get("step")
+        )
+    return lookup
+
+
+def _filter_same_config(data: dict, department: str, age_group: str, source: str) -> dict:
+    """
+    Keep only the models sharing the most common (train_size, window_type,
+    step) among the ones in `data`. Comparing metrics pooled from
+    differently-windowed backtests isn't apples-to-apples — each config
+    evaluates a different set of calendar dates — even though computing the
+    comparison doesn't error. Models with a different config are dropped,
+    with a warning listing what was excluded and why.
+    """
+    if len(data) <= 1:
+        return data
+    config_of  = _config_lookup(department, age_group, source)
+    signatures = {k: config_of.get(k) for k in data}
+    common_sig, _ = Counter(signatures.values()).most_common(1)[0]
+
+    kept    = {k: v for k, v in data.items() if signatures[k] == common_sig}
+    dropped = {k: signatures[k] for k in data if signatures[k] != common_sig}
+    if dropped:
+        train_size, window_type, step = common_sig
+        logger.warning(
+            f"--same_config: keeping models with train_size={train_size}, "
+            f"window_type={window_type}, step={step}; dropping {dropped} "
+            "(different config)."
+        )
+    return kept
+
+
 def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
     """Build model × (horizon × metric) DataFrame for all TABLE_METRICS."""
     rows = []
@@ -400,6 +452,7 @@ def compare_macroaverage(
     source: str = "local",
     models: list = None,
     run_names: list = None,
+    same_config: bool = False,
 ) -> None:
     """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
     department = department.upper()
@@ -417,6 +470,8 @@ def compare_macroaverage(
     step_data = _filter_by_model_and_name(
         step_data, department, age_group, source, models, run_names
     )
+    if same_config:
+        step_data = _filter_same_config(step_data, department, age_group, source)
     if not step_data:
         logger.warning(f"No runs left for {department} after applying --models/--run_names filters.")
         return
@@ -451,6 +506,7 @@ def compare_microaverage(
     source: str = "local",
     models: list = None,
     run_names: list = None,
+    same_config: bool = False,
 ) -> None:
     """
     Model comparison pooling every backtest prediction across all steps/horizons —
@@ -482,6 +538,9 @@ def compare_microaverage(
     cumulative_metrics = _filter_by_model_and_name(
         cumulative_metrics, department, age_group, source, models, run_names
     )
+    if same_config:
+        micro_metrics = _filter_same_config(micro_metrics, department, age_group, source)
+        cumulative_metrics = {k: v for k, v in cumulative_metrics.items() if k in micro_metrics}
     if not micro_metrics:
         logger.warning(f"No runs left for {department} after applying --models/--run_names filters.")
         return
@@ -525,18 +584,20 @@ def compare(
     source: str = "local",
     models: list = None,
     run_names: list = None,
+    same_config: bool = False,
 ) -> None:
     department = department.upper()
 
     if mode == "macroaverage":
         compare_macroaverage(
             department, age_group, metric_names, trend_window, year, interactive, source,
-            models, run_names,
+            models, run_names, same_config,
         )
         return
     if mode == "microaverage":
         compare_microaverage(
-            department, age_group, metric_names, interactive, year, source, models, run_names
+            department, age_group, metric_names, interactive, year, source, models, run_names,
+            same_config,
         )
         return
 
@@ -545,6 +606,8 @@ def compare(
         else load_metrics(REPORTS_PATH, department, age_group)
     )
     metrics = _filter_by_model_and_name(metrics, department, age_group, source, models, run_names)
+    if same_config:
+        metrics = _filter_same_config(metrics, department, age_group, source)
     if not metrics:
         raise ValueError("No runs left after applying --models/--run_names filters.")
 
@@ -687,6 +750,13 @@ def main():
                              "without listing each run_name. Combinable with --run_names (AND).")
     parser.add_argument("--run_names", nargs="+", default=None,
                         help="Restrict to these exact run_name labels. Combinable with --models (AND).")
+    parser.add_argument("--same_config", action="store_true",
+                        help="Only compare models sharing the most common (train_size, "
+                             "window_type, step) — the config fields that determine which "
+                             "calendar dates get evaluated in a walk-forward backtest. Models "
+                             "with a different config are dropped, with a warning; comparing "
+                             "them anyway isn't apples-to-apples since they'd be scored on "
+                             "different date ranges.")
     args = parser.parse_args()
 
     departments = []
@@ -721,7 +791,7 @@ def main():
                 dept, args.age_group, args.horizons, metric_names,
                 mode=args.mode, trend_window=trend_window,
                 year=args.year, interactive=args.interactive, source=args.source,
-                models=args.models, run_names=args.run_names,
+                models=args.models, run_names=args.run_names, same_config=args.same_config,
             )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")

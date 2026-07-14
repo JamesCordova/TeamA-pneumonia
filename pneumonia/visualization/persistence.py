@@ -12,6 +12,7 @@ Having one file per model allows pipelines to run in parallel without
 write conflicts.
 """
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -23,12 +24,69 @@ from pneumonia.utils import setup_logger
 logger = setup_logger(__name__)
 
 _COLUMNS = ["date", "split", "model", "actual", "predicted", "horizon", "department", "age_group"]
+_CONFIG_KEYS = ("horizon", "step", "window_type", "train_size", "refit_every")
 
 
 def _csv_path(reports_dir: Path, department: str, age_group: str, model_name: str) -> Path:
     out_dir = Path(reports_dir) / department / age_group
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir / f"{model_name}_predictions.csv"
+
+
+def resolve_local_run_name(
+    reports_dir: Path,
+    department: str,
+    age_group: str,
+    run_name: str,
+    model: str,
+    config: dict,
+    model_params: dict,
+) -> str:
+    """
+    Fallback for pneumonia.evaluation.results_db.resolve_run_name() when
+    results_unsa_ira is unreachable: auto-suffix run_name ('run_name(1)',
+    'run_name(2)', ...) if it's already used locally by a *_walkforward_metrics.json
+    with a different model/config/model_params, mirroring the database's collision
+    logic. Best-effort — only looks at this machine's reports/ directory.
+    """
+    out_dir = Path(reports_dir) / department / age_group
+    if not out_dir.exists():
+        return run_name
+
+    existing_names = set()
+    collision = False
+    for f in out_dir.glob("*_walkforward_metrics.json"):
+        try:
+            with open(f, encoding="utf-8-sig") as fh:
+                j = json.load(fh)
+        except Exception:
+            continue
+        name = j.get("run_name", j.get("model"))
+        existing_names.add(name)
+        if name != run_name:
+            continue
+        same_config = (
+            j.get("model") == model
+            and {k: j.get("config", {}).get(k) for k in _CONFIG_KEYS}
+               == {k: config.get(k) for k in _CONFIG_KEYS}
+            and j.get("model_params") == model_params
+        )
+        if not same_config:
+            collision = True
+
+    if not collision:
+        return run_name
+
+    n = 1
+    while f"{run_name}({n})" in existing_names:
+        n += 1
+    resolved_name = f"{run_name}({n})"
+    logger.info(
+        f"run_name '{run_name}' already used locally by a different configuration — "
+        f"saving this one as '{resolved_name}' (results_unsa_ira unreachable, "
+        "best-effort local check)."
+    )
+    return resolved_name
 
 
 def save_predictions(
