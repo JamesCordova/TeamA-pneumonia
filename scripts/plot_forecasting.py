@@ -3,9 +3,9 @@
 Plot forecast results from stored predictions CSV.
 
 Two plot types:
-  classic   — train/val/test comparison  → forecast_plot.png
-  backtest  — walk-forward backtest      → backtest_plot.png
-  both      — generate both files
+    classic   — train/val/test comparison  → forecast_classic[_YYYY].png
+    backtest  — walk-forward backtest      → forecast_backtest[_YYYY][_shaded].png
+    both      — generate both files
 
 Usage:
     python scripts/plot_forecasting.py --department AMAZONAS --age_group under5
@@ -37,6 +37,8 @@ def plot_one(
     models=None,
     output: Path = None,
     year: int = None,
+    shaded: bool = False,
+    source: str = "local",
 ) -> None:
     dept  = department.upper()
     group = age_group.lower()
@@ -66,6 +68,8 @@ def plot_one(
             models=models,
             save_path=output if plot_type == "backtest" else None,
             year=year,
+            shaded=shaded,
+            source=source,
         )
         if path:
             print(f"Backtest plot saved: {path}")
@@ -84,6 +88,7 @@ def create_parser() -> argparse.ArgumentParser:
 Examples:
   python scripts/plot_forecasting.py --department AMAZONAS --age_group under5
   python scripts/plot_forecasting.py --department LIMA --plot backtest
+    python scripts/plot_forecasting.py --department LIMA --plot backtest --shaded
   python scripts/plot_forecasting.py --all --age_group 60plus --plot both
   python scripts/plot_forecasting.py --department AMAZONAS --models SARIMA --year 2022
         """,
@@ -101,8 +106,13 @@ Examples:
     )
     parser.add_argument(
         "--plot", "-p",
-        type=str, choices=["classic", "backtest", "both"], default="classic",
-        help="Plot type: classic (val/test), backtest (walk-forward), or both (default: classic)",
+        type=str, choices=["classic", "backtest", "both"], default="backtest",
+        help="Plot type: classic (val/test), backtest (walk-forward), or both (default: backtest)",
+    )
+    parser.add_argument(
+        "--shaded",
+        action="store_true",
+        help="[--plot backtest] Draw the backtest model range as a shaded band instead of individual model lines.",
     )
     parser.add_argument("--output", "-o", type=str,
                         help="Output file path (only for --plot classic or backtest, not both)")
@@ -113,6 +123,14 @@ Examples:
     parser.add_argument(
         "--year", type=int,
         help="Restrict plot to a single year (e.g. --year 2022).",
+    )
+    parser.add_argument(
+        "--source", choices=["local", "db"], default="local",
+        help="Where to read backtest predictions from. 'local' (default) — "
+             "*_predictions.csv under reports/. 'db' — query results_unsa_ira "
+             "directly, using the latest run per run_name. Only applies to "
+             "--plot backtest: the database doesn't store classic train/val/test "
+             "predictions.",
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
 
@@ -139,11 +157,21 @@ def main():
         logger.warning("Multiple departments specified with --output. Ignoring --output to avoid overwriting files.")
         output = None
 
+    if args.shaded and args.plot not in ("backtest", "both"):
+        parser.error("--shaded only applies to --plot backtest or --plot both")
+
+    if args.source == "db" and args.plot != "backtest":
+        parser.error(
+            "--source db only applies to --plot backtest — the database doesn't "
+            "store classic train/val/test predictions."
+        )
+
     logger.info(f"Plotting {len(departments)} departments ({args.age_group}, {args.plot})")
     for dept in departments:
         try:
             plot_one(dept, args.age_group, plot_type=args.plot,
-                     models=args.models, output=output, year=args.year)
+                     models=args.models, output=output, year=args.year,
+                     shaded=args.shaded, source=args.source)
         except Exception as exc:
             logger.warning(f"Failed for {dept}: {exc}")
 

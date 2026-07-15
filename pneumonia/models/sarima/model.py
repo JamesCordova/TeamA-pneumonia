@@ -141,6 +141,14 @@ class SARIMAModel(BaseForecaster):
             f"{'Fourier(K=%d)' % self.n_fourier_terms if self.use_fourier else 'Seasonal ARIMA'}"
         )
 
+    def get_params(self) -> dict:
+        return {
+            "order":           self.order,
+            "seasonal_order":  self.seasonal_order,
+            "use_fourier":     self.use_fourier,
+            "n_fourier_terms": self.n_fourier_terms,
+        }
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------

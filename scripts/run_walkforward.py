@@ -25,6 +25,12 @@ Usage:
     # SARIMA: orden fijo y más términos Fourier
     python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
         --sarima_order 2 1 1 --n_fourier_terms 10
+
+    # Comparar varias configuraciones del mismo modelo con --run_name
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
+        --sarima_order 2 1 1 --run_name SARIMAv1.1
+    python scripts/run_walkforward.py --department AMAZONAS --model SARIMA \\
+        --sarima_order 3 1 2 --run_name SARIMAv1.2
     # SARIMA clásico (sin Fourier)
     python scripts/run_walkforward.py --department AMAZONAS --model SARIMA --no_fourier
 
@@ -48,6 +54,8 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pneumonia.config import REPORTS_PATH
+from pneumonia.evaluation.results_db import find_existing_run, resolve_run_name, save_walkforward_run
+from pneumonia.evaluation.results_db_query import reconstruct_results_from_run
 from pneumonia.evaluation.walkforward import WalkForwardValidator
 from pneumonia.models.utils import (
     get_available_departments,
@@ -55,7 +63,11 @@ from pneumonia.models.utils import (
     validate_time_series,
 )
 from pneumonia.utils import setup_logger
-from pneumonia.visualization.persistence import save_walkforward_predictions
+from pneumonia.visualization.persistence import (
+    resolve_local_run_name,
+    save_step_metrics,
+    save_walkforward_predictions,
+)
 
 logger = setup_logger(__name__)
 
@@ -108,8 +120,10 @@ def run_walkforward_for(
     refit_every: int,
     extra_model_params: dict,
     start_year: Optional[int] = None,
+    run_name: Optional[str] = None,
 ) -> int:
-    logger.info(f"Walk-forward: {department}/{age_group} model={model_name}")
+    run_name = run_name or model_name
+    logger.info(f"Walk-forward: {department}/{age_group} model={model_name} run={run_name}")
 
     data = get_departmental_data(department, age_group=age_group, start_year=start_year)
     validate_time_series(data)
@@ -117,20 +131,61 @@ def run_walkforward_for(
     model_class = _resolve_model_class(model_name)
     model_params = {"department": department, "age_group": age_group, **extra_model_params}
 
-    validator = WalkForwardValidator(
-        model_class=model_class,
-        model_params=model_params,
-        initial_train_size=train_size,
-        horizon=horizon,
-        step=step,
-        window_type=window_type,
-        refit_every=refit_every,
-    )
+    # Skip retraining if results_unsa_ira already has an identical configuration
+    # (department, age_group, model, horizon, step, window_type, train_size,
+    # refit_every, model_params) saved from a previous run: reconstruct the
+    # local files from its stored predictions instead. Reliable here because
+    # get_params() on a freshly-constructed (unfitted) instance already
+    # matches what it would be after fit() for every model this script can
+    # invoke — including SARIMA, whose only exception (auto_arima re-resolving
+    # (p,d,q) post-fit) is never triggered from this CLI (no --use_auto_arima
+    # flag or fit_kwargs wiring here).
+    config_probe = {
+        "horizon": horizon, "step": step, "window_type": window_type,
+        "train_size": train_size, "refit_every": refit_every,
+    }
+    reused_run_id = None
+    probe_params = model_params
+    try:
+        probe = model_class(**model_params)
+        probe_params = probe.get_params()
+        reused_run_id = find_existing_run(
+            department=department, age_group=age_group, model=model_name,
+            config=config_probe, model_params=probe_params,
+        )
+        # Preview the name results_unsa_ira would resolve this run to (it may
+        # auto-suffix if run_name is already used locally by a different
+        # config), so the local files below are named consistently with it.
+        run_name = resolve_run_name(
+            department=department, age_group=age_group, model=model_name,
+            run_name=run_name, config=config_probe, model_params=probe_params,
+        )
+    except Exception as exc:
+        logger.warning(f"Could not check results_unsa_ira for an existing run: {exc}")
+        run_name = resolve_local_run_name(
+            reports_dir=REPORTS_PATH, department=department, age_group=age_group,
+            run_name=run_name, model=model_name, config=config_probe,
+            model_params=probe_params,
+        )
 
-    results = validator.run(data)
+    if reused_run_id is not None:
+        print(f"Identical configuration already exists as run_id={reused_run_id} "
+              f"— reconstructing local files without retraining.")
+        results = reconstruct_results_from_run(reused_run_id)
+    else:
+        validator = WalkForwardValidator(
+            model_class=model_class,
+            model_params=model_params,
+            initial_train_size=train_size,
+            horizon=horizon,
+            step=step,
+            window_type=window_type,
+            refit_every=refit_every,
+        )
+        results = validator.run(data)
 
     print(f"\n{'='*70}")
-    print(f"Walk-forward results — {department}/{age_group}  model={model_name}")
+    print(f"Walk-forward results — {department}/{age_group}  run={run_name} (model={model_name})")
     print(f"  steps={results['n_steps']}  horizon={horizon}  step={step}  window={window_type}")
     print(f"  train_size={results['config']['train_size']}  refit_every={refit_every}")
     for h in range(1, horizon + 1):
@@ -142,20 +197,31 @@ def run_walkforward_for(
         reports_dir=REPORTS_PATH,
         department=department,
         age_group=age_group,
-        model_name=model_name,
+        model_name=run_name,
         predictions_df=results["predictions"],
     )
     print(f"Predictions saved -> {csv_path}")
 
+    step_csv_path = save_step_metrics(
+        reports_dir=REPORTS_PATH,
+        department=department,
+        age_group=age_group,
+        model_name=run_name,
+        step_results=results["step_results"],
+    )
+    print(f"Step metrics saved -> {step_csv_path}")
+
     # Save metrics JSON alongside other model JSONs
     out_dir = REPORTS_PATH / department / age_group
     out_dir.mkdir(parents=True, exist_ok=True)
-    metrics_file = out_dir / f"{model_name.lower()}_walkforward_metrics.json"
+    metrics_file = out_dir / f"{run_name.lower()}_walkforward_metrics.json"
     payload = {
         "department": department,
         "age_group": age_group,
         "model": model_name,
+        "run_name": run_name,
         "config": results["config"],
+        "model_params": results["model_params"],
         "metrics_by_horizon": {
             str(h): m for h, m in results["metrics_by_horizon"].items()
         },
@@ -164,6 +230,28 @@ def run_walkforward_for(
     with open(metrics_file, "w") as f:
         json.dump(payload, f, indent=2, default=str)
     logger.info(f"Metrics JSON saved: {metrics_file}")
+
+    # Additive: also persist to results_unsa_ira (db/migrations/0001_walkforward_results).
+    # Never blocks the file-based outputs above if the database is unreachable.
+    # Skipped when reused_run_id is set — that data already exists there.
+    if reused_run_id is not None:
+        print(f"Database: reusing existing run_id={reused_run_id} (no new insert)")
+    else:
+        try:
+            run_id, _ = save_walkforward_run(
+                department=department,
+                age_group=age_group,
+                model=model_name,
+                run_name=run_name,
+                config=results["config"],
+                model_params=results["model_params"],
+                n_steps=results["n_steps"],
+                step_results=results["step_results"],
+            )
+            print(f"Saved to database: run_id={run_id}")
+        except Exception as exc:
+            logger.warning(f"Could not save results to database: {exc}")
+
     return 0
 
 
@@ -191,6 +279,10 @@ Examples:
                         help="Age group (default: under5)")
     parser.add_argument("--model", "-m", type=str, required=True,
                         help="Model to evaluate: SARIMA, RandomForest, XGBoost, LSTM, GRU, SeasonalNaive, Naive, HoltWinters, Prophet")
+    parser.add_argument("--run_name", type=str, default=None,
+                        help="Label for this run's saved files/comparisons, e.g. "
+                             "'SARIMAv1.1' to distinguish it from other SARIMA configs "
+                             "(default: same as --model)")
 
     # Walk-forward parameters
     parser.add_argument("--train_size", type=int, default=520,
@@ -226,6 +318,13 @@ Examples:
                           help="[XGB only] Row subsample ratio (default: 0.9)")
     ml_group.add_argument("--colsample_bytree", type=float, default=None,
                           help="[XGB only] Feature subsample ratio per tree (default: 0.9)")
+    ml_group.add_argument("--objective", type=str, default=None,
+                          choices=["reg:squarederror", "count:poisson"],
+                          help="[XGB only] Loss objective (default: reg:squarederror). "
+                               "Use count:poisson for count-data targets like weekly case counts.")
+    ml_group.add_argument("--max_delta_step", type=float, default=None,
+                          help="[XGB only] Caps per-step update; recommended with "
+                               "count:poisson on low/volatile counts (e.g. 0.7)")
     ml_group.add_argument("--lags", type=int, nargs="+", default=None,
                           help="Lag periods as features, e.g. --lags 1 2 4 8 52 (default: 1 2 4 8 13)")
     ml_group.add_argument("--windows", type=int, nargs="+", default=None,
@@ -334,7 +433,7 @@ def main():
     elif model_key == "xgboost":
         hp = {}
         for key in ("n_estimators", "max_depth", "learning_rate",
-                    "subsample", "colsample_bytree"):
+                    "subsample", "colsample_bytree", "objective", "max_delta_step"):
             val = getattr(args, key, None)
             if val is not None:
                 hp[key] = val
@@ -396,6 +495,7 @@ def main():
                 refit_every=args.refit_every,
                 extra_model_params=extra_model_params,
                 start_year=args.start_year,
+                run_name=args.run_name,
             )
         except Exception as exc:
             logger.error(f"Failed for {dept}: {exc}")

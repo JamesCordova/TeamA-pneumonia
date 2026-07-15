@@ -75,9 +75,65 @@ def clip_axes(
             ax.set_ylim(max(0.0, v_min - pad), v_max + pad)
 
 
+def enable_legend_picking(fig, legend, lines_by_label: dict) -> None:
+    """
+    Click a legend entry to show/hide its associated line(s) (dims the legend
+    text when hidden). Values in `lines_by_label` may be a single Line2D or a
+    list of them (e.g. a raw + smoothed pair sharing one legend entry) — all
+    are toggled together. No-op when the figure is only saved and never shown
+    — pick events only fire inside an interactive GUI event loop.
+    """
+    legend_lines = {}
+    for legend_line, text in zip(legend.get_lines(), legend.get_texts()):
+        target = lines_by_label.get(text.get_text())
+        if target is None:
+            continue
+        legend_line.set_picker(5)
+        legend_lines[legend_line] = target if isinstance(target, (list, tuple)) else [target]
+
+    def on_pick(event):
+        artists = legend_lines.get(event.artist)
+        if not artists:
+            return
+        visible = not artists[0].get_visible()
+        for artist in artists:
+            artist.set_visible(visible)
+        event.artist.set_alpha(1.0 if visible else 0.2)
+        fig.canvas.draw()
+
+    fig.canvas.mpl_connect("pick_event", on_pick)
+
+
 def save_figure(fig, save_path: Path, show: bool = False) -> Path:
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     if show:
         plt.show()
     return Path(save_path)
+
+
+def get_output_path(
+    base_dir: Path, filename: str, output_type: str = "figures"
+) -> Path:
+    """
+    Return a path in the appropriate subdirectory and create it if needed.
+
+    Args:
+        base_dir:    Base output directory (e.g. reports/DEPT/age_group).
+        filename:    Filename to save (e.g. 'forecast_classic.png').
+        output_type: Subdirectory type: 'figures', 'tables', or 'data'.
+                     (default: 'figures')
+
+    Returns:
+        Full path in subdirectory, which is created if it does not exist.
+    """
+    allowed_types = {"figures", "tables", "data"}
+    if output_type not in allowed_types:
+        logger.warning(
+            f"output_type '{output_type}' not in {allowed_types}, using 'figures'"
+        )
+        output_type = "figures"
+
+    subdir = Path(base_dir) / output_type
+    subdir.mkdir(parents=True, exist_ok=True)
+    return subdir / filename

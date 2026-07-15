@@ -89,6 +89,9 @@ class ProphetModel(BaseForecaster):
             f"growth={params['growth']}, seasonality={params['seasonality_mode']}"
         )
 
+    def get_params(self) -> dict:
+        return dict(self._params)
+
     # ------------------------------------------------------------------
     # BaseForecaster interface
     # ------------------------------------------------------------------

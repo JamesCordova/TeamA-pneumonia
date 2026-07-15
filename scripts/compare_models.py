@@ -9,16 +9,50 @@ produces:
        - Grouped bar chart: selected metric at h_short vs h_long
        - Line chart: metric across all horizons per model
 
+Output filenames follow the project convention:
+    - Horizon comparisons: `comparison_horizon_{metric}[_YYYY].png` and `comparison_horizon.csv`
+    - Microaverage:         `comparison_microaverage_{metric}[_YYYY].png` and `comparison_microaverage[_YYYY].csv`
+
 Usage:
     python scripts/compare_models.py --department AMAZONAS
     python scripts/compare_models.py --department AMAZONAS --age_group 60plus
     python scripts/compare_models.py --department AMAZONAS --metric rmse
     python scripts/compare_models.py --department AMAZONAS --horizons 1 4
+
+Use --mode to pick the aggregation strategy:
+  horizon      (default) — table + bar/line charts from metrics_by_horizon, where
+               each metric is computed once over all steps pooled per horizon.
+    macroaverage — per-step diagnostic figures (boxplot + mean, and metric heatmap
+                             by forecast date) via pneumonia.visualization.step_metrics_plot.
+                             Non-additive ratio metrics (e.g. r2 — see NON_ADDITIVE_METRICS in comparison_plot.py)
+                             are excluded from the default metric list in this mode, since averaging
+               per-step ratios is not equivalent to computing them on pooled data.
+               Pass --metric explicitly to include them anyway.
+    microaverage — table + a two-panel figure per metric from every backtest
+               prediction pooled across ALL steps/horizons (like 'horizon' but
+               without splitting by h): a bar chart of the final pooled snapshot,
+               plus a heatmap (rows=models, columns=date) of the same pooled
+               metric as an expanding window over time. r2 is valid here (not
+               excluded) because it's computed once on the full pool, not
+               averaged per group. --year restricts to one calendar year.
+    python scripts/compare_models.py --department AMAZONAS --mode macroaverage
+    python scripts/compare_models.py --department AMAZONAS --mode macroaverage --year 2020
+    python scripts/compare_models.py --department AMAZONAS --mode macroaverage --metric r2
+    python scripts/compare_models.py --department AMAZONAS --mode microaverage
+    python scripts/compare_models.py --department AMAZONAS --mode microaverage --year 2020
+
+Add --interactive to open the plot in a window (plt.show()) instead of just
+saving it to disk. Requires exactly one --metric, so you only ever have one
+window to close:
+    python scripts/compare_models.py --department AMAZONAS --metric r2 --interactive
+    python scripts/compare_models.py --department AMAZONAS --mode microaverage \\
+        --metric r2 --interactive
 """
 
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -27,12 +61,19 @@ import numpy as np
 import pandas as pd
 
 from pneumonia.config import REPORTS_PATH
+from pneumonia.evaluation.metrics import compute_all_metrics
+from pneumonia.evaluation.results_db_query import latest_runs, predictions_for_runs
 from pneumonia.utils import setup_logger
+from pneumonia.visualization._utils import get_output_path, read_predictions
 from pneumonia.visualization.comparison_plot import (
     METRIC_LABELS,
+    NON_ADDITIVE_METRICS,
     VALID_METRICS,
+    plot_micro_comparison,
     plot_model_comparison,
 )
+from pneumonia.visualization.persistence import load_step_metrics
+from pneumonia.visualization.step_metrics_plot import plot_step_metrics
 
 logger = setup_logger(__name__)
 
@@ -53,21 +94,283 @@ TABLE_HEADERS = {
 # ---------------------------------------------------------------------------
 
 def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
-    """Return {model_name: {horizon_int: {metric: value}}} from walkforward JSONs."""
-    out_dir = Path(reports_dir) / department / age_group
-    files   = sorted(out_dir.glob("*_walkforward_metrics.json"))
-    if not files:
+    """
+    Return {run_name: {horizon_int: {metric: value}}}, computed from the
+    'horizon' column of *_predictions.csv — the local equivalent of
+    load_metrics_from_db(), which groups by 'horizon_offset' instead.
+    """
+    backtest = _load_backtest_predictions(reports_dir, department, age_group)
+    data = {}
+    for run_name, g in backtest.groupby("model"):
+        by_h = {}
+        for h, gh in g.groupby("horizon"):
+            by_h[int(h)] = compute_all_metrics(
+                gh["actual"].values, gh["predicted"].values, warn_on_nan=False
+            )
+        data[run_name] = by_h
+    return data
+
+
+def _load_backtest_predictions(
+    reports_dir: Path, department: str, age_group: str, year: int = None
+) -> pd.DataFrame:
+    """Return backtest-split rows from *_predictions.csv, or raise FileNotFoundError."""
+    df = read_predictions(reports_dir, department, age_group)
+    if df is None:
         raise FileNotFoundError(
-            f"No walkforward metrics found in {out_dir}.\n"
+            f"No predictions found for {department}/{age_group}.\n"
             "Run scripts/run_walkforward.py first."
         )
+    backtest = df[df["split"] == "backtest"]
+    if year is not None:
+        backtest = backtest[backtest["date"].dt.year == year]
+    if backtest.empty:
+        suffix = f" in year={year}" if year is not None else ""
+        raise FileNotFoundError(
+            f"No backtest predictions found for {department}/{age_group}{suffix}.\n"
+            "Run scripts/run_walkforward.py first."
+        )
+    return backtest
+
+
+def load_micro_metrics(
+    reports_dir: Path, department: str, age_group: str, year: int = None
+) -> dict:
+    """
+    Return {run_name: {metric: value}} computed once over every backtest
+    prediction pooled across all steps/horizons (no per-horizon split) —
+    same underlying computation as metrics_by_horizon, just not divided by h.
+    If `year` is given, restricts to backtest predictions from that calendar year.
+    """
+    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
     data = {}
-    for f in files:
+    for run_name, g in backtest.groupby("model"):
+        data[run_name] = compute_all_metrics(
+            g["actual"].values, g["predicted"].values, warn_on_nan=False
+        )
+    return data
+
+
+def compute_cumulative_micro_metrics(
+    reports_dir: Path, department: str, age_group: str, min_obs: int = 8, year: int = None
+) -> dict:
+    """
+    Return {run_name: DataFrame(date, mae, rmse, me, mape, smape, mda, r2)} — one
+    row per evaluated backtest date from the min_obs'th evaluation onward, each
+    computed once on every prediction pooled from the start of the backtest up
+    to and including that date (expanding window). Shows how the pooled metric
+    evolves/stabilizes over time, unlike load_micro_metrics's single final
+    snapshot. If `year` is given, the window starts fresh at that year (not
+    blended with prior years' history), matching macroaverage's --year semantics.
+
+    min_obs skips the earliest, tiniest windows (e.g. r2's SS_tot from just 1-2
+    points can be near zero, sending it to wild outliers that would otherwise
+    dominate a shared color scale).
+    """
+    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
+    data = {}
+    for run_name, g in backtest.groupby("model"):
+        g = g.sort_values("date")
+        actual    = g["actual"].to_numpy()
+        predicted = g["predicted"].to_numpy()
+        start = min(min_obs, len(g))
+        rows = []
+        for i in range(start, len(g) + 1):
+            m = compute_all_metrics(actual[:i], predicted[:i], warn_on_nan=False)
+            m["date"] = g["date"].iloc[i - 1]
+            rows.append(m)
+        data[run_name] = pd.DataFrame(rows)
+    return data
+
+
+# ---------------------------------------------------------------------------
+# Data loading — from results_unsa_ira (db/migrations/0001_walkforward_results)
+# ---------------------------------------------------------------------------
+
+def _load_predictions_from_db(
+    department: str, age_group: str, measure: str = "cases", year: int = None
+) -> pd.DataFrame:
+    """
+    Raw predictions (joined to run_name) for the latest run of each run_name —
+    the DB equivalent of _load_backtest_predictions. Not deduplicated by date:
+    if a model was run with horizon > step, overlapping steps' predictions for
+    the same date are all kept (see db/migrations/0001_walkforward_results).
+    """
+    runs = latest_runs(department, age_group, measure)
+    if runs.empty:
+        raise FileNotFoundError(
+            f"No walkforward runs found in results_unsa_ira for "
+            f"{department}/{age_group}/{measure}.\nRun scripts/run_walkforward.py first."
+        )
+    preds = predictions_for_runs(runs["run_id"].tolist())
+    preds = preds.merge(runs[["run_id", "run_name"]], on="run_id", how="left")
+    if year is not None:
+        preds = preds[preds["date"].dt.year == year]
+    if preds.empty:
+        suffix = f" in year={year}" if year is not None else ""
+        raise FileNotFoundError(
+            f"No predictions found for {department}/{age_group}{suffix} in results_unsa_ira."
+        )
+    return preds
+
+
+def load_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+    """DB equivalent of load_metrics(): {run_name: {horizon_int: {metric: value}}}."""
+    preds = _load_predictions_from_db(department, age_group, measure)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        by_h = {}
+        for h, gh in g.groupby("horizon_offset"):
+            by_h[int(h)] = compute_all_metrics(
+                gh["actual"].values, gh["predicted"].values, warn_on_nan=False
+            )
+        data[run_name] = by_h
+    return data
+
+
+def load_step_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+    """DB equivalent of load_step_metrics(): {run_name: DataFrame(date, step, n_obs, mae, ...)}."""
+    preds = _load_predictions_from_db(department, age_group, measure)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        rows = []
+        for step_idx, gs in g.groupby("step_idx"):
+            m = compute_all_metrics(gs["actual"].values, gs["predicted"].values, warn_on_nan=False)
+            m["date"]   = gs["date"].min()
+            m["step"]   = int(step_idx)
+            m["n_obs"]  = len(gs)
+            rows.append(m)
+        data[run_name] = pd.DataFrame(rows).sort_values("step").reset_index(drop=True)
+    return data
+
+
+def load_micro_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", year: int = None
+) -> dict:
+    """DB equivalent of load_micro_metrics(): {run_name: {metric: value}}."""
+    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        data[run_name] = compute_all_metrics(
+            g["actual"].values, g["predicted"].values, warn_on_nan=False
+        )
+    return data
+
+
+def compute_cumulative_micro_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", min_obs: int = 8, year: int = None
+) -> dict:
+    """DB equivalent of compute_cumulative_micro_metrics()."""
+    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    data = {}
+    for run_name, g in preds.groupby("run_name"):
+        g = g.sort_values("date")
+        actual    = g["actual"].to_numpy()
+        predicted = g["predicted"].to_numpy()
+        start = min(min_obs, len(g))
+        rows = []
+        for i in range(start, len(g) + 1):
+            m = compute_all_metrics(actual[:i], predicted[:i], warn_on_nan=False)
+            m["date"] = g["date"].iloc[i - 1]
+            rows.append(m)
+        data[run_name] = pd.DataFrame(rows)
+    return data
+
+
+def _model_lookup_local(reports_dir: Path, department: str, age_group: str) -> dict:
+    """
+    {run_name: model} read from *_walkforward_metrics.json.
+
+    Local mode's *_step_metrics.csv / *_predictions.csv only carry run_name in
+    their filename — the model type is only recorded in the JSON — so
+    --models filtering in local mode needs this separate lookup.
+    """
+    out_dir = Path(reports_dir) / department / age_group
+    lookup = {}
+    for f in out_dir.glob("*_walkforward_metrics.json"):
         with open(f, encoding="utf-8-sig") as fh:
             j = json.load(fh)
-        model      = j["model"]
-        data[model] = {int(h): v for h, v in j["metrics_by_horizon"].items()}
-    return data
+        lookup[j.get("run_name", j["model"])] = j["model"]
+    return lookup
+
+
+def _filter_by_model_and_name(
+    data: dict,
+    department: str,
+    age_group: str,
+    source: str,
+    models: list = None,
+    run_names: list = None,
+) -> dict:
+    """
+    Restrict a {run_name: ...} dict (metrics / step_data / micro_metrics /
+    cumulative_metrics — any of the four shapes used in this file) to the
+    requested --models and/or --run_names. Both filters combine with AND;
+    either left as None/empty is skipped.
+    """
+    if not models and not run_names:
+        return data
+    if source == "db":
+        runs_df = latest_runs(department, age_group)
+        model_of = dict(zip(runs_df["run_name"], runs_df["model"]))
+    else:
+        model_of = _model_lookup_local(REPORTS_PATH, department, age_group)
+    return {
+        k: v for k, v in data.items()
+        if (not run_names or k in run_names)
+        and (not models or model_of.get(k) in models)
+    }
+
+
+def _config_lookup(department: str, age_group: str, source: str) -> dict:
+    """
+    {run_name: (train_size, window_type, step)} — the config fields that
+    determine which calendar dates get evaluated in a walk-forward backtest
+    (unlike horizon or refit_every, which don't shift the evaluated dates).
+    """
+    if source == "db":
+        runs_df = latest_runs(department, age_group)
+        return {
+            row.run_name: (row.train_size, row.window_type, row.step)
+            for row in runs_df.itertuples()
+        }
+    out_dir = Path(REPORTS_PATH) / department / age_group
+    lookup = {}
+    for f in out_dir.glob("*_walkforward_metrics.json"):
+        with open(f, encoding="utf-8-sig") as fh:
+            j = json.load(fh)
+        cfg = j.get("config", {})
+        lookup[j.get("run_name", j.get("model"))] = (
+            cfg.get("train_size"), cfg.get("window_type"), cfg.get("step")
+        )
+    return lookup
+
+
+def _filter_same_config(data: dict, department: str, age_group: str, source: str) -> dict:
+    """
+    Keep only the models sharing the most common (train_size, window_type,
+    step) among the ones in `data`. Comparing metrics pooled from
+    differently-windowed backtests isn't apples-to-apples — each config
+    evaluates a different set of calendar dates — even though computing the
+    comparison doesn't error. Models with a different config are dropped,
+    with a warning listing what was excluded and why.
+    """
+    if len(data) <= 1:
+        return data
+    config_of  = _config_lookup(department, age_group, source)
+    signatures = {k: config_of.get(k) for k in data}
+    common_sig, _ = Counter(signatures.values()).most_common(1)[0]
+
+    kept    = {k: v for k, v in data.items() if signatures[k] == common_sig}
+    dropped = {k: signatures[k] for k in data if signatures[k] != common_sig}
+    if dropped:
+        train_size, window_type, step = common_sig
+        logger.warning(
+            f"--same_config: keeping models with train_size={train_size}, "
+            f"window_type={window_type}, step={step}; dropping {dropped} "
+            "(different config)."
+        )
+    return kept
 
 
 def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
@@ -87,22 +390,40 @@ def build_table(metrics: dict, horizons: list) -> pd.DataFrame:
     return pd.DataFrame(rows).set_index("Model")
 
 
+def build_micro_table(micro_metrics: dict) -> pd.DataFrame:
+    """Build model × metric DataFrame for all TABLE_METRICS, pooled (no horizon split)."""
+    rows = []
+    for model, m in micro_metrics.items():
+        row = {"Model": model}
+        for key in TABLE_METRICS:
+            val = m.get(key, np.nan)
+            row[TABLE_HEADERS[key]] = round(val, 2) if not np.isnan(val) else np.nan
+        rows.append(row)
+    return pd.DataFrame(rows).set_index("Model")
+
+
 def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd.Series:
     """
     Metric change from h_short to h_long per model.
 
-    For error metrics (mae, rmse, smape): (v_long/v_short - 1) × 100 % — positive = worse.
-    For score metrics (mda, r2):          v_long - v_short (absolute) — negative = worse.
+    For error metrics (mae, rmse, smape, mape): (v_long/v_short - 1) × 100 % — positive = worse.
+    For score metrics (mda, r2):                v_long - v_short (absolute) — negative = worse.
+    For bias (me): ideal value is 0, not min/max, so direction doesn't indicate "better" —
+        only |ME| growing means the model's over/under-prediction is getting worse:
+        |v_long| - |v_short| (absolute) — positive = bias grew.
     """
     result = {}
     label  = TABLE_HEADERS.get(metric, metric.upper())
     higher_is_better = metric in {"mda", "r2"}
+    is_bias = metric == "me"
 
     for model, by_h in metrics.items():
         v_s = by_h.get(h_short, {}).get(metric, np.nan)
         v_l = by_h.get(h_long,  {}).get(metric, np.nan)
         if np.isnan(v_s) or np.isnan(v_l):
             result[model] = np.nan
+        elif is_bias:
+            result[model] = round(abs(v_l) - abs(v_s), 3)
         elif higher_is_better:
             result[model] = round(v_l - v_s, 3)
         elif v_s > 0:
@@ -110,7 +431,10 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
         else:
             result[model] = np.nan
 
-    unit = "" if higher_is_better else " (%)"
+    if is_bias:
+        label, unit = f"{label} magnitude", ""
+    else:
+        unit = "" if higher_is_better else " (%)"
     return pd.Series(result, name=f"{label} change h{h_short}→h{h_long}{unit}")
 
 
@@ -118,9 +442,174 @@ def degradation_pct(metrics: dict, h_short: int, h_long: int, metric: str) -> pd
 # Main
 # ---------------------------------------------------------------------------
 
-def compare(department: str, age_group: str, horizons: list, metric: str) -> None:
+def compare_macroaverage(
+    department: str,
+    age_group: str,
+    metric_names: list,
+    trend_window: int = 13,
+    year: int = None,
+    interactive: bool = False,
+    source: str = "local",
+    models: list = None,
+    run_names: list = None,
+    same_config: bool = False,
+) -> None:
+    """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
     department = department.upper()
-    metrics    = load_metrics(REPORTS_PATH, department, age_group)
+    out_dir    = Path(REPORTS_PATH) / department / age_group
+
+    try:
+        if source == "db":
+            step_data = load_step_metrics_from_db(department, age_group)
+        else:
+            step_data = load_step_metrics(REPORTS_PATH, department, age_group)
+    except FileNotFoundError as exc:
+        logger.warning(f"Skipping step metrics for {department}: {exc}")
+        return
+
+    step_data = _filter_by_model_and_name(
+        step_data, department, age_group, source, models, run_names
+    )
+    if same_config:
+        step_data = _filter_same_config(step_data, department, age_group, source)
+    if not step_data:
+        logger.warning(f"No runs left for {department} after applying --models/--run_names filters.")
+        return
+
+    if year is not None:
+        step_data = {m: df[df["date"].dt.year == year] for m, df in step_data.items()}
+        step_data = {m: df for m, df in step_data.items() if not df.empty}
+        if not step_data:
+            logger.warning(f"No step metrics found for year={year} in {department}")
+            return
+
+    suffix = f"_{year}" if year is not None else ""
+    for metric in metric_names:
+        fig_filename = f"step_metrics_{metric}{suffix}.png"
+        fig_path = get_output_path(out_dir, fig_filename, output_type="figures")
+        plot_step_metrics(
+            step_data    = step_data,
+            metric       = metric,
+            department   = department,
+            save_path    = fig_path,
+            trend_window = trend_window,
+            show         = interactive,
+        )
+
+
+def compare_microaverage(
+    department: str,
+    age_group: str,
+    metric_names: list,
+    interactive: bool = False,
+    year: int = None,
+    source: str = "local",
+    models: list = None,
+    run_names: list = None,
+    same_config: bool = False,
+) -> None:
+    """
+    Model comparison pooling every backtest prediction across all steps/horizons —
+    each metric computed once per model (same philosophy as horizon mode, just not
+    divided by horizon). If `year` is given, restricted to that calendar year only
+    (same semantics as macroaverage's --year).
+    """
+    department = department.upper()
+    out_dir    = Path(REPORTS_PATH) / department / age_group
+
+    try:
+        if source == "db":
+            micro_metrics = load_micro_metrics_from_db(department, age_group, year=year)
+            cumulative_metrics = compute_cumulative_micro_metrics_from_db(
+                department, age_group, year=year
+            )
+        else:
+            micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group, year=year)
+            cumulative_metrics = compute_cumulative_micro_metrics(
+                REPORTS_PATH, department, age_group, year=year
+            )
+    except FileNotFoundError as exc:
+        logger.warning(f"Skipping microaverage for {department}: {exc}")
+        return
+
+    micro_metrics = _filter_by_model_and_name(
+        micro_metrics, department, age_group, source, models, run_names
+    )
+    cumulative_metrics = _filter_by_model_and_name(
+        cumulative_metrics, department, age_group, source, models, run_names
+    )
+    if same_config:
+        micro_metrics = _filter_same_config(micro_metrics, department, age_group, source)
+        cumulative_metrics = {k: v for k, v in cumulative_metrics.items() if k in micro_metrics}
+    if not micro_metrics:
+        logger.warning(f"No runs left for {department} after applying --models/--run_names filters.")
+        return
+
+    table = build_micro_table(micro_metrics)
+    label = f"{department} / {age_group}" + (f" ({year})" if year is not None else "")
+    print(f"\n{'='*70}")
+    print(f"Model comparison (microaverage) — {label}")
+    print(f"{'='*70}")
+    print(table.to_string())
+    print(f"{'='*70}\n")
+
+    suffix = f"_{year}" if year is not None else ""
+    csv_filename = f"comparison_microaverage{suffix}.csv"
+    csv_path = get_output_path(out_dir, csv_filename, output_type="tables")
+    table.to_csv(csv_path)
+    print(f"Table saved: {csv_path}")
+
+    for metric in metric_names:
+        fig_filename = f"comparison_microaverage_{metric}{suffix}.png"
+        fig_path = get_output_path(out_dir, fig_filename, output_type="figures")
+        plot_micro_comparison(
+            metrics             = micro_metrics,
+            cumulative_metrics  = cumulative_metrics,
+            metric              = metric,
+            department          = department,
+            save_path           = fig_path,
+            show                = interactive,
+        )
+
+
+def compare(
+    department: str,
+    age_group: str,
+    horizons: list,
+    metric_names: list,
+    mode: str = "horizon",
+    trend_window: int = 13,
+    year: int = None,
+    interactive: bool = False,
+    source: str = "local",
+    models: list = None,
+    run_names: list = None,
+    same_config: bool = False,
+) -> None:
+    department = department.upper()
+
+    if mode == "macroaverage":
+        compare_macroaverage(
+            department, age_group, metric_names, trend_window, year, interactive, source,
+            models, run_names, same_config,
+        )
+        return
+    if mode == "microaverage":
+        compare_microaverage(
+            department, age_group, metric_names, interactive, year, source, models, run_names,
+            same_config,
+        )
+        return
+
+    metrics = (
+        load_metrics_from_db(department, age_group) if source == "db"
+        else load_metrics(REPORTS_PATH, department, age_group)
+    )
+    metrics = _filter_by_model_and_name(metrics, department, age_group, source, models, run_names)
+    if same_config:
+        metrics = _filter_same_config(metrics, department, age_group, source)
+    if not metrics:
+        raise ValueError("No runs left after applying --models/--run_names filters.")
 
     available_horizons = sorted({h for m in metrics.values() for h in m})
     horizons = [h for h in horizons if h in available_horizons]
@@ -132,34 +621,41 @@ def compare(department: str, age_group: str, horizons: list, metric: str) -> Non
 
     # --- Table ---
     table = build_table(metrics, horizons)
-    degr  = degradation_pct(metrics, h_short, h_long, metric)
 
     print(f"\n{'='*70}")
     print(f"Model comparison — {department} / {age_group}")
     print(f"{'='*70}")
     print(table.to_string())
-    change_label = "change" if metric in {"mda", "r2"} else "degradation"
-    print(f"\n--- {METRIC_LABELS[metric]} {change_label} h={h_short}→h={h_long} ---")
-    print(degr.sort_values().to_string())
+
+    out_dir    = Path(REPORTS_PATH) / department / age_group
+    full_table = table.copy()
+
+    for metric in metric_names:
+        degr = degradation_pct(metrics, h_short, h_long, metric)
+        change_label = "change" if metric in {"mda", "r2", "me"} else "degradation"
+        print(f"\n--- {METRIC_LABELS[metric]} {change_label} h={h_short}→h={h_long} ---")
+        print(degr.sort_values().to_string())
+        full_table[degr.name] = degr
+
+        suffix = f"_{year}" if year is not None else ""
+        fig_filename = f"comparison_horizon_{metric}{suffix}.png"
+        fig_path = get_output_path(out_dir, fig_filename, output_type="figures")
+        plot_model_comparison(
+            metrics    = metrics,
+            horizons   = available_horizons,
+            h_short    = h_short,
+            h_long     = h_long,
+            metric     = metric,
+            department = department,
+            save_path  = fig_path,
+            show       = interactive,
+        )
     print(f"{'='*70}\n")
 
-    out_dir  = Path(REPORTS_PATH) / department / age_group
-    csv_path = out_dir / "model_comparison.csv"
-    full_table = table.copy()
-    full_table[degr.name] = degr
+    csv_filename = "comparison_horizon.csv"
+    csv_path = get_output_path(out_dir, csv_filename, output_type="tables")
     full_table.to_csv(csv_path)
     print(f"Table saved: {csv_path}")
-
-    # --- Figure ---
-    fig_path = out_dir / f"model_comparison_{metric}.png"
-    plot_model_comparison(
-        metrics    = metrics,
-        horizons   = available_horizons,
-        h_short    = h_short,
-        h_long     = h_long,
-        metric     = metric,
-        save_path  = fig_path,
-    )
 
     # --- Plain-language summary ---
     mae_s  = {m: metrics[m].get(h_short, {}).get("mae", np.nan) for m in metrics}
@@ -210,18 +706,93 @@ def main():
                         help="Age group (default: under5)")
     parser.add_argument("--horizons", type=int, nargs="+", default=[1, 2, 3, 4],
                         help="Horizons to include in the table (default: 1 2 3 4)")
-    parser.add_argument("--metric", "-m", default="mae",
-                        choices=sorted(VALID_METRICS),
-                        help="Metric for the bar/line chart (default: mae)")
+    parser.add_argument("--metric", "-m", nargs="+", default=None,
+                        choices=sorted(VALID_METRICS) + ["all"],
+                        help="Metric(s) for the bar/line charts. Default depends on --mode: "
+                             "all metrics for 'horizon', or all except "
+                             f"{sorted(NON_ADDITIVE_METRICS)} for 'macroaverage' (pass this "
+                             "explicitly to include them anyway).")
+    parser.add_argument("--mode", choices=["horizon", "macroaverage", "microaverage"],
+                        default="horizon",
+                        help="Aggregation strategy: 'horizon' (default) — table + bar/line "
+                             "charts from metrics_by_horizon. 'macroaverage' — per-step "
+                            "diagnostic figures (boxplot + mean, and metric heatmap by "
+                            "forecast date) from *_step_metrics.csv. 'microaverage' — "
+                            "table + bar/heatmap comparison from every backtest prediction "
+                            "pooled across all steps/horizons, each metric computed once "
+                            "per model (like 'horizon' but without splitting by h).")
+    parser.add_argument("--trend_window", type=int, default=None,
+                        help="[--mode macroaverage] Retained for backward compatibility; "
+                            "the current macroaverage right panel is a heatmap and does not use "
+                            "rolling smoothing. Default: 13 normally, or 4 when --year is set.")
+    parser.add_argument("--year", type=int, default=None,
+                        help="[--mode macroaverage/microaverage] Restrict to a single "
+                             "calendar year (default: all years). macroaverage: filters "
+                            "step metrics (boxplot + heatmap). microaverage: pools "
+                             "only that year's backtest predictions, and the cumulative "
+                             "heatmap window starts fresh at that year instead of the full "
+                             "history.")
+    parser.add_argument("--interactive", action="store_true",
+                        help="Open the plot in a window (plt.show()) instead of just saving "
+                             "it to disk. Requires exactly one --metric, so only one window "
+                             "needs to be closed.")
+    parser.add_argument("--source", choices=["local", "db"], default="local",
+                        help="Where to read results from. 'local' (default) — the "
+                             "*_walkforward_metrics.json / *_step_metrics.csv / "
+                             "*_predictions.csv files under reports/. 'db' — query "
+                             "results_unsa_ira directly (db/migrations/0001_walkforward_results), "
+                             "using the latest run per run_name. Requires DATABASE_URL to be "
+                             "reachable; falls back to nothing automatically if not — the "
+                             "error is raised so it's obvious the data wasn't found there.")
+    parser.add_argument("--models", nargs="+", default=None,
+                        help="Restrict to these model types (e.g. --models XGBoost RandomForest). "
+                             "Useful for reviewing every grid-search variant of a model type "
+                             "without listing each run_name. Combinable with --run_names (AND).")
+    parser.add_argument("--run_names", nargs="+", default=None,
+                        help="Restrict to these exact run_name labels. Combinable with --models (AND).")
+    parser.add_argument("--same_config", action="store_true",
+                        help="Only compare models sharing the most common (train_size, "
+                             "window_type, step) — the config fields that determine which "
+                             "calendar dates get evaluated in a walk-forward backtest. Models "
+                             "with a different config are dropped, with a warning; comparing "
+                             "them anyway isn't apples-to-apples since they'd be scored on "
+                             "different date ranges.")
     args = parser.parse_args()
 
     departments = []
     for d in args.department:
         departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
 
+    if args.metric is not None:
+        metric_names = sorted(VALID_METRICS) if "all" in args.metric else args.metric
+    elif args.mode == "macroaverage":
+        metric_names = sorted(VALID_METRICS - NON_ADDITIVE_METRICS)
+        print(
+            f"[macroaverage] Excluding non-additive metrics by default: "
+            f"{sorted(NON_ADDITIVE_METRICS)} (pass --metric to include them explicitly)"
+        )
+    else:
+        metric_names = sorted(VALID_METRICS)
+
+    if args.interactive and len(metric_names) != 1:
+        parser.error(
+            f"--interactive requires exactly one metric, got {metric_names}. "
+            "Pass a single --metric <name>."
+        )
+
+    if args.trend_window is not None:
+        trend_window = args.trend_window
+    else:
+        trend_window = 4 if args.year is not None else 13
+
     for dept in departments:
         try:
-            compare(dept, args.age_group, args.horizons, args.metric)
+            compare(
+                dept, args.age_group, args.horizons, metric_names,
+                mode=args.mode, trend_window=trend_window,
+                year=args.year, interactive=args.interactive, source=args.source,
+                models=args.models, run_names=args.run_names, same_config=args.same_config,
+            )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")
 

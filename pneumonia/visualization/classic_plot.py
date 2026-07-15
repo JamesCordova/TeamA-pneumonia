@@ -7,7 +7,7 @@ Shows:
   - One dashed coloured line per model over the val + test range
   - Vertical markers at the val and test split boundaries
 
-Saved to: reports/{DEPT}/{AGE_GROUP}/forecast_plot.png
+Saved to: reports/{DEPT}/{AGE_GROUP}/forecast_classic[_YYYY].png
 """
 
 from pathlib import Path
@@ -20,6 +20,7 @@ from pneumonia.utils import setup_logger
 from pneumonia.visualization._utils import (
     clip_axes,
     configure_date_axis,
+    get_output_path,
     read_predictions,
     save_figure,
 )
@@ -120,7 +121,10 @@ def plot_classic(
     clip_axes(ax, df, plot_min, plot_max)
 
     if save_path is None:
-        save_path = Path(reports_dir) / department / age_group / "forecast_plot.png"
+        suffix = f"_{year}" if year is not None else ""
+        filename = f"forecast_classic{suffix}.png"
+        base_dir = Path(reports_dir) / department / age_group
+        save_path = get_output_path(base_dir, filename, output_type="figures")
 
     path = save_figure(fig, save_path, show)
     logger.info(f"Classic plot saved: {path}")

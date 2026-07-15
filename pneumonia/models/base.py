@@ -94,6 +94,16 @@ class BaseForecaster(ABC):
         """
         pass
     
+    def get_params(self) -> Dict[str, Any]:
+        """
+        Return the hyperparameters needed to reconstruct this model.
+
+        The returned dict must be valid as `**kwargs` to `type(self)(department=...,
+        age_group=..., **get_params())`. Override in subclasses that take
+        hyperparameters; models with none (e.g. Naive) can rely on this default.
+        """
+        return {}
+
     def evaluate(
         self,
         actual: pd.Series,

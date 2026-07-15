@@ -50,6 +50,14 @@ class HoltWintersForecaster(BaseForecaster):
         self.seasonal = seasonal
         self._fitted = None
 
+    def get_params(self) -> dict:
+        return {
+            "seasonal_periods": self.seasonal_periods,
+            "trend":            self.trend,
+            "damped_trend":     self.damped_trend,
+            "seasonal":         self.seasonal,
+        }
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
