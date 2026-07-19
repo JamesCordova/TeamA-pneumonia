@@ -101,7 +101,8 @@ class SARIMAModel(BaseForecaster):
     order      : tuple (p, d, q)  — uses config default if None
     seasonal_order : tuple (P, D, Q, s) — ignored when use_fourier=True
     use_fourier : bool — use Fourier exog instead of SAR/SMA (default True)
-    n_fourier_terms : int — number of sin/cos pairs (default from config)
+    n_fourier_terms : int — number of sin/cos pairs; ignored when use_fourier=False
+                     (default from config)
     """
 
     def __init__(
@@ -142,11 +143,20 @@ class SARIMAModel(BaseForecaster):
         )
 
     def get_params(self) -> dict:
+        """
+        seasonal_order/n_fourier_terms are reported as their *effective* value
+        (None when the fit path ignores them — see _fit_manual/_finalize_fit),
+        not whatever was passed to __init__. Otherwise two runs that only
+        differ in an inert parameter (e.g. seasonal_order while use_fourier=True)
+        would get distinct config keys in results_unsa_ira despite fitting an
+        identical model, defeating the identical-configuration dedup in
+        pneumonia.evaluation.results_db.
+        """
         return {
             "order":           self.order,
-            "seasonal_order":  self.seasonal_order,
+            "seasonal_order":  self.seasonal_order if not self.use_fourier else None,
             "use_fourier":     self.use_fourier,
-            "n_fourier_terms": self.n_fourier_terms,
+            "n_fourier_terms": self.n_fourier_terms if self.use_fourier else None,
         }
 
     # ------------------------------------------------------------------
