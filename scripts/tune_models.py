@@ -51,8 +51,8 @@ from pneumonia.models.ml.config import RANDOM_FOREST_SEARCH_RANGES, XGBOOST_SEAR
 from pneumonia.models.prophet.config import PROPHET_SEARCH_RANGES
 from pneumonia.models.rnn.config import RNN_SEARCH_RANGES
 from pneumonia.models.sarima.config import SARIMA_SEARCH_RANGES
+from pneumonia.pipelines.walkforward_runner import run_walkforward_for
 from pneumonia.utils import setup_logger
-from run_walkforward import run_walkforward_for
 
 logger = setup_logger(__name__)
 
