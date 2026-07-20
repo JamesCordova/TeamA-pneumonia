@@ -1,216 +1,221 @@
 #!/usr/bin/env python
 """
-Automated Hyperparameter Tuning Script for ML Models.
+Hyperparameter tuning via walk-forward validation.
 
-Optimizes hyperparameters for XGBoost or RandomForest models on a specific department
-and age group by evaluating parameter combinations on the validation split.
+Every trial is delegated to scripts/run_walkforward.py's run_walkforward_for(),
+so each one gets the exact same identical-configuration dedup, run_name
+resolution, and local + results_unsa_ira persistence as a normal walk-forward
+run — trials that turn out functionally identical (e.g. two SARIMA combos
+that only differ in seasonal_order while use_fourier=True) are detected and
+reused instead of retrained.
+
+Only model_params is searched. horizon/step/window_type/train_size/refit_every
+(the walk-forward protocol) are fixed CLI inputs, not part of the search space
+— see scripts/compare_models.py's --same_config for why: letting the search
+move them would let it "pick" an easier evaluation window instead of a
+genuinely better model, and makes trials incomparable with each other.
+
+Three search strategies, all driven by the same per-model *_SEARCH_RANGES
+dict (a plain {param: [values]} mapping defined next to each model, e.g.
+pneumonia/models/sarima/config.py's SARIMA_SEARCH_RANGES):
+  grid    — exhaustive ParameterGrid over the full range.
+  random  — ParameterSampler, --n_iter samples.
+  optuna  — TPE-based Bayesian search (same ranges, sampled via
+            trial.suggest_categorical), --n_iter trials. Worth it once the
+            range is too large to cover with grid/random cheaply, since each
+            trial is a full walk-forward run — not a quick single fit.
 
 Usage:
-    # Random search (default, fast)
-    python scripts/tune_models.py --department AMAZONAS --model RandomForest --n_iter 15
-    
-    # Grid search (exhaustive)
-    python scripts/tune_models.py --department AMAZONAS --model XGBoost --search_method grid
-    
-    # Override age group or search metric
-    python scripts/tune_models.py --department LIMA --model XGBoost --age_group 60plus --metric smape
+    python scripts/tune_models.py --department LIMA --model XGBoost
+    python scripts/tune_models.py --department LIMA --model SARIMA --search_method grid
+    python scripts/tune_models.py --department LIMA AMAZONAS --model SARIMA \\
+        --search_method optuna --n_iter 30
+    python scripts/tune_models.py --department LIMA --model SARIMA --metric rmse \\
+        --train_size 260 --window_type expanding
 """
 
 import argparse
-import json
 import logging
 import sys
 from pathlib import Path
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import ParameterGrid, ParameterSampler
 
-# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pneumonia.config import REPORTS_PATH, RANDOM_SEED
-from pneumonia.models.utils import get_departmental_data, temporal_split
-from pneumonia.models.ml.config import (
-    XGBOOST_SEARCH_RANGES,
-    RANDOM_FOREST_SEARCH_RANGES,
-)
-from pneumonia.models.ml.random_forest import RandomForestModel
-from pneumonia.models.ml.xgboost import XGBoostModel
-from pneumonia.evaluation.metrics import compute_all_metrics
+from sklearn.model_selection import ParameterGrid, ParameterSampler
+
+from pneumonia.config import RANDOM_SEED
+from pneumonia.models.baselines.holt_winters import HOLTWINTERS_SEARCH_RANGES
+from pneumonia.models.ml.config import RANDOM_FOREST_SEARCH_RANGES, XGBOOST_SEARCH_RANGES
+from pneumonia.models.prophet.config import PROPHET_SEARCH_RANGES
+from pneumonia.models.rnn.config import RNN_SEARCH_RANGES
+from pneumonia.models.sarima.config import SARIMA_SEARCH_RANGES
 from pneumonia.utils import setup_logger
+from run_walkforward import run_walkforward_for
 
 logger = setup_logger(__name__)
 
+# {model CLI name: (search ranges, param adapter)}. The adapter folds one
+# sampled combo into the extra_model_params shape run_walkforward_for()
+# expects — nested under rf_params/xgb_params for the two ML models (their
+# constructors take one dict), flat for everyone else. Mirrors exactly how
+# scripts/run_walkforward.py's own CLI wires each model's hyperparameters.
+# Naive/SeasonalNaive have no hyperparameters, so they have no entry here.
+_MODEL_SPECS = {
+    "RandomForest": (RANDOM_FOREST_SEARCH_RANGES, lambda c: {"rf_params": c}),
+    "XGBoost":      (XGBOOST_SEARCH_RANGES,       lambda c: {"xgb_params": c}),
+    "SARIMA":       (SARIMA_SEARCH_RANGES,        dict),
+    "Prophet":      (PROPHET_SEARCH_RANGES,       dict),
+    "HoltWinters":  (HOLTWINTERS_SEARCH_RANGES,   dict),
+    "LSTM":         (RNN_SEARCH_RANGES,           dict),
+    "GRU":          (RNN_SEARCH_RANGES,           dict),
+}
 
-def create_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Optimize hyperparameters for RandomForest or XGBoost forecasters",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python scripts/tune_models.py --department AMAZONAS --model RandomForest --n_iter 15
-  python scripts/tune_models.py --department LIMA --model XGBoost --search_method grid
-  python scripts/tune_models.py --department AMAZONAS --model XGBoost --metric smape
-        """,
-    )
+_LOWER_IS_BETTER = {"mae", "rmse", "smape", "mape"}
 
-    parser.add_argument("--department", "-d", type=str, required=True,
-                        help="Department name (e.g. AMAZONAS, LIMA)")
-    parser.add_argument("--model", "-m", type=str, required=True,
-                        choices=["RandomForest", "XGBoost"],
-                        help="Model class to tune")
-    parser.add_argument("--age_group", "-g", type=str,
-                        choices=["under5", "60plus"], default="under5",
-                        help="Age group (default: under5)")
-    parser.add_argument("--search_method", type=str,
-                        choices=["grid", "random"], default="random",
-                        help="Search strategy: 'grid' (exhaustive) or 'random' (sampled)")
-    parser.add_argument("--n_iter", type=int, default=20,
-                        help="Number of parameter combinations to sample for random search (default: 20)")
-    parser.add_argument("--metric", type=str, default="mae",
-                        choices=["mae", "rmse", "smape"],
-                        help="Validation metric to minimize (default: mae)")
-    parser.add_argument("--split_strategy", "-s", type=str,
-                        choices=["dynamic", "years"], default="dynamic",
-                        help="Temporal split strategy (default: dynamic)")
-    parser.add_argument("--start_year", type=int,
-                        help="Start year to truncate early sub-reported data (e.g. 2008 for Moquegua)")
-    
-    # Optional CLI overrides for feature engineering parameters
-    parser.add_argument("--lags", type=int, nargs="+",
-                        help="Feature lag periods, e.g. --lags 1 2 4 8 (overrides config defaults)")
-    parser.add_argument("--windows", type=int, nargs="+",
-                        help="Feature rolling window sizes, e.g. --windows 4 13 (overrides config defaults)")
 
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Enable verbose logging")
-    parser.add_argument("--quiet", "-q", action="store_true",
-                        help="Suppress non-essential output")
+def _score(metrics_by_horizon: dict, metric: str, opt_horizon: int = None) -> float:
+    """Mean of `metric` across every evaluated horizon, or a single horizon if opt_horizon is given."""
+    if opt_horizon is not None:
+        return metrics_by_horizon.get(opt_horizon, {}).get(metric, float("nan"))
+    values = [m.get(metric, float("nan")) for m in metrics_by_horizon.values()]
+    values = [v for v in values if v == v]  # drop NaN
+    return sum(values) / len(values) if values else float("nan")
 
-    return parser
+
+def _is_better(a: float, b: float, metric: str) -> bool:
+    """True if score `a` beats score `b` for `metric`. NaN never wins."""
+    if a != a:
+        return False
+    if b != b:
+        return True
+    return a < b if metric in _LOWER_IS_BETTER else a > b
 
 
 def tune_model(
     department: str,
+    age_group: str,
     model_name: str,
-    age_group: str = "under5",
-    search_method: str = "random",
-    n_iter: int = 20,
-    metric_to_optimize: str = "mae",
-    split_strategy: str = "dynamic",
-    start_year: int = None,
-    lags: list = None,
-    windows: list = None,
+    search_method: str,
+    n_iter: int,
+    metric: str,
+    opt_horizon: int,
+    walkforward_kwargs: dict,
 ) -> dict:
+    """
+    Search model_params for `model_name` on department/age_group, scoring
+    each trial with `metric` (averaged across horizons, or just `opt_horizon`
+    if given). Returns {"score", "run_name", "combo", "metrics_by_horizon"}
+    for the best trial.
+    """
     department = department.upper()
-    
-    # 1. Load Data
-    logger.info(f"Loading data for {department} ({age_group})")
-    data = get_departmental_data(department, age_group=age_group, start_year=start_year)
-    
-    # 2. Temporal Split
-    train, val, test = temporal_split(data, strategy=split_strategy)
-    if len(val) == 0:
-        raise ValueError("Validation set is empty. Tuning requires a validation split.")
-        
-    logger.info(f"Data split - Train: {len(train)} weeks, Val: {len(val)} weeks")
+    search_ranges, adapt = _MODEL_SPECS[model_name]
 
-    # 3. Setup Parameter Space
-    if model_name == "RandomForest":
-        search_ranges = RANDOM_FOREST_SEARCH_RANGES
-        model_class = RandomForestModel
-        param_override_key = "rf_params"
-    elif model_name == "XGBoost":
-        search_ranges = XGBOOST_SEARCH_RANGES
-        model_class = XGBoostModel
-        param_override_key = "xgb_params"
-    else:
-        raise ValueError(f"Unknown model name: {model_name}")
+    best = {"score": float("nan"), "run_name": None, "combo": None, "metrics_by_horizon": None}
 
-    # 4. Generate Parameter Combinations
-    if search_method == "grid":
-        param_list = list(ParameterGrid(search_ranges))
-        logger.info(f"Starting Grid Search. Total combinations: {len(param_list)}")
-    else:
-        param_list = list(ParameterSampler(search_ranges, n_iter=n_iter, random_state=RANDOM_SEED))
-        # Ensure we don't try to sample more than the unique combination space size
-        total_unique = len(ParameterGrid(search_ranges))
-        if n_iter >= total_unique:
-            param_list = list(ParameterGrid(search_ranges))
-            logger.info(f"n_iter ({n_iter}) >= total unique combinations ({total_unique}). Running full Grid Search.")
+    def consider(combo: dict, idx: int, total) -> float:
+        run_name = f"{model_name}_tune{idx}"
+        logger.info(f"[{idx}/{total}] {combo}")
+        result = run_walkforward_for(
+            department=department, age_group=age_group, model_name=model_name,
+            extra_model_params=adapt(combo), run_name=run_name, **walkforward_kwargs,
+        )
+        score = _score(result["metrics_by_horizon"], metric, opt_horizon)
+        logger.info(f"  {metric}={score:.4f} (run_name={result['run_name']})")
+        if _is_better(score, best["score"], metric):
+            best.update(score=score, run_name=result["run_name"], combo=combo,
+                        metrics_by_horizon=result["metrics_by_horizon"])
+        return score
+
+    if search_method in ("grid", "random"):
+        if search_method == "grid":
+            combos = list(ParameterGrid(search_ranges))
+            logger.info(f"Grid search: {len(combos)} combinations")
         else:
-            logger.info(f"Starting Random Search. Sampling {len(param_list)} of {total_unique} combinations.")
+            total_unique = len(ParameterGrid(search_ranges))
+            n = min(n_iter, total_unique)
+            combos = list(ParameterSampler(search_ranges, n_iter=n, random_state=RANDOM_SEED))
+            logger.info(f"Random search: sampling {len(combos)} of {total_unique} combinations")
 
-    best_score = float("inf")
-    best_params = None
-    best_metrics = None
-    
-    # 5. Run Search
-    for idx, params in enumerate(param_list, 1):
-        try:
-            logger.info(f"[{idx}/{len(param_list)}] Evaluating params: {params}")
-            
-            # Map parameters to fit method
-            model_kwargs = {
-                "department": department,
-                "age_group": age_group,
-                "lags": lags,
-                "windows": windows,
-                param_override_key: params
-            }
-            
-            model = model_class(**model_kwargs)
-            
-            # Train model on training set
-            model.fit(train)
-            
-            # Generate multi-step forecast on validation set
-            val_forecast = model.predict(train, steps=len(val))
-            
-            # Calculate evaluation metrics
-            metrics = compute_all_metrics(val.values, val_forecast, warn_on_nan=False)
-            
-            score = metrics[metric_to_optimize]
-            logger.info(f"  Result -> {metric_to_optimize.upper()}: {score:.4f} | MAE: {metrics['mae']:.4f} | SMAPE: {metrics['smape']:.4f}")
-            
-            if score < best_score:
-                best_score = score
-                best_params = params
-                best_metrics = metrics
-                logger.info(f"  New best combination found!")
-                
-        except Exception as exc:
-            logger.warning(f"  Skipping combination due to error: {exc}")
-            continue
+        for idx, combo in enumerate(combos, 1):
+            try:
+                consider(combo, idx, len(combos))
+            except Exception as exc:
+                logger.warning(f"  [{idx}/{len(combos)}] trial failed ({combo}): {exc}")
 
-    if best_params is None:
-        raise RuntimeError("No parameter combinations successfully completed evaluation.")
+    elif search_method == "optuna":
+        import optuna
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-    # 6. Report and Save Results
-    results = {
-        "department": department,
-        "age_group": age_group,
-        "model": model_name,
-        "search_method": search_method,
-        "metric_optimized": metric_to_optimize,
-        "best_score": best_score,
-        "best_params": best_params,
-        "best_validation_metrics": best_metrics,
-    }
+        def objective(trial: "optuna.Trial") -> float:
+            combo = {k: trial.suggest_categorical(k, v) for k, v in search_ranges.items()}
+            return consider(combo, trial.number + 1, n_iter)
 
-    # Save to reports folder
-    output_dir = REPORTS_PATH / department / age_group
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / f"best_{model_name.lower()}_params.json"
-    
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
-        
-    logger.info(f"Tuning complete. Best validation {metric_to_optimize.upper()}: {best_score:.4f}")
-    logger.info(f"Best parameters: {best_params}")
-    logger.info(f"Results saved to: {output_file}")
-    
-    return results
+        direction = "minimize" if metric in _LOWER_IS_BETTER else "maximize"
+        study = optuna.create_study(
+            direction=direction, sampler=optuna.samplers.TPESampler(seed=RANDOM_SEED)
+        )
+        logger.info(f"Optuna ({direction}): {n_iter} trials")
+        study.optimize(objective, n_trials=n_iter, catch=(Exception,))
+
+    else:
+        raise ValueError(f"Unknown search_method: {search_method}")
+
+    if best["combo"] is None:
+        raise RuntimeError("No trial completed successfully.")
+
+    logger.info(f"Best {metric}={best['score']:.4f} — run_name={best['run_name']} — {best['combo']}")
+    return best
+
+
+def create_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Hyperparameter tuning via walk-forward validation",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python scripts/tune_models.py --department LIMA --model XGBoost
+  python scripts/tune_models.py --department LIMA --model SARIMA --search_method grid
+  python scripts/tune_models.py --department LIMA AMAZONAS --model SARIMA \\
+      --search_method optuna --n_iter 30
+  python scripts/tune_models.py --department LIMA --model SARIMA --metric rmse \\
+      --train_size 260 --window_type expanding
+        """,
+    )
+
+    parser.add_argument("--department", "-d", type=str, nargs="+", required=True,
+                        help="Department name(s) (e.g. AMAZONAS LIMA, or comma-separated)")
+    parser.add_argument("--model", "-m", type=str, required=True,
+                        choices=sorted(_MODEL_SPECS),
+                        help="Model to tune (only models with a defined search space)")
+    parser.add_argument("--age_group", "-g", type=str,
+                        choices=["under5", "60plus"], default="under5",
+                        help="Age group (default: under5)")
+    parser.add_argument("--search_method", type=str,
+                        choices=["grid", "random", "optuna"], default="random",
+                        help="Search strategy (default: random)")
+    parser.add_argument("--n_iter", type=int, default=20,
+                        help="Trials for 'random'/'optuna' (default: 20). Ignored for 'grid'.")
+    parser.add_argument("--metric", type=str, default="mae",
+                        choices=["mae", "rmse", "smape", "mape", "r2", "mda"],
+                        help="Metric to optimize (default: mae)")
+    parser.add_argument("--opt_horizon", type=int, default=None,
+                        help="Score on this single horizon instead of averaging across all "
+                             "evaluated horizons (default: average all).")
+
+    # Fixed walk-forward protocol — intentionally NOT part of the search space,
+    # see module docstring.
+    parser.add_argument("--horizon", type=int, default=4)
+    parser.add_argument("--step", type=int, default=4)
+    parser.add_argument("--window_type", choices=["sliding", "expanding"], default="sliding")
+    parser.add_argument("--train_size", type=int, default=520)
+    parser.add_argument("--refit_every", type=int, default=1)
+    parser.add_argument("--start_year", type=int, default=None,
+                        help="Start year to truncate early sub-reported data (e.g. 2008 for Moquegua)")
+
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress non-essential output")
+
+    return parser
 
 
 def main():
@@ -222,45 +227,42 @@ def main():
     elif args.verbose:
         logging.getLogger("pneumonia").setLevel(logging.DEBUG)
 
-    try:
-        results = tune_model(
-            department=args.department,
-            model_name=args.model,
-            age_group=args.age_group,
-            search_method=args.search_method,
-            n_iter=args.n_iter,
-            metric_to_optimize=args.metric,
-            split_strategy=args.split_strategy,
-            start_year=args.start_year,
-            lags=args.lags,
-            windows=args.windows,
-        )
-        
-        # Display recommendations
-        print("\n" + "=" * 80)
-        print(f"RECOMMENDED BEST PARAMETERS FOR {results['model']} ({results['department']}/{results['age_group']})")
-        print("=" * 80)
-        print(f"Validation {results['metric_optimized'].upper()}: {results['best_score']:.4f}")
-        print("\nTo use these parameters, you can add them to the 'DEPARTMENTAL_CONFIGS' dictionary")
-        print("inside pneumonia/models/ml/config.py:")
-        print("-" * 80)
-        
-        dept_key = results['department']
-        param_dict_name = "random_forest_params" if results['model'] == "RandomForest" else "xgboost_params"
-        
-        print(f'    "{dept_key}": {{')
-        print(f'        "{param_dict_name}": {json.dumps(results["best_params"])}')
-        print(f'    }},')
-        print("-" * 80)
-        print("=" * 80 + "\n")
-        
-        return 0
-    except KeyboardInterrupt:
-        logger.info("\nInterrupted by user")
-        return 130
-    except Exception as exc:
-        logger.error(f"Fatal error: {exc}")
+    walkforward_kwargs = dict(
+        train_size=args.train_size, horizon=args.horizon, step=args.step,
+        window_type=args.window_type, refit_every=args.refit_every,
+        start_year=args.start_year,
+    )
+
+    departments = []
+    for d in args.department:
+        departments.extend([x.strip().upper() for x in d.split(",") if x.strip()])
+
+    failed = []
+    for dept in departments:
+        try:
+            best = tune_model(
+                department=dept, age_group=args.age_group, model_name=args.model,
+                search_method=args.search_method, n_iter=args.n_iter,
+                metric=args.metric, opt_horizon=args.opt_horizon,
+                walkforward_kwargs=walkforward_kwargs,
+            )
+        except Exception as exc:
+            logger.error(f"Tuning failed for {dept}: {exc}")
+            failed.append(dept)
+            continue
+
+        print(f"\n{'=' * 70}")
+        print(f"Best {args.model} — {dept}/{args.age_group}  ({args.search_method}, {args.metric})")
+        print(f"{'=' * 70}")
+        print(f"  {args.metric} = {best['score']:.4f}")
+        print(f"  run_name    = {best['run_name']}")
+        print(f"  params      = {best['combo']}")
+        print(f"{'=' * 70}\n")
+
+    if failed:
+        logger.error(f"Failed departments: {failed}")
         return 1
+    return 0
 
 
 if __name__ == "__main__":

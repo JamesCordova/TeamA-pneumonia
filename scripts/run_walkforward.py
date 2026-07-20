@@ -121,7 +121,16 @@ def run_walkforward_for(
     extra_model_params: dict,
     start_year: Optional[int] = None,
     run_name: Optional[str] = None,
-) -> int:
+) -> dict:
+    """
+    Run (or reuse, if the config already exists) one walk-forward evaluation
+    and persist it locally + to results_unsa_ira.
+
+    Returns {"run_name": the resolved name actually used for local/DB storage
+    (may differ from the `run_name` argument — see resolve_run_name()),
+    "metrics_by_horizon": {horizon_int: {metric: value}}} — the latter is what
+    scripts/tune_models.py reads to score each trial.
+    """
     run_name = run_name or model_name
     logger.info(f"Walk-forward: {department}/{age_group} model={model_name} run={run_name}")
 
@@ -252,7 +261,7 @@ def run_walkforward_for(
         except Exception as exc:
             logger.warning(f"Could not save results to database: {exc}")
 
-    return 0
+    return {"run_name": run_name, "metrics_by_horizon": results["metrics_by_horizon"]}
 
 
 def create_parser() -> argparse.ArgumentParser:
