@@ -10,6 +10,7 @@ Centralizes all configuration for the pneumonia forecasting pipeline:
 """
 
 import os
+import pandas as pd
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -72,6 +73,12 @@ WEEKS_PER_YEAR = 52.1775
 Use this everywhere a weekly series' annual seasonal period is needed
 (Fourier terms, sin/cos calendar features, etc.) so all models share the
 same seasonal-period definition."""
+
+TREND_EPOCH = pd.Timestamp("2000-01-01")
+"""Fixed reference date for the 'trend' feature (pneumonia/features/build.py).
+Anchoring trend to a calendar date instead of an array position keeps it
+consistent across walk-forward folds under sliding windows, where the
+training window's start date shifts every step."""
 
 # =============================================================================
 # SARIMA MODEL CONFIGURATION
