@@ -62,8 +62,22 @@ if not abs((DEFAULT_TRAIN_RATIO + DEFAULT_VAL_RATIO + DEFAULT_TEST_RATIO) - 1.0)
 
 # For year-based split (legacy):
 DEFAULT_TRAIN_YEARS = (2000, 2019)
-DEFAULT_VAL_YEARS = (2020, 2021)
+DEFAULT_VAL_YEARS = (2020, 2021)  # NOTE: overlaps COVID_EXCLUDE_* below
 DEFAULT_TEST_YEARS = (2022, 2023)
+
+# Dates excluded from walk-forward evaluation *scoring* (not from training —
+# the weekly series stays contiguous, see pneumonia.evaluation.metrics.keep_mask).
+# COVID-19 disrupted reporting in ways no forecaster could predict: annual
+# outlier detection (pneumonia/eda/outlier_detection.py) found 55/199
+# detected outliers falling in this window, concentrated in 60+
+# hospitalization/death rates (up to 11.85 sigma). 2022-2023 already show
+# recovery and are left in scoring.
+COVID_EXCLUDE_START = "2020-01-01"
+COVID_EXCLUDE_END = "2021-12-31"
+COVID_EXCLUDE_PERIODS = [(COVID_EXCLUDE_START, COVID_EXCLUDE_END)]
+"""Ready-to-pass exclude_periods list for keep_mask()/recompute_metrics() —
+the single canonical form; every caller uses this instead of rebuilding the
+(start, end) tuple itself."""
 
 # =============================================================================
 # SEASONALITY

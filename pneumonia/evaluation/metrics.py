@@ -263,6 +263,31 @@ def mean_error(
     return float(me)
 
 
+def keep_mask(dates, exclude_periods) -> np.ndarray:
+    """
+    Boolean array, True = keep, for dates falling outside every
+    (start, end) range in exclude_periods (inclusive bounds).
+
+    Used to drop dates from evaluation/scoring only — never from training,
+    so the underlying series stays contiguous. See config.COVID_EXCLUDE_START/
+    COVID_EXCLUDE_END for why: no forecaster can be fairly scored on the
+    2020-2021 reporting disruption, but the model still trains through it.
+
+    Args:
+        dates: Any array-like convertible to a DatetimeIndex.
+        exclude_periods: Iterable of (start, end) date strings/Timestamps,
+            or None/empty to keep everything.
+
+    Returns:
+        np.ndarray of bool, same length as dates.
+    """
+    dates = pd.DatetimeIndex(pd.to_datetime(dates))
+    mask = np.ones(len(dates), dtype=bool)
+    for start, end in (exclude_periods or []):
+        mask &= ~((dates >= pd.Timestamp(start)) & (dates <= pd.Timestamp(end)))
+    return mask
+
+
 def compute_all_metrics(
     actual: Union[np.ndarray, pd.Series],
     predicted: Union[np.ndarray, pd.Series],
@@ -334,5 +359,68 @@ def baseline_metrics(
     }
     
     baseline.update(compute_all_metrics(actual, predictions))
-    
+
     return baseline
+
+
+def recompute_metrics(results: dict, exclude_periods=None) -> dict:
+    """
+    Re-derive metrics_by_horizon and each step's own 'metrics' from a
+    WalkForwardValidator.run()-shaped dict, optionally dropping dates in
+    exclude_periods first.
+
+    This is a deliberate post-processing step, kept out of WalkForwardValidator
+    itself: the validator trains/forecasts/scores every step uniformly, with
+    no notion of "excluded" dates (see its docstring). Any date-based scoring
+    policy — e.g. dropping a known reporting-shock period like COVID from the
+    numbers that get reported/compared, without touching training or the raw
+    predictions — is applied here instead, on the validator's already-complete
+    output. `results["predictions"]` and each step's 'dates'/'actuals'/
+    'predictions' are returned unchanged; only the derived metric dicts differ.
+
+    Args:
+        results: dict with 'predictions' (DataFrame: actual, pred_h1..hN) and
+            'step_results' (list of dicts with 'dates'/'actuals'/'predictions'),
+            as returned by WalkForwardValidator.run() or
+            results_db_query.reconstruct_results_from_run().
+        exclude_periods: (start, end) date ranges to drop before scoring, or
+            None/empty to leave metrics exactly as they came in.
+
+    Returns:
+        A shallow copy of `results` with 'metrics_by_horizon' and each
+        step_results[i]['metrics'] recomputed; every other key/field
+        (including 'predictions' and step_results' raw arrays) is untouched.
+    """
+    if not exclude_periods:
+        return results
+
+    pred_df = results["predictions"]
+    horizon = results["config"]["horizon"]
+
+    metrics_by_horizon = {}
+    for h in range(1, horizon + 1):
+        col = f"pred_h{h}"
+        valid = pred_df[["actual", col]].dropna()
+        valid = valid[keep_mask(valid.index, exclude_periods)]
+        metrics_by_horizon[h] = (
+            compute_all_metrics(valid["actual"].values, valid[col].values, warn_on_nan=False)
+            if len(valid) else {}
+        )
+
+    step_results = []
+    for step in results["step_results"]:
+        scored = keep_mask(step["dates"], exclude_periods)
+        actuals = np.asarray(step["actuals"])[scored]
+        predictions = np.asarray(step["predictions"])[scored]
+        step = dict(step)
+        step["metrics"] = (
+            compute_all_metrics(actuals, predictions, warn_on_nan=False) if scored.any() else {}
+        )
+        step_results.append(step)
+
+    new_results = dict(results)
+    new_results["metrics_by_horizon"] = metrics_by_horizon
+    new_results["aggregate_metrics"] = metrics_by_horizon.get(1, {})
+    new_results["step_results"] = step_results
+    new_results["config"] = {**results["config"], "exclude_periods": list(exclude_periods)}
+    return new_results
