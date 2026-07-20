@@ -129,6 +129,13 @@ def reconstruct_results_from_run(run_id: int, database_url: Optional[str] = None
     persisted in walkforward_predictions) — set to None. Harmless: neither
     pneumonia.visualization.persistence.save_step_metrics nor
     save_walkforward_predictions reads those fields.
+
+    Metrics here are computed straight from the raw stored values, with no
+    date-based scoring policy applied — same as WalkForwardValidator.run().
+    Callers that want a policy like excluding a known reporting-shock period
+    apply pneumonia.evaluation.metrics.recompute_metrics() afterward, same as
+    for a freshly-run validator (see
+    pneumonia.pipelines.walkforward_runner.run_walkforward_for()).
     """
     engine = get_db_engine(database_url)
     with engine.connect() as conn:

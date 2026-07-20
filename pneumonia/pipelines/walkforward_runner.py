@@ -14,9 +14,10 @@ import importlib
 import json
 from typing import Optional
 
-from pneumonia.config import REPORTS_PATH
+from pneumonia.config import COVID_EXCLUDE_END, COVID_EXCLUDE_PERIODS, COVID_EXCLUDE_START, REPORTS_PATH
 from pneumonia.evaluation.results_db import find_existing_run, resolve_run_name, save_walkforward_run
 from pneumonia.evaluation.results_db_query import reconstruct_results_from_run
+from pneumonia.evaluation.metrics import recompute_metrics
 from pneumonia.evaluation.walkforward import WalkForwardValidator
 from pneumonia.models.utils import get_departmental_data, validate_time_series
 from pneumonia.utils import setup_logger
@@ -77,6 +78,7 @@ def run_walkforward_for(
     extra_model_params: dict,
     start_year: Optional[int] = None,
     run_name: Optional[str] = None,
+    exclude_covid: bool = True,
 ) -> dict:
     """
     Run (or reuse, if the config already exists) one walk-forward evaluation
@@ -90,9 +92,18 @@ def run_walkforward_for(
     each trial — metrics_by_horizon for --mode horizon, step_results for
     --mode macroaverage (mean of step metrics) or microaverage (metrics
     pooled from every step's raw actuals/predictions).
+
+    exclude_covid: if True, dates in [config.COVID_EXCLUDE_START,
+    COVID_EXCLUDE_END] are dropped from metrics_by_horizon and every step's
+    own 'metrics' — not from training, not from the raw predictions saved
+    locally/to the DB. The model still trains and forecasts through those
+    dates (keeps the weekly series contiguous); they just don't count toward
+    any reported score. See pneumonia.evaluation.metrics.keep_mask.
     """
     run_name = run_name or model_name
     logger.info(f"Walk-forward: {department}/{age_group} model={model_name} run={run_name}")
+
+    exclude_periods = COVID_EXCLUDE_PERIODS if exclude_covid else None
 
     data = get_departmental_data(department, age_group=age_group, start_year=start_year)
     validate_time_series(data)
@@ -153,10 +164,16 @@ def run_walkforward_for(
         )
         results = validator.run(data)
 
+    # Date-based scoring policy applied after the fact, never inside the
+    # validator/reconstruction — see recompute_metrics()'s docstring.
+    results = recompute_metrics(results, exclude_periods)
+
     print(f"\n{'='*70}")
     print(f"Walk-forward results — {department}/{age_group}  run={run_name} (model={model_name})")
     print(f"  steps={results['n_steps']}  horizon={horizon}  step={step}  window={window_type}")
     print(f"  train_size={results['config']['train_size']}  refit_every={refit_every}")
+    if exclude_covid:
+        print(f"  scoring excludes: {COVID_EXCLUDE_START} to {COVID_EXCLUDE_END} (COVID period)")
     for h in range(1, horizon + 1):
         m = results["metrics_by_horizon"].get(h, {})
         _print_metrics(f"h={h}", m)

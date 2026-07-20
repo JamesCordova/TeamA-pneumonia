@@ -44,6 +44,13 @@ class WalkForwardValidator:
         Minimum weeks required to fit the model (default 104 = 2 years).
     fit_kwargs : dict
         Extra keyword arguments forwarded to model.fit().
+
+    This class has no notion of "excluded" or "invalid" dates — it trains,
+    forecasts, and scores every step uniformly. Any date-based scoring policy
+    (e.g. dropping a known reporting-shock period from the reported metrics)
+    is intentionally kept out of this engine and applied afterward, on this
+    method's output — see pneumonia.evaluation.metrics.recompute_metrics(),
+    called from pneumonia.pipelines.walkforward_runner.run_walkforward_for().
     """
 
     def __init__(

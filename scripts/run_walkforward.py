@@ -103,6 +103,12 @@ Examples:
     parser.add_argument("--start_year", type=int, default=None,
                         help="Drop all data before this year (e.g. 2007 for TACNA/TUMBES, "
                              "2008 for MOQUEGUA to skip early under-reporting).")
+    parser.add_argument("--exclude_covid", action=argparse.BooleanOptionalAction, default=True,
+                        help="Exclude 2020-2021 from reported metrics (default: True). "
+                             "Training/forecasting always run through those dates regardless — "
+                             "this only changes what counts toward the reported score. Pass "
+                             "--no-exclude_covid to include them. See "
+                             "pneumonia.config.COVID_EXCLUDE_START/COVID_EXCLUDE_END.")
     # RandomForest / XGBoost hyperparameters (shared names where applicable)
     ml_group = parser.add_argument_group("ML model hyperparameters (RandomForest / XGBoost)")
     ml_group.add_argument("--n_estimators", type=int, default=None,
@@ -299,6 +305,7 @@ def main():
                 extra_model_params=extra_model_params,
                 start_year=args.start_year,
                 run_name=args.run_name,
+                exclude_covid=args.exclude_covid,
             )
         except Exception as exc:
             logger.error(f"Failed for {dept}: {exc}")
