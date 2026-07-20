@@ -52,8 +52,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 from sklearn.model_selection import ParameterGrid, ParameterSampler
 
-from pneumonia.config import RANDOM_SEED, REPORTS_PATH
-from pneumonia.evaluation.metrics import compute_all_metrics
+from pneumonia.config import COVID_EXCLUDE_PERIODS, RANDOM_SEED, REPORTS_PATH
+from pneumonia.evaluation.metrics import compute_all_metrics, keep_mask
 from pneumonia.models.baselines.holt_winters import HOLTWINTERS_SEARCH_RANGES
 from pneumonia.models.ml.config import RANDOM_FOREST_SEARCH_RANGES, XGBOOST_SEARCH_RANGES
 from pneumonia.models.prophet.config import PROPHET_SEARCH_RANGES
@@ -88,7 +88,10 @@ def _mean(values: list) -> float:
     return sum(values) / len(values) if values else float("nan")
 
 
-def _score(result: dict, metric: str, mode: str, opt_horizon: int = None) -> float:
+def _score(
+    result: dict, metric: str, mode: str, opt_horizon: int = None,
+    exclude_periods: list = None,
+) -> float:
     """
     Reduce one trial's result to a single number so trials can be compared.
 
@@ -103,6 +106,12 @@ def _score(result: dict, metric: str, mode: str, opt_horizon: int = None) -> flo
                            actual/predicted values pooled together. Each
                            individual prediction weighs equally (so
                            over-represented horizons/steps dominate more).
+
+    "horizon"/"macroaverage" already reflect exclude_covid (run_walkforward_for
+    excludes those dates before computing metrics_by_horizon / each step's
+    'metrics'). "microaverage" pools each step's raw actuals/predictions
+    directly, bypassing that — exclude_periods re-applies the same date
+    filter here so all three modes stay consistent.
     """
     if mode == "horizon":
         metrics_by_horizon = result["metrics_by_horizon"]
@@ -119,8 +128,12 @@ def _score(result: dict, metric: str, mode: str, opt_horizon: int = None) -> flo
     if mode == "microaverage":
         actuals, predicted = [], []
         for s in result["step_results"]:
-            actuals.extend(s["actuals"])
-            predicted.extend(s["predictions"])
+            mask = keep_mask(s["dates"], exclude_periods) if exclude_periods else None
+            a, p = np.asarray(s["actuals"]), np.asarray(s["predictions"])
+            if mask is not None:
+                a, p = a[mask], p[mask]
+            actuals.extend(a.tolist())
+            predicted.extend(p.tolist())
         if not actuals:
             return float("nan")
         m = compute_all_metrics(np.asarray(actuals), np.asarray(predicted), warn_on_nan=False)
@@ -172,6 +185,7 @@ def tune_model(
 
     best = {"score": float("nan"), "run_name": None, "combo": None, "metrics_by_horizon": None}
     trials = []
+    exclude_periods = COVID_EXCLUDE_PERIODS if walkforward_kwargs.get("exclude_covid") else None
 
     def _save_summary() -> None:
         payload = {
@@ -192,7 +206,7 @@ def tune_model(
             department=department, age_group=age_group, model_name=model_name,
             extra_model_params=adapt(combo), run_name=run_name, **walkforward_kwargs,
         )
-        score = _score(result, metric, mode, opt_horizon)
+        score = _score(result, metric, mode, opt_horizon, exclude_periods)
         logger.info(f"  {metric}={score:.4f} (run_name={result['run_name']})")
         trials.append({"run_name": result["run_name"], "combo": combo, "score": score})
         if _is_better(score, best["score"], metric):
@@ -296,6 +310,12 @@ Examples:
     parser.add_argument("--refit_every", type=int, default=1)
     parser.add_argument("--start_year", type=int, default=None,
                         help="Start year to truncate early sub-reported data (e.g. 2008 for Moquegua)")
+    parser.add_argument("--exclude_covid", action=argparse.BooleanOptionalAction, default=True,
+                        help="Exclude 2020-2021 from every trial's reported metrics (default: "
+                             "True). Training/forecasting always run through those dates "
+                             "regardless — this only changes what counts toward each trial's "
+                             "score. Pass --no-exclude_covid to include them. See "
+                             "pneumonia.config.COVID_EXCLUDE_START/COVID_EXCLUDE_END.")
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress non-essential output")
@@ -318,7 +338,7 @@ def main():
     walkforward_kwargs = dict(
         train_size=args.train_size, horizon=args.horizon, step=args.step,
         window_type=args.window_type, refit_every=args.refit_every,
-        start_year=args.start_year,
+        start_year=args.start_year, exclude_covid=args.exclude_covid,
     )
 
     departments = []

@@ -60,8 +60,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 import pandas as pd
 
-from pneumonia.config import REPORTS_PATH
-from pneumonia.evaluation.metrics import compute_all_metrics
+from pneumonia.config import COVID_EXCLUDE_PERIODS, REPORTS_PATH
+from pneumonia.evaluation.metrics import compute_all_metrics, keep_mask
 from pneumonia.evaluation.results_db_query import latest_runs, predictions_for_runs
 from pneumonia.utils import setup_logger
 from pneumonia.visualization._utils import get_output_path, read_predictions
@@ -93,13 +93,17 @@ TABLE_HEADERS = {
 # Data loading
 # ---------------------------------------------------------------------------
 
-def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
+def load_metrics(
+    reports_dir: Path, department: str, age_group: str, exclude_covid: bool = True
+) -> dict:
     """
     Return {run_name: {horizon_int: {metric: value}}}, computed from the
     'horizon' column of *_predictions.csv — the local equivalent of
     load_metrics_from_db(), which groups by 'horizon_offset' instead.
     """
-    backtest = _load_backtest_predictions(reports_dir, department, age_group)
+    backtest = _load_backtest_predictions(
+        reports_dir, department, age_group, exclude_covid=exclude_covid
+    )
     data = {}
     for run_name, g in backtest.groupby("model"):
         by_h = {}
@@ -112,9 +116,19 @@ def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
 
 
 def _load_backtest_predictions(
-    reports_dir: Path, department: str, age_group: str, year: int = None
+    reports_dir: Path, department: str, age_group: str, year: int = None,
+    exclude_covid: bool = True,
 ) -> pd.DataFrame:
-    """Return backtest-split rows from *_predictions.csv, or raise FileNotFoundError."""
+    """
+    Return backtest-split rows from *_predictions.csv, or raise FileNotFoundError.
+
+    exclude_covid (default True): drop dates in [config.COVID_EXCLUDE_START,
+    COVID_EXCLUDE_END] before any metric is computed from these raw rows —
+    the shared choke point for load_metrics/load_micro_metrics/
+    compute_cumulative_micro_metrics, so all three modes apply the same
+    policy. Pass False to include them (e.g. to specifically study how models
+    behaved during the pandemic disruption).
+    """
     df = read_predictions(reports_dir, department, age_group)
     if df is None:
         raise FileNotFoundError(
@@ -122,6 +136,8 @@ def _load_backtest_predictions(
             "Run scripts/run_walkforward.py first."
         )
     backtest = df[df["split"] == "backtest"]
+    if exclude_covid:
+        backtest = backtest[keep_mask(backtest["date"], COVID_EXCLUDE_PERIODS)]
     if year is not None:
         backtest = backtest[backtest["date"].dt.year == year]
     if backtest.empty:
@@ -134,7 +150,8 @@ def _load_backtest_predictions(
 
 
 def load_micro_metrics(
-    reports_dir: Path, department: str, age_group: str, year: int = None
+    reports_dir: Path, department: str, age_group: str, year: int = None,
+    exclude_covid: bool = True,
 ) -> dict:
     """
     Return {run_name: {metric: value}} computed once over every backtest
@@ -142,7 +159,9 @@ def load_micro_metrics(
     same underlying computation as metrics_by_horizon, just not divided by h.
     If `year` is given, restricts to backtest predictions from that calendar year.
     """
-    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
+    backtest = _load_backtest_predictions(
+        reports_dir, department, age_group, year, exclude_covid=exclude_covid
+    )
     data = {}
     for run_name, g in backtest.groupby("model"):
         data[run_name] = compute_all_metrics(
@@ -152,7 +171,8 @@ def load_micro_metrics(
 
 
 def compute_cumulative_micro_metrics(
-    reports_dir: Path, department: str, age_group: str, min_obs: int = 8, year: int = None
+    reports_dir: Path, department: str, age_group: str, min_obs: int = 8, year: int = None,
+    exclude_covid: bool = True,
 ) -> dict:
     """
     Return {run_name: DataFrame(date, mae, rmse, me, mape, smape, mda, r2)} — one
@@ -167,7 +187,9 @@ def compute_cumulative_micro_metrics(
     points can be near zero, sending it to wild outliers that would otherwise
     dominate a shared color scale).
     """
-    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
+    backtest = _load_backtest_predictions(
+        reports_dir, department, age_group, year, exclude_covid=exclude_covid
+    )
     data = {}
     for run_name, g in backtest.groupby("model"):
         g = g.sort_values("date")
@@ -188,13 +210,18 @@ def compute_cumulative_micro_metrics(
 # ---------------------------------------------------------------------------
 
 def _load_predictions_from_db(
-    department: str, age_group: str, measure: str = "cases", year: int = None
+    department: str, age_group: str, measure: str = "cases", year: int = None,
+    exclude_covid: bool = True,
 ) -> pd.DataFrame:
     """
     Raw predictions (joined to run_name) for the latest run of each run_name —
     the DB equivalent of _load_backtest_predictions. Not deduplicated by date:
     if a model was run with horizon > step, overlapping steps' predictions for
     the same date are all kept (see db/migrations/0001_walkforward_results).
+
+    exclude_covid (default True): same policy as _load_backtest_predictions —
+    drop config.COVID_EXCLUDE_PERIODS (2020-2021) before any downstream
+    metric is computed from these raw rows.
     """
     runs = latest_runs(department, age_group, measure)
     if runs.empty:
@@ -204,6 +231,8 @@ def _load_predictions_from_db(
         )
     preds = predictions_for_runs(runs["run_id"].tolist())
     preds = preds.merge(runs[["run_id", "run_name"]], on="run_id", how="left")
+    if exclude_covid:
+        preds = preds[keep_mask(preds["date"], COVID_EXCLUDE_PERIODS)]
     if year is not None:
         preds = preds[preds["date"].dt.year == year]
     if preds.empty:
@@ -214,9 +243,11 @@ def _load_predictions_from_db(
     return preds
 
 
-def load_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+def load_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", exclude_covid: bool = True
+) -> dict:
     """DB equivalent of load_metrics(): {run_name: {horizon_int: {metric: value}}}."""
-    preds = _load_predictions_from_db(department, age_group, measure)
+    preds = _load_predictions_from_db(department, age_group, measure, exclude_covid=exclude_covid)
     data = {}
     for run_name, g in preds.groupby("run_name"):
         by_h = {}
@@ -228,9 +259,11 @@ def load_metrics_from_db(department: str, age_group: str, measure: str = "cases"
     return data
 
 
-def load_step_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+def load_step_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", exclude_covid: bool = True
+) -> dict:
     """DB equivalent of load_step_metrics(): {run_name: DataFrame(date, step, n_obs, mae, ...)}."""
-    preds = _load_predictions_from_db(department, age_group, measure)
+    preds = _load_predictions_from_db(department, age_group, measure, exclude_covid=exclude_covid)
     data = {}
     for run_name, g in preds.groupby("run_name"):
         rows = []
@@ -245,10 +278,13 @@ def load_step_metrics_from_db(department: str, age_group: str, measure: str = "c
 
 
 def load_micro_metrics_from_db(
-    department: str, age_group: str, measure: str = "cases", year: int = None
+    department: str, age_group: str, measure: str = "cases", year: int = None,
+    exclude_covid: bool = True,
 ) -> dict:
     """DB equivalent of load_micro_metrics(): {run_name: {metric: value}}."""
-    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    preds = _load_predictions_from_db(
+        department, age_group, measure, year=year, exclude_covid=exclude_covid
+    )
     data = {}
     for run_name, g in preds.groupby("run_name"):
         data[run_name] = compute_all_metrics(
@@ -258,10 +294,13 @@ def load_micro_metrics_from_db(
 
 
 def compute_cumulative_micro_metrics_from_db(
-    department: str, age_group: str, measure: str = "cases", min_obs: int = 8, year: int = None
+    department: str, age_group: str, measure: str = "cases", min_obs: int = 8, year: int = None,
+    exclude_covid: bool = True,
 ) -> dict:
     """DB equivalent of compute_cumulative_micro_metrics()."""
-    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    preds = _load_predictions_from_db(
+        department, age_group, measure, year=year, exclude_covid=exclude_covid
+    )
     data = {}
     for run_name, g in preds.groupby("run_name"):
         g = g.sort_values("date")
@@ -453,6 +492,7 @@ def compare_macroaverage(
     models: list = None,
     run_names: list = None,
     same_config: bool = False,
+    exclude_covid: bool = True,
 ) -> None:
     """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
     department = department.upper()
@@ -460,9 +500,19 @@ def compare_macroaverage(
 
     try:
         if source == "db":
-            step_data = load_step_metrics_from_db(department, age_group)
+            step_data = load_step_metrics_from_db(department, age_group, exclude_covid=exclude_covid)
         else:
+            # *_step_metrics.csv (local) carries per-step 'metrics' as computed
+            # when the run was saved (see run_walkforward_for's recompute_metrics
+            # call) — filtering again here, the same way --year already does
+            # below, makes this mode consistent regardless of how/when that
+            # file was generated.
             step_data = load_step_metrics(REPORTS_PATH, department, age_group)
+            if exclude_covid:
+                step_data = {
+                    m: df[keep_mask(df["date"], COVID_EXCLUDE_PERIODS)]
+                    for m, df in step_data.items()
+                }
     except FileNotFoundError as exc:
         logger.warning(f"Skipping step metrics for {department}: {exc}")
         return
@@ -507,6 +557,7 @@ def compare_microaverage(
     models: list = None,
     run_names: list = None,
     same_config: bool = False,
+    exclude_covid: bool = True,
 ) -> None:
     """
     Model comparison pooling every backtest prediction across all steps/horizons —
@@ -519,14 +570,18 @@ def compare_microaverage(
 
     try:
         if source == "db":
-            micro_metrics = load_micro_metrics_from_db(department, age_group, year=year)
+            micro_metrics = load_micro_metrics_from_db(
+                department, age_group, year=year, exclude_covid=exclude_covid
+            )
             cumulative_metrics = compute_cumulative_micro_metrics_from_db(
-                department, age_group, year=year
+                department, age_group, year=year, exclude_covid=exclude_covid
             )
         else:
-            micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group, year=year)
+            micro_metrics = load_micro_metrics(
+                REPORTS_PATH, department, age_group, year=year, exclude_covid=exclude_covid
+            )
             cumulative_metrics = compute_cumulative_micro_metrics(
-                REPORTS_PATH, department, age_group, year=year
+                REPORTS_PATH, department, age_group, year=year, exclude_covid=exclude_covid
             )
     except FileNotFoundError as exc:
         logger.warning(f"Skipping microaverage for {department}: {exc}")
@@ -585,25 +640,26 @@ def compare(
     models: list = None,
     run_names: list = None,
     same_config: bool = False,
+    exclude_covid: bool = True,
 ) -> None:
     department = department.upper()
 
     if mode == "macroaverage":
         compare_macroaverage(
             department, age_group, metric_names, trend_window, year, interactive, source,
-            models, run_names, same_config,
+            models, run_names, same_config, exclude_covid,
         )
         return
     if mode == "microaverage":
         compare_microaverage(
             department, age_group, metric_names, interactive, year, source, models, run_names,
-            same_config,
+            same_config, exclude_covid,
         )
         return
 
     metrics = (
-        load_metrics_from_db(department, age_group) if source == "db"
-        else load_metrics(REPORTS_PATH, department, age_group)
+        load_metrics_from_db(department, age_group, exclude_covid=exclude_covid) if source == "db"
+        else load_metrics(REPORTS_PATH, department, age_group, exclude_covid=exclude_covid)
     )
     metrics = _filter_by_model_and_name(metrics, department, age_group, source, models, run_names)
     if same_config:
@@ -757,6 +813,12 @@ def main():
                              "with a different config are dropped, with a warning; comparing "
                              "them anyway isn't apples-to-apples since they'd be scored on "
                              "different date ranges.")
+    parser.add_argument("--exclude_covid", action=argparse.BooleanOptionalAction, default=True,
+                        help="Exclude 2020-2021 from reported metrics (default: True). See "
+                             "pneumonia.config.COVID_EXCLUDE_START/COVID_EXCLUDE_END. Raw "
+                             "predictions/training were never affected either way; this only "
+                             "changes what counts toward the numbers shown here. Pass "
+                             "--no-exclude_covid to include them.")
     args = parser.parse_args()
 
     departments = []
@@ -792,6 +854,7 @@ def main():
                 mode=args.mode, trend_window=trend_window,
                 year=args.year, interactive=args.interactive, source=args.source,
                 models=args.models, run_names=args.run_names, same_config=args.same_config,
+                exclude_covid=args.exclude_covid,
             )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")
