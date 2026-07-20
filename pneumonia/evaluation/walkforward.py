@@ -104,11 +104,17 @@ class WalkForwardValidator:
 
         if train_size >= n:
             raise ValueError(
-                f"initial_train_size ({train_size}) must be less than series length ({n})"
+                f"initial_train_size ({train_size}) must be less than series length ({n} weeks, "
+                f"{y.index[0].date()} → {y.index[-1].date()}). "
+                f"Pass a smaller --train_size (max {n - 1}) or provide more history."
             )
         if train_size < self.min_train_size:
-            logger.warning(
-                f"initial_train_size ({train_size}) < min_train_size ({self.min_train_size})"
+            raise ValueError(
+                f"initial_train_size ({train_size}) < min_train_size ({self.min_train_size}). "
+                f"Series has {n} weeks available ({y.index[0].date()} → {y.index[-1].date()}). "
+                f"Pass a smaller --train_size (up to {n - 1}, keeping enough for evaluation steps), "
+                f"lower --min_train_size if you accept a shorter seasonal history, "
+                f"or provide more historical data (e.g. remove/adjust --start_year)."
             )
 
         # predictions DataFrame: one row per evaluation date
