@@ -14,13 +14,6 @@ from pneumonia.evaluation.metrics import (
     baseline_metrics,
 )
 
-from pneumonia.evaluation.compare_models import (
-    compare_models,
-    rank_models,
-    generate_comparison_report,
-    create_metrics_dataframe,
-)
-
 from pneumonia.evaluation.walkforward import WalkForwardValidator
 
 __all__ = [
@@ -32,11 +25,6 @@ __all__ = [
     "mean_directional_accuracy",
     "compute_all_metrics",
     "baseline_metrics",
-    # Comparison
-    "compare_models",
-    "rank_models",
-    "generate_comparison_report",
-    "create_metrics_dataframe",
     # Walk-forward validation
     "WalkForwardValidator",
 ]
