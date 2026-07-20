@@ -19,6 +19,13 @@ from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
 
+# Hyperparameter search ranges (for scripts/tune_models.py)
+HOLTWINTERS_SEARCH_RANGES = {
+    "trend":        ["add", "mul"],
+    "damped_trend": [True, False],
+    "seasonal":     ["add", "mul"],
+}
+
 
 class HoltWintersForecaster(BaseForecaster):
     """

@@ -15,6 +15,13 @@ PROPHET_DEFAULT_PARAMS = {
     "seasonality_prior_scale": 10.0,  # Control seasonality flexibility (default 10.0)
 }
 
+# Hyperparameter search ranges (for scripts/tune_models.py)
+PROPHET_SEARCH_RANGES = {
+    "changepoint_prior_scale": [0.01, 0.05, 0.1, 0.5],
+    "seasonality_prior_scale": [1.0, 10.0, 20.0],
+    "seasonality_mode":        ["additive", "multiplicative"],
+}
+
 # Department-specific Prophet configurations. Overrides defaults if present.
 # Set country_name='PE' by default to use Peru's official holidays.
 DEPARTMENTAL_CONFIGS = {
