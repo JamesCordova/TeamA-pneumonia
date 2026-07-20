@@ -198,6 +198,13 @@ def get_departmental_data(
     if start_year is not None:
         ts = ts[ts.index.year >= start_year]
         logger.info(f"Series truncated to start_year={start_year}: {len(ts)} weeks remaining")
+        if len(ts) < MIN_WEEKS_FOR_TRAINING:
+            raise ValueError(
+                f"start_year={start_year} leaves only {len(ts)} weeks of data for "
+                f"{dept_upper} ({age_group}), below the minimum of "
+                f"{MIN_WEEKS_FOR_TRAINING} required for training. Use an earlier "
+                f"start_year or check that the data covers this range."
+            )
 
     return ts
 
