@@ -35,15 +35,17 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sklearn.model_selection import ParameterGrid, ParameterSampler
 
-from pneumonia.config import RANDOM_SEED
+from pneumonia.config import RANDOM_SEED, REPORTS_PATH
 from pneumonia.models.baselines.holt_winters import HOLTWINTERS_SEARCH_RANGES
 from pneumonia.models.ml.config import RANDOM_FOREST_SEARCH_RANGES, XGBOOST_SEARCH_RANGES
 from pneumonia.models.prophet.config import PROPHET_SEARCH_RANGES
@@ -106,11 +108,36 @@ def tune_model(
     each trial with `metric` (averaged across horizons, or just `opt_horizon`
     if given). Returns {"score", "run_name", "combo", "metrics_by_horizon"}
     for the best trial.
+
+    Every trial (not just the best) is written to
+    reports/{department}/{age_group}/tune_{model}_{search_method}_{timestamp}.json
+    after each one completes — so a search that gets interrupted partway
+    through doesn't lose the trials it already ran. The timestamp is fixed
+    for the whole call, so it's one file per tune_model() run, never
+    overwritten by a later one.
     """
     department = department.upper()
     search_ranges, adapt = _MODEL_SPECS[model_name]
 
+    out_dir = REPORTS_PATH / department / age_group
+    out_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = out_dir / (
+        f"tune_{model_name.lower()}_{search_method}_{datetime.now():%Y%m%d_%H%M%S}.json"
+    )
+
     best = {"score": float("nan"), "run_name": None, "combo": None, "metrics_by_horizon": None}
+    trials = []
+
+    def _save_summary() -> None:
+        payload = {
+            "department": department, "age_group": age_group, "model": model_name,
+            "search_method": search_method, "metric": metric, "opt_horizon": opt_horizon,
+            "walkforward_config": walkforward_kwargs,
+            "best": {k: v for k, v in best.items() if k != "metrics_by_horizon"},
+            "trials": trials,
+        }
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, default=str)
 
     def consider(combo: dict, idx: int, total) -> float:
         run_name = f"{model_name}_tune{idx}"
@@ -121,9 +148,11 @@ def tune_model(
         )
         score = _score(result["metrics_by_horizon"], metric, opt_horizon)
         logger.info(f"  {metric}={score:.4f} (run_name={result['run_name']})")
+        trials.append({"run_name": result["run_name"], "combo": combo, "score": score})
         if _is_better(score, best["score"], metric):
             best.update(score=score, run_name=result["run_name"], combo=combo,
                         metrics_by_horizon=result["metrics_by_horizon"])
+        _save_summary()
         return score
 
     if search_method in ("grid", "random"):
@@ -164,6 +193,8 @@ def tune_model(
         raise RuntimeError("No trial completed successfully.")
 
     logger.info(f"Best {metric}={best['score']:.4f} — run_name={best['run_name']} — {best['combo']}")
+    logger.info(f"Summary saved: {summary_path}")
+    best["summary_path"] = summary_path
     return best
 
 
@@ -257,6 +288,7 @@ def main():
         print(f"  {args.metric} = {best['score']:.4f}")
         print(f"  run_name    = {best['run_name']}")
         print(f"  params      = {best['combo']}")
+        print(f"  summary     = {best['summary_path']}")
         print(f"{'=' * 70}\n")
 
     if failed:
