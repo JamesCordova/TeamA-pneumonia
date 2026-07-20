@@ -2,12 +2,12 @@
 """
 Hyperparameter tuning via walk-forward validation.
 
-Every trial is delegated to scripts/run_walkforward.py's run_walkforward_for(),
-so each one gets the exact same identical-configuration dedup, run_name
-resolution, and local + results_unsa_ira persistence as a normal walk-forward
-run — trials that turn out functionally identical (e.g. two SARIMA combos
-that only differ in seasonal_order while use_fourier=True) are detected and
-reused instead of retrained.
+Every trial is delegated to pneumonia.pipelines.walkforward_runner's
+run_walkforward_for(), so each one gets the exact same identical-configuration
+dedup, run_name resolution, and local + results_unsa_ira persistence as a
+normal walk-forward run — trials that turn out functionally identical (e.g.
+two SARIMA combos that only differ in seasonal_order while use_fourier=True)
+are detected and reused instead of retrained.
 
 Only model_params is searched. horizon/step/window_type/train_size/refit_every
 (the walk-forward protocol) are fixed CLI inputs, not part of the search space
@@ -24,6 +24,12 @@ pneumonia/models/sarima/config.py's SARIMA_SEARCH_RANGES):
             trial.suggest_categorical), --n_iter trials. Worth it once the
             range is too large to cover with grid/random cheaply, since each
             trial is a full walk-forward run — not a quick single fit.
+
+Each trial's --metric is aggregated per --mode (mirrors scripts/compare_models.py
+--mode): 'horizon' (default, mean across evaluated horizons or just
+--opt_horizon), 'macroaverage' (mean of each step's own metric), or
+'microaverage' (metric computed once on every step's pooled raw predictions)
+— see _score() for the full explanation of what each one weighs differently.
 
 Usage:
     python scripts/tune_models.py --department LIMA --model XGBoost
@@ -43,9 +49,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import numpy as np
 from sklearn.model_selection import ParameterGrid, ParameterSampler
 
 from pneumonia.config import RANDOM_SEED, REPORTS_PATH
+from pneumonia.evaluation.metrics import compute_all_metrics
 from pneumonia.models.baselines.holt_winters import HOLTWINTERS_SEARCH_RANGES
 from pneumonia.models.ml.config import RANDOM_FOREST_SEARCH_RANGES, XGBOOST_SEARCH_RANGES
 from pneumonia.models.prophet.config import PROPHET_SEARCH_RANGES
@@ -75,13 +83,50 @@ _MODEL_SPECS = {
 _LOWER_IS_BETTER = {"mae", "rmse", "smape", "mape"}
 
 
-def _score(metrics_by_horizon: dict, metric: str, opt_horizon: int = None) -> float:
-    """Mean of `metric` across every evaluated horizon, or a single horizon if opt_horizon is given."""
-    if opt_horizon is not None:
-        return metrics_by_horizon.get(opt_horizon, {}).get(metric, float("nan"))
-    values = [m.get(metric, float("nan")) for m in metrics_by_horizon.values()]
+def _mean(values: list) -> float:
     values = [v for v in values if v == v]  # drop NaN
     return sum(values) / len(values) if values else float("nan")
+
+
+def _score(result: dict, metric: str, mode: str, opt_horizon: int = None) -> float:
+    """
+    Reduce one trial's result to a single number so trials can be compared.
+
+    mode="horizon"      — mean of `metric` across every evaluated horizon
+                           (result["metrics_by_horizon"]), or just `opt_horizon`
+                           if given. Each horizon weighs equally regardless of
+                           how many observations landed in it.
+    mode="macroaverage"  — mean of `metric` across each walk-forward step's
+                           own metrics (result["step_results"][i]["metrics"]).
+                           Each step weighs equally.
+    mode="microaverage"  — `metric` computed once on every step's raw
+                           actual/predicted values pooled together. Each
+                           individual prediction weighs equally (so
+                           over-represented horizons/steps dominate more).
+    """
+    if mode == "horizon":
+        metrics_by_horizon = result["metrics_by_horizon"]
+        if opt_horizon is not None:
+            return metrics_by_horizon.get(opt_horizon, {}).get(metric, float("nan"))
+        return _mean([m.get(metric, float("nan")) for m in metrics_by_horizon.values()])
+
+    if mode == "macroaverage":
+        return _mean([
+            s["metrics"].get(metric, float("nan"))
+            for s in result["step_results"] if s.get("metrics")
+        ])
+
+    if mode == "microaverage":
+        actuals, predicted = [], []
+        for s in result["step_results"]:
+            actuals.extend(s["actuals"])
+            predicted.extend(s["predictions"])
+        if not actuals:
+            return float("nan")
+        m = compute_all_metrics(np.asarray(actuals), np.asarray(predicted), warn_on_nan=False)
+        return m.get(metric, float("nan"))
+
+    raise ValueError(f"Unknown mode: {mode}")
 
 
 def _is_better(a: float, b: float, metric: str) -> bool:
@@ -100,14 +145,14 @@ def tune_model(
     search_method: str,
     n_iter: int,
     metric: str,
+    mode: str,
     opt_horizon: int,
     walkforward_kwargs: dict,
 ) -> dict:
     """
     Search model_params for `model_name` on department/age_group, scoring
-    each trial with `metric` (averaged across horizons, or just `opt_horizon`
-    if given). Returns {"score", "run_name", "combo", "metrics_by_horizon"}
-    for the best trial.
+    each trial with `metric` aggregated per `mode` (see _score()). Returns
+    {"score", "run_name", "combo", "metrics_by_horizon"} for the best trial.
 
     Every trial (not just the best) is written to
     reports/{department}/{age_group}/tune_{model}_{search_method}_{timestamp}.json
@@ -131,7 +176,8 @@ def tune_model(
     def _save_summary() -> None:
         payload = {
             "department": department, "age_group": age_group, "model": model_name,
-            "search_method": search_method, "metric": metric, "opt_horizon": opt_horizon,
+            "search_method": search_method, "metric": metric, "mode": mode,
+            "opt_horizon": opt_horizon,
             "walkforward_config": walkforward_kwargs,
             "best": {k: v for k, v in best.items() if k != "metrics_by_horizon"},
             "trials": trials,
@@ -146,7 +192,7 @@ def tune_model(
             department=department, age_group=age_group, model_name=model_name,
             extra_model_params=adapt(combo), run_name=run_name, **walkforward_kwargs,
         )
-        score = _score(result["metrics_by_horizon"], metric, opt_horizon)
+        score = _score(result, metric, mode, opt_horizon)
         logger.info(f"  {metric}={score:.4f} (run_name={result['run_name']})")
         trials.append({"run_name": result["run_name"], "combo": combo, "score": score})
         if _is_better(score, best["score"], metric):
@@ -229,9 +275,17 @@ Examples:
     parser.add_argument("--metric", type=str, default="mae",
                         choices=["mae", "rmse", "smape", "mape", "r2", "mda"],
                         help="Metric to optimize (default: mae)")
+    parser.add_argument("--mode", type=str,
+                        choices=["horizon", "macroaverage", "microaverage"], default="horizon",
+                        help="How to aggregate --metric across a trial's walk-forward run "
+                             "(default: horizon), matching scripts/compare_models.py --mode: "
+                             "'horizon' — mean across evaluated horizons (or just --opt_horizon). "
+                             "'macroaverage' — mean of each step's own metric (each step weighs "
+                             "equally). 'microaverage' — metric computed once on every step's "
+                             "raw predictions pooled together (each prediction weighs equally).")
     parser.add_argument("--opt_horizon", type=int, default=None,
-                        help="Score on this single horizon instead of averaging across all "
-                             "evaluated horizons (default: average all).")
+                        help="[--mode horizon] Score on this single horizon instead of "
+                             "averaging across all evaluated horizons (default: average all).")
 
     # Fixed walk-forward protocol — intentionally NOT part of the search space,
     # see module docstring.
@@ -258,6 +312,9 @@ def main():
     elif args.verbose:
         logging.getLogger("pneumonia").setLevel(logging.DEBUG)
 
+    if args.opt_horizon is not None and args.mode != "horizon":
+        parser.error("--opt_horizon only applies to --mode horizon")
+
     walkforward_kwargs = dict(
         train_size=args.train_size, horizon=args.horizon, step=args.step,
         window_type=args.window_type, refit_every=args.refit_every,
@@ -274,7 +331,7 @@ def main():
             best = tune_model(
                 department=dept, age_group=args.age_group, model_name=args.model,
                 search_method=args.search_method, n_iter=args.n_iter,
-                metric=args.metric, opt_horizon=args.opt_horizon,
+                metric=args.metric, mode=args.mode, opt_horizon=args.opt_horizon,
                 walkforward_kwargs=walkforward_kwargs,
             )
         except Exception as exc:
@@ -283,7 +340,8 @@ def main():
             continue
 
         print(f"\n{'=' * 70}")
-        print(f"Best {args.model} — {dept}/{args.age_group}  ({args.search_method}, {args.metric})")
+        print(f"Best {args.model} — {dept}/{args.age_group}  "
+              f"({args.search_method}, {args.mode}, {args.metric})")
         print(f"{'=' * 70}")
         print(f"  {args.metric} = {best['score']:.4f}")
         print(f"  run_name    = {best['run_name']}")

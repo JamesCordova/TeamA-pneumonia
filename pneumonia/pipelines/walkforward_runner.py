@@ -84,8 +84,12 @@ def run_walkforward_for(
 
     Returns {"run_name": the resolved name actually used for local/DB storage
     (may differ from the `run_name` argument — see resolve_run_name()),
-    "metrics_by_horizon": {horizon_int: {metric: value}}} — the latter is what
-    scripts/tune_models.py reads to score each trial.
+    "metrics_by_horizon": {horizon_int: {metric: value}}, "step_results": list
+    of per-step dicts with 'metrics' (that step's own compute_all_metrics) and
+    raw 'actuals'/'predictions'}. scripts/tune_models.py reads these to score
+    each trial — metrics_by_horizon for --mode horizon, step_results for
+    --mode macroaverage (mean of step metrics) or microaverage (metrics
+    pooled from every step's raw actuals/predictions).
     """
     run_name = run_name or model_name
     logger.info(f"Walk-forward: {department}/{age_group} model={model_name} run={run_name}")
@@ -217,4 +221,8 @@ def run_walkforward_for(
         except Exception as exc:
             logger.warning(f"Could not save results to database: {exc}")
 
-    return {"run_name": run_name, "metrics_by_horizon": results["metrics_by_horizon"]}
+    return {
+        "run_name": run_name,
+        "metrics_by_horizon": results["metrics_by_horizon"],
+        "step_results": results["step_results"],
+    }
