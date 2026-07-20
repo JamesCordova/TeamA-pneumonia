@@ -65,6 +65,15 @@ DEFAULT_VAL_YEARS = (2020, 2021)
 DEFAULT_TEST_YEARS = (2022, 2023)
 
 # =============================================================================
+# SEASONALITY
+# =============================================================================
+WEEKS_PER_YEAR = 52.1775
+"""Average number of ISO weeks per year (accounts for 53-week years).
+Use this everywhere a weekly series' annual seasonal period is needed
+(Fourier terms, sin/cos calendar features, etc.) so all models share the
+same seasonal-period definition."""
+
+# =============================================================================
 # SARIMA MODEL CONFIGURATION
 # =============================================================================
 SARIMA_USE_AUTO_ARIMA = os.getenv("USE_AUTO_ARIMA", "True").lower() == "true"

@@ -43,7 +43,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-from pneumonia.config import MODEL_STORAGE_PATH, RANDOM_SEED
+from pneumonia.config import MODEL_STORAGE_PATH, RANDOM_SEED, WEEKS_PER_YEAR
 from pneumonia.models.base import BaseForecaster
 from pneumonia.models.rnn.config import RNN_DEFAULT_PARAMS
 from pneumonia.utils import setup_logger
@@ -416,8 +416,8 @@ class BaseRNNModel(BaseForecaster):
     def _seasonal_features(idx: pd.DatetimeIndex) -> np.ndarray:
         week = idx.isocalendar().week.astype(int).values
         return np.column_stack([
-            np.sin(2 * np.pi * week / 52.0),
-            np.cos(2 * np.pi * week / 52.0),
+            np.sin(2 * np.pi * week / WEEKS_PER_YEAR),
+            np.cos(2 * np.pi * week / WEEKS_PER_YEAR),
         ])
 
     def _create_sequences(self, target_scaled: np.ndarray, exog: np.ndarray):
