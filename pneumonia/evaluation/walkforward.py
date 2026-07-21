@@ -86,12 +86,33 @@ class WalkForwardValidator:
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self, y: pd.Series) -> Dict[str, Any]:
+    def run(
+        self,
+        y: pd.Series,
+        step_range: Optional[tuple] = None,
+    ) -> Dict[str, Any]:
         """
         Execute the walk-forward loop over series y.
 
         Args:
             y: Weekly time series with DatetimeIndex.
+            step_range: (start_step_idx, end_step_idx) to compute only a
+                sub-range of steps, using the same GLOBAL step numbering a
+                full run (step_range=None) would use — so refit_every
+                decisions land on the same steps regardless of whether the
+                full range or a sub-range is requested. end_step_idx is
+                exclusive; None means "through the end of the series".
+                When start_step_idx > 0, the model is "bridge-fit" once on
+                the training window of the last step at-or-before
+                start_step_idx that a continuous run would have refit on
+                (found by rounding down to the nearest multiple of
+                refit_every), so the model handed to the first computed
+                step is in the same state a continuous run would have had
+                — without re-executing any of the earlier steps. This is
+                what lets a "search" (pre-holdout) run and a "holdout" run
+                be computed independently, later, in either order, while
+                still reproducing one continuous run's refit schedule and
+                predictions exactly.
 
         Returns:
             {
@@ -124,7 +145,17 @@ class WalkForwardValidator:
                 f"or provide more historical data (e.g. remove/adjust --start_year)."
             )
 
-        # predictions DataFrame: one row per evaluation date
+        start_step_idx, end_step_idx = step_range if step_range is not None else (0, None)
+        if start_step_idx < 0:
+            raise ValueError(f"step_range start must be >= 0, got {start_step_idx}")
+        if end_step_idx is not None and end_step_idx <= start_step_idx:
+            raise ValueError(
+                f"step_range end ({end_step_idx}) must be > start ({start_step_idx})"
+            )
+
+        # predictions DataFrame: one row per evaluation date (full series
+        # range regardless of step_range, so a partial run's DataFrame lines
+        # up positionally with a full run's — callers merge on this index).
         eval_index = y.index[train_size:]
         pred_df = pd.DataFrame({"actual": y.iloc[train_size:]}, index=eval_index)
         for h in range(1, self.horizon + 1):
@@ -132,11 +163,39 @@ class WalkForwardValidator:
 
         step_results: List[Dict] = []
         model: Optional[BaseForecaster] = None
-        step_idx = 0
+        step_idx = start_step_idx
+
+        # Bridge-fit: if starting mid-schedule, fit once on the window the
+        # last refit at-or-before start_step_idx would have used, so the
+        # first computed step sees a model in the same state a continuous
+        # run would have had. Skipped when that refit point IS
+        # start_step_idx itself — the loop's own should_refit (model is
+        # None) already handles that case identically, with no extra fit.
+        if start_step_idx > 0:
+            last_refit_step = (
+                (start_step_idx // self.refit_every) * self.refit_every
+                if self.refit_every > 0 else 0
+            )
+            if last_refit_step < start_step_idx:
+                bridge_train_end = train_size + last_refit_step * self.step
+                bridge_train_start = (
+                    0 if self.window_type == "expanding"
+                    else (bridge_train_end - train_size)
+                )
+                y_bridge = y.iloc[bridge_train_start:bridge_train_end]
+                logger.info(
+                    f"Bridge-fit at step {last_refit_step} (for start_step_idx="
+                    f"{start_step_idx}): {y_bridge.index[0].date()} → "
+                    f"{y_bridge.index[-1].date()} ({len(y_bridge)} obs)"
+                )
+                model = self.model_class(**self.model_params)
+                model.fit(y_bridge, **self.fit_kwargs)
 
         while True:
             train_end = train_size + step_idx * self.step
             if train_end >= n:
+                break
+            if end_step_idx is not None and step_idx >= end_step_idx:
                 break
 
             train_start = 0 if self.window_type == "expanding" else (train_end - train_size)
@@ -235,6 +294,14 @@ class WalkForwardValidator:
                 "refit_every":  self.refit_every,
             },
         }
+
+    def resolve_train_size(self, y: pd.Series) -> int:
+        """Public wrapper around _resolve_train_size() — lets orchestration
+        code (e.g. pneumonia.pipelines.walkforward_runner) compute the same
+        step_idx <-> date mapping this validator uses internally, without
+        duplicating the int/date-resolution logic, before calling run()
+        with a specific step_range."""
+        return self._resolve_train_size(y)
 
     # ------------------------------------------------------------------
     # Internal
