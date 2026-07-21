@@ -103,6 +103,18 @@ Examples:
     parser.add_argument("--start_year", type=int, default=None,
                         help="Drop all data before this year (e.g. 2007 for TACNA/TUMBES, "
                              "2008 for MOQUEGUA to skip early under-reporting).")
+    parser.add_argument("--mode", type=str, choices=["full", "search", "holdout"], default="full",
+                        help="Default 'full': one unprotected run over the whole series, "
+                             "unchanged from before --holdout_start existed. Pass --holdout_start "
+                             "to unlock 'search' (only the range before it — safe to compare many "
+                             "hand-picked configs against) and 'holdout' (only the range at/after "
+                             "it — the honest number, evaluate ONCE per config you've settled on). "
+                             "Mirrors scripts/tune_models.py's protection, for manual comparisons "
+                             "done by hand instead of through its automated search.")
+    parser.add_argument("--holdout_start", type=str, default=None,
+                        help="First date (inclusive) of the protected holdout range, required by "
+                             "--mode search/holdout (e.g. 2022-01-01, matching "
+                             "pneumonia.config.DEFAULT_TEST_YEARS). Ignored by --mode full.")
     parser.add_argument("--exclude_covid", action=argparse.BooleanOptionalAction, default=True,
                         help="Exclude 2020-2021 from reported metrics (default: True). "
                              "Training/forecasting always run through those dates regardless — "
@@ -218,6 +230,9 @@ def main():
     if args.verbose:
         logging.getLogger("pneumonia").setLevel(logging.DEBUG)
 
+    if args.mode != "full" and args.holdout_start is None:
+        parser.error("--mode search/holdout requires --holdout_start")
+
     departments = []
     if args.all:
         departments = get_available_departments()
@@ -306,6 +321,8 @@ def main():
                 start_year=args.start_year,
                 run_name=args.run_name,
                 exclude_covid=args.exclude_covid,
+                holdout_start=args.holdout_start,
+                mode=args.mode,
             )
         except Exception as exc:
             logger.error(f"Failed for {dept}: {exc}")
