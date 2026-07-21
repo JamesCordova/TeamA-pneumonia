@@ -19,7 +19,9 @@ import pandas as pd
 from pneumonia.config import COVID_EXCLUDE_END, COVID_EXCLUDE_PERIODS, COVID_EXCLUDE_START, REPORTS_PATH
 from pneumonia.evaluation.results_db import (
     append_walkforward_predictions,
+    copy_predictions_between_runs,
     find_existing_run,
+    find_reusable_run,
     get_run_coverage,
     resolve_run_name,
     save_walkforward_run,
@@ -286,6 +288,45 @@ def run_walkforward_for(
             if run_id_for_save is not None and _range_covered(coverage, rng):
                 logger.info(f"step_range={rng} already covered by run_id={run_id_for_save} — reusing.")
                 continue
+
+            # Every step's forecast is a deterministic function of
+            # (department, model_params, train_size, refit_every, step,
+            # window_type, horizon) alone — never of holdout_start — so any
+            # range (pre-holdout OR holdout) can be copied from ANY other run
+            # with identical hyperparameters, protected or not, and it
+            # reproduces exactly what computing it fresh would. This is a
+            # pure computation-avoidance optimization; whether that reuse is
+            # *appropriate* for a given model-selection process is a
+            # decision for the caller (e.g. tune_models.py), not something
+            # this function can or should judge.
+            reused = False
+            if db_available:
+                rng_end = rng[1] if rng[1] is not None else n_steps_total
+                try:
+                    source_id = find_reusable_run(
+                        department=department, age_group=age_group, model=model_name,
+                        config=config_probe, model_params=probe_params,
+                        needed_range=(rng[0], rng_end), exclude_run_id=run_id_for_save,
+                    )
+                    if source_id is not None:
+                        if run_id_for_save is None:
+                            run_id_for_save, run_name = save_walkforward_run(
+                                department=department, age_group=age_group, model=model_name,
+                                run_name=run_name, config=config_probe, model_params=probe_params,
+                                n_steps=0, step_results=[], holdout_start=holdout_start,
+                            )
+                        copy_predictions_between_runs(source_id, run_id_for_save, (rng[0], rng_end))
+                        append_walkforward_predictions(
+                            run_id=run_id_for_save, step_results=[], global_n_steps=rng_end,
+                        )
+                        coverage = get_run_coverage(run_id_for_save)
+                        reused = True
+                except Exception as exc:
+                    logger.warning(f"Could not reuse step_range={rng} from another run: {exc}")
+
+            if reused:
+                continue
+
             logger.info(f"Computing step_range={rng} for {run_name} (mode={mode})...")
             piece = validator.run(data, step_range=rng)
             if not db_available:

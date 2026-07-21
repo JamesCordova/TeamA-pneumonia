@@ -206,6 +206,114 @@ def get_run_coverage(run_id: int, database_url: Optional[str] = None) -> dict:
     }
 
 
+def find_reusable_run(
+    department: str,
+    age_group: str,
+    model: str,
+    config: dict,
+    model_params: dict,
+    needed_range: tuple,
+    measure: str = "cases",
+    exclude_run_id: Optional[int] = None,
+    database_url: Optional[str] = None,
+) -> Optional[int]:
+    """
+    Find a run with the SAME department/age_group/measure/model/horizon/step/
+    window_type/train_size/refit_every/model_params but ANY holdout_start
+    (including NULL/none, unlike find_existing_run) that already has full
+    coverage of needed_range=(start, end) — either the pre-holdout or the
+    holdout range.
+
+    Both ranges are deterministic functions of (department, model_params,
+    train_size, refit_every, ...) alone — nothing about holdout_start changes
+    what a given step_idx's training window or forecast actually is (see
+    WalkForwardValidator's bridge-fit, which guarantees this). So copying
+    either range from an unrelated run — including one with no holdout
+    protection at all — reproduces the exact same values a fresh computation
+    would. Reuse here is a pure computation-avoidance optimization; it makes
+    no claim about *when* department/model_params/config were decided on
+    relative to anyone having looked at this data — that's a question about
+    how the caller uses the result, not about the result's correctness.
+
+    Returns the run_id of a matching, fully-covering run, or None if none
+    exists (the caller then computes needed_range fresh, as before).
+    """
+    end = needed_range[1]
+    if end is None:
+        raise ValueError("find_reusable_run needs a concrete (finite) range end")
+    engine = get_db_engine(database_url)
+    with engine.connect() as conn:
+        return conn.execute(
+            text("""
+                SELECT r.run_id
+                FROM results_unsa_ira.walkforward_runs r
+                JOIN (
+                    SELECT run_id, MIN(step_idx) AS min_step, MAX(step_idx) AS max_step
+                    FROM results_unsa_ira.walkforward_predictions
+                    GROUP BY run_id
+                ) cov ON cov.run_id = r.run_id
+                WHERE r.department = :department AND r.age_group = :age_group
+                  AND r.measure = :measure AND r.model = :model
+                  AND r.horizon = :horizon AND r.step = :step
+                  AND r.window_type = :window_type AND r.train_size = :train_size
+                  AND r.refit_every = :refit_every
+                  AND r.model_params = CAST(:model_params AS jsonb)
+                  AND cov.min_step <= :start AND cov.max_step >= :end_incl
+                  AND (CAST(:exclude_run_id AS BIGINT) IS NULL OR r.run_id != :exclude_run_id)
+                ORDER BY r.created_at DESC
+                LIMIT 1
+            """),
+            {
+                "department": department, "age_group": age_group, "measure": measure,
+                "model": model, "horizon": config["horizon"], "step": config["step"],
+                "window_type": config["window_type"], "train_size": config["train_size"],
+                "refit_every": config["refit_every"],
+                "model_params": json.dumps(model_params, default=str),
+                "start": needed_range[0], "end_incl": end - 1,
+                "exclude_run_id": exclude_run_id,
+            },
+        ).scalar()
+
+
+def copy_predictions_between_runs(
+    source_run_id: int,
+    target_run_id: int,
+    step_idx_range: tuple,
+    database_url: Optional[str] = None,
+) -> int:
+    """
+    Copy walkforward_predictions rows for step_idx in [start, end) from
+    source_run_id to target_run_id (a plain INSERT...SELECT — no Python
+    round-trip of the actual prediction values). ON CONFLICT DO NOTHING in
+    case target_run_id already has some overlapping rows (shouldn't happen
+    given how this is called, but harmless if it does).
+
+    Returns how many rows were actually inserted.
+    """
+    start, end = step_idx_range
+    engine = get_db_engine(database_url)
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("""
+                INSERT INTO results_unsa_ira.walkforward_predictions
+                    (run_id, step_idx, horizon_offset, date, actual, predicted)
+                SELECT :target_run_id, step_idx, horizon_offset, date, actual, predicted
+                FROM results_unsa_ira.walkforward_predictions
+                WHERE run_id = :source_run_id AND step_idx >= :start AND step_idx < :end
+                ON CONFLICT (run_id, step_idx, horizon_offset) DO NOTHING
+                RETURNING prediction_id
+            """),
+            {"target_run_id": target_run_id, "source_run_id": source_run_id,
+             "start": start, "end": end},
+        )
+        n = len(result.fetchall())
+    logger.info(
+        f"Copied {n} prediction(s) for step_range=({start}, {end}) "
+        f"from run_id={source_run_id} to run_id={target_run_id} (no recomputation)."
+    )
+    return n
+
+
 def append_walkforward_predictions(
     run_id: int,
     step_results: list,
