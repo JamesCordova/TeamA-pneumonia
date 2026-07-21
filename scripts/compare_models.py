@@ -115,9 +115,61 @@ def load_metrics(
     return data
 
 
+def _holdout_start_lookup(department: str, age_group: str, source: str) -> dict:
+    """
+    {run_name: holdout_start (Timestamp) or None}. A run with holdout_start
+    set was deliberately protected against model-selection bias (see
+    pneumonia.pipelines.walkforward_runner) — its stored predictions can
+    include BOTH the pre-holdout 'search' range (only ever meant to pick a
+    configuration) and the holdout range (the honest, reportable number).
+    Used to strip the search-range rows out of any comparison before pooling
+    predictions into a metric, so a search score never gets blended into —
+    or mistaken for — the protected holdout score. Runs with holdout_start
+    None (every run predating this feature, or one that opted out) are
+    unaffected: every one of their predictions counts, same as before.
+    """
+    if source == "db":
+        runs_df = latest_runs(department, age_group)
+        return {
+            row.run_name: pd.Timestamp(row.holdout_start) if row.holdout_start else None
+            for row in runs_df.itertuples()
+        }
+    out_dir = Path(REPORTS_PATH) / department / age_group
+    lookup = {}
+    for f in out_dir.glob("*_walkforward_metrics.json"):
+        with open(f, encoding="utf-8-sig") as fh:
+            j = json.load(fh)
+        holdout_start = j.get("config", {}).get("holdout_start")
+        lookup[j.get("run_name", j.get("model"))] = (
+            pd.Timestamp(holdout_start) if holdout_start else None
+        )
+    return lookup
+
+
+def _drop_pre_holdout_rows(
+    df: pd.DataFrame, department: str, age_group: str, source: str, model_col: str = "model"
+) -> pd.DataFrame:
+    """Apply _holdout_start_lookup()'s protection to a predictions DataFrame:
+    for every row whose run has a holdout_start, drop it unless its date is
+    >= that holdout_start. Rows for runs with no holdout_start pass through
+    unchanged."""
+    holdout_of = _holdout_start_lookup(department, age_group, source)
+    if not any(holdout_of.values()):
+        return df
+    starts = df[model_col].map(holdout_of)
+    keep = starts.isna() | (df["date"] >= starts)
+    dropped = int((~keep).sum())
+    if dropped:
+        logger.info(
+            f"Dropping {dropped} pre-holdout row(s) from holdout-protected runs "
+            f"— only their >= holdout_start predictions count toward any reported metric."
+        )
+    return df[keep]
+
+
 def _load_backtest_predictions(
     reports_dir: Path, department: str, age_group: str, year: int = None,
-    exclude_covid: bool = True,
+    exclude_covid: bool = True, source: str = "local",
 ) -> pd.DataFrame:
     """
     Return backtest-split rows from *_predictions.csv, or raise FileNotFoundError.
@@ -136,6 +188,7 @@ def _load_backtest_predictions(
             "Run scripts/run_walkforward.py first."
         )
     backtest = df[df["split"] == "backtest"]
+    backtest = _drop_pre_holdout_rows(backtest, department, age_group, source)
     if exclude_covid:
         backtest = backtest[keep_mask(backtest["date"], COVID_EXCLUDE_PERIODS)]
     if year is not None:
@@ -231,6 +284,7 @@ def _load_predictions_from_db(
         )
     preds = predictions_for_runs(runs["run_id"].tolist())
     preds = preds.merge(runs[["run_id", "run_name"]], on="run_id", how="left")
+    preds = _drop_pre_holdout_rows(preds, department, age_group, "db", model_col="run_name")
     if exclude_covid:
         preds = preds[keep_mask(preds["date"], COVID_EXCLUDE_PERIODS)]
     if year is not None:
@@ -363,14 +417,18 @@ def _filter_by_model_and_name(
 
 def _config_lookup(department: str, age_group: str, source: str) -> dict:
     """
-    {run_name: (train_size, window_type, step)} — the config fields that
-    determine which calendar dates get evaluated in a walk-forward backtest
-    (unlike horizon or refit_every, which don't shift the evaluated dates).
+    {run_name: (train_size, window_type, step, holdout_start)} — the config
+    fields that determine which calendar dates get evaluated in a walk-forward
+    backtest (unlike horizon or refit_every, which don't shift the evaluated
+    dates). holdout_start is included alongside the rest: two runs that only
+    differ in it were scored on different date ranges (e.g. one holdout-
+    protected, one not, or protected with a different cutoff), just as
+    surely as if their train_size differed.
     """
     if source == "db":
         runs_df = latest_runs(department, age_group)
         return {
-            row.run_name: (row.train_size, row.window_type, row.step)
+            row.run_name: (row.train_size, row.window_type, row.step, row.holdout_start)
             for row in runs_df.itertuples()
         }
     out_dir = Path(REPORTS_PATH) / department / age_group
@@ -380,7 +438,8 @@ def _config_lookup(department: str, age_group: str, source: str) -> dict:
             j = json.load(fh)
         cfg = j.get("config", {})
         lookup[j.get("run_name", j.get("model"))] = (
-            cfg.get("train_size"), cfg.get("window_type"), cfg.get("step")
+            cfg.get("train_size"), cfg.get("window_type"), cfg.get("step"),
+            cfg.get("holdout_start"),
         )
     return lookup
 
@@ -388,8 +447,8 @@ def _config_lookup(department: str, age_group: str, source: str) -> dict:
 def _filter_same_config(data: dict, department: str, age_group: str, source: str) -> dict:
     """
     Keep only the models sharing the most common (train_size, window_type,
-    step) among the ones in `data`. Comparing metrics pooled from
-    differently-windowed backtests isn't apples-to-apples — each config
+    step, holdout_start) among the ones in `data`. Comparing metrics pooled
+    from differently-windowed backtests isn't apples-to-apples — each config
     evaluates a different set of calendar dates — even though computing the
     comparison doesn't error. Models with a different config are dropped,
     with a warning listing what was excluded and why.
@@ -403,11 +462,11 @@ def _filter_same_config(data: dict, department: str, age_group: str, source: str
     kept    = {k: v for k, v in data.items() if signatures[k] == common_sig}
     dropped = {k: signatures[k] for k in data if signatures[k] != common_sig}
     if dropped:
-        train_size, window_type, step = common_sig
+        train_size, window_type, step, holdout_start = common_sig
         logger.warning(
             f"--same_config: keeping models with train_size={train_size}, "
-            f"window_type={window_type}, step={step}; dropping {dropped} "
-            "(different config)."
+            f"window_type={window_type}, step={step}, holdout_start={holdout_start}; "
+            f"dropping {dropped} (different config)."
         )
     return kept
 

@@ -15,6 +15,19 @@ Only model_params is searched. horizon/step/window_type/train_size/refit_every
 move them would let it "pick" an easier evaluation window instead of a
 genuinely better model, and makes trials incomparable with each other.
 
+Model-selection bias: every trial is run in walkforward_runner's 'search'
+mode, so none of them ever forecasts (let alone scores against) dates at or
+after --holdout_start (default 2022-01-01, matching
+pneumonia.config.DEFAULT_TEST_YEARS). If trials were scored on the same
+dates their final performance gets reported on, the winner's reported score
+would be inflated simply by having been selected from many attempts on that
+exact window — the same reason a train/validation/test split exists at all.
+Once the search picks a winner, it's confirmed exactly once in 'holdout'
+mode, on dates it never influenced — that confirmation score, not the
+search score, is what should be compared across models (Naive/SeasonalNaive
+have no search space and so no such bias, but should still be compared
+against the holdout number for consistency).
+
 Three search strategies, all driven by the same per-model *_SEARCH_RANGES
 dict (a plain {param: [values]} mapping defined next to each model, e.g.
 pneumonia/models/sarima/config.py's SARIMA_SEARCH_RANGES):
@@ -202,9 +215,17 @@ def tune_model(
     def consider(combo: dict, idx: int, total) -> float:
         run_name = f"{model_name}_tune{idx}"
         logger.info(f"[{idx}/{total}] {combo}")
+        # walkforward_kwargs always carries holdout_start (see create_parser) —
+        # every trial is forced into walkforward_runner's 'search' mode here,
+        # not user-configurable, so a trial can never physically forecast
+        # (let alone score against) the protected holdout range. This is a
+        # different 'mode' than this function's own `mode` parameter (the
+        # horizon/macroaverage/microaverage score aggregation) — don't confuse
+        # the two; that's why this one is passed as a literal, never as a variable.
         result = run_walkforward_for(
             department=department, age_group=age_group, model_name=model_name,
-            extra_model_params=adapt(combo), run_name=run_name, **walkforward_kwargs,
+            extra_model_params=adapt(combo), run_name=run_name,
+            mode="search", **walkforward_kwargs,
         )
         score = _score(result, metric, mode, opt_horizon, exclude_periods)
         logger.info(f"  {metric}={score:.4f} (run_name={result['run_name']})")
@@ -252,7 +273,27 @@ def tune_model(
     if best["combo"] is None:
         raise RuntimeError("No trial completed successfully.")
 
-    logger.info(f"Best {metric}={best['score']:.4f} — run_name={best['run_name']} — {best['combo']}")
+    # Confirm the winner on the protected holdout range — the ONE evaluation
+    # of the holdout that this whole search ever performs, and only for the
+    # combo that already won on the (holdout-blind) search range above. This
+    # is the number that should be reported/compared, never the search score,
+    # which is measured on the same dates used to pick this combo in the
+    # first place (see module docstring's model-selection-bias rationale).
+    logger.info(
+        f"Confirming best combo on the protected holdout range "
+        f"(>= {walkforward_kwargs['holdout_start']})..."
+    )
+    holdout_result = run_walkforward_for(
+        department=department, age_group=age_group, model_name=model_name,
+        extra_model_params=adapt(best["combo"]), run_name=best["run_name"],
+        mode="holdout", **walkforward_kwargs,
+    )
+    best["holdout_metrics_by_horizon"] = holdout_result["metrics_by_horizon"]
+    best["holdout_score"] = _score(holdout_result, metric, mode, opt_horizon, exclude_periods)
+    _save_summary()
+
+    logger.info(f"Best {metric}={best['score']:.4f} (search) / "
+                f"{best['holdout_score']:.4f} (holdout) — run_name={best['run_name']} — {best['combo']}")
     logger.info(f"Summary saved: {summary_path}")
     best["summary_path"] = summary_path
     return best
@@ -316,6 +357,14 @@ Examples:
                              "regardless — this only changes what counts toward each trial's "
                              "score. Pass --no-exclude_covid to include them. See "
                              "pneumonia.config.COVID_EXCLUDE_START/COVID_EXCLUDE_END.")
+    parser.add_argument("--holdout_start", type=str, default="2022-01-01",
+                        help="First date (inclusive) of the protected holdout range (default: "
+                             "2022-01-01, matching pneumonia.config.DEFAULT_TEST_YEARS). Every "
+                             "trial is scored only on dates before this — never configurable "
+                             "away, unlike --exclude_covid — so the search can't select a "
+                             "configuration using the same dates its final performance is "
+                             "reported on. After the search, the winning combo is confirmed "
+                             "once on dates >= this (see 'best_holdout_score' in the summary).")
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress non-essential output")
@@ -339,6 +388,7 @@ def main():
         train_size=args.train_size, horizon=args.horizon, step=args.step,
         window_type=args.window_type, refit_every=args.refit_every,
         start_year=args.start_year, exclude_covid=args.exclude_covid,
+        holdout_start=args.holdout_start,
     )
 
     departments = []
@@ -363,7 +413,8 @@ def main():
         print(f"Best {args.model} — {dept}/{args.age_group}  "
               f"({args.search_method}, {args.mode}, {args.metric})")
         print(f"{'=' * 70}")
-        print(f"  {args.metric} = {best['score']:.4f}")
+        print(f"  {args.metric} (search, < {args.holdout_start})  = {best['score']:.4f}")
+        print(f"  {args.metric} (holdout, >= {args.holdout_start}) = {best['holdout_score']:.4f}  <- report this one")
         print(f"  run_name    = {best['run_name']}")
         print(f"  params      = {best['combo']}")
         print(f"  summary     = {best['summary_path']}")
