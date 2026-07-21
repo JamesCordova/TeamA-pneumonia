@@ -249,6 +249,7 @@ def run_walkforward_for(
             results = reconstruct_results_from_run(existing_run_id)
         else:
             results = validator.run(data)
+        local_results = results
         run_id_for_save = existing_run_id
     else:
         train_size_int = validator.resolve_train_size(data)
@@ -354,6 +355,17 @@ def run_walkforward_for(
                 (0, k) if mode == "search" else (k, None)
             )
             results = reconstruct_results_from_run(run_id_for_save, step_idx_range=step_idx_range)
+            # Local files (*_predictions.csv/*_step_metrics.csv/*_walkforward_
+            # metrics.json) are always overwritten, never appended — so they
+            # must always reflect this run's FULL current coverage, not just
+            # this call's scoped slice. Otherwise a later 'holdout'
+            # confirmation call would overwrite the CSV with only the
+            # holdout range, silently discarding the 'search' range a
+            # previous call had already written there (the DB row itself
+            # stays correct either way — only the local mirror was at risk).
+            local_results = results if step_idx_range is None else (
+                reconstruct_results_from_run(run_id_for_save)
+            )
         else:
             # DB unreachable (or unavailable from the start) — nothing to
             # reuse/persist incrementally; compute everything mode needs in
@@ -363,10 +375,12 @@ def run_walkforward_for(
                 ((0, k) if mode == "search" else (k, None))
             )
             results = validator.run(data, step_range=combined_range)
+            local_results = results
 
     # Date-based scoring policy applied after the fact, never inside the
     # validator/reconstruction — see recompute_metrics()'s docstring.
     results = recompute_metrics(results, exclude_periods)
+    local_results = recompute_metrics(local_results, exclude_periods)
 
     print(f"\n{'='*70}")
     print(f"Walk-forward results — {department}/{age_group}  run={run_name} (model={model_name})")
@@ -379,12 +393,16 @@ def run_walkforward_for(
         _print_metrics(f"h={h}", m)
     print(f"{'='*70}\n")
 
+    # Local files always reflect local_results — this run's FULL current
+    # coverage — not `results` (this call's mode-scoped view), so an
+    # earlier range already written locally is never silently discarded by
+    # a later call that only asked for a different, narrower range.
     csv_path = save_walkforward_predictions(
         reports_dir=REPORTS_PATH,
         department=department,
         age_group=age_group,
         model_name=run_name,
-        predictions_df=results["predictions"],
+        predictions_df=local_results["predictions"],
     )
     print(f"Predictions saved -> {csv_path}")
 
@@ -393,7 +411,7 @@ def run_walkforward_for(
         department=department,
         age_group=age_group,
         model_name=run_name,
-        step_results=results["step_results"],
+        step_results=local_results["step_results"],
     )
     print(f"Step metrics saved -> {step_csv_path}")
 
@@ -406,12 +424,12 @@ def run_walkforward_for(
         "age_group": age_group,
         "model": model_name,
         "run_name": run_name,
-        "config": results["config"],
-        "model_params": results["model_params"],
+        "config": local_results["config"],
+        "model_params": local_results["model_params"],
         "metrics_by_horizon": {
-            str(h): m for h, m in results["metrics_by_horizon"].items()
+            str(h): m for h, m in local_results["metrics_by_horizon"].items()
         },
-        "n_steps": results["n_steps"],
+        "n_steps": local_results["n_steps"],
     }
     with open(metrics_file, "w") as f:
         json.dump(payload, f, indent=2, default=str)
