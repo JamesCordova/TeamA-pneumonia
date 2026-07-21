@@ -62,6 +62,7 @@ def plot_model_comparison(
     department: Optional[str] = None,
     save_path: Optional[Path] = None,
     show: bool = False,
+    top_n: Optional[int] = None,
 ) -> Optional[Path]:
     """
     Generate a two-panel model comparison figure.
@@ -75,6 +76,11 @@ def plot_model_comparison(
         department: Optional label (e.g. department name) shown in the figure title.
         save_path:  Where to save the PNG. Returns None if not provided.
         show:       Call plt.show() after saving.
+        top_n:      If given, keep only the top_n best models (ranked by `metric`
+                    at h_short) — with many models (e.g. every tune_models.py
+                    trial), the full set overlaps and becomes unreadable. The
+                    line chart (all horizons) is restricted to the same subset,
+                    so both panels always show the same models.
 
     Returns:
         Path to saved PNG, or None.
@@ -95,35 +101,66 @@ def plot_model_comparison(
         )
         return None
 
+    higher_is_better = metric in HIGHER_IS_BETTER
     models = list(metrics.keys())
+    if top_n is not None and len(models) > top_n:
+        ranked = sorted(
+            models,
+            key=lambda m: metrics[m].get(h_short, {}).get(metric, np.nan),
+        )
+        ranked = [m for m in ranked if not np.isnan(metrics[m].get(h_short, {}).get(metric, np.nan))]
+        if higher_is_better:
+            ranked = ranked[::-1]
+        models = ranked[:top_n]
+
+    # Best → worst top-to-bottom on a horizontal bar chart reads naturally
+    # (best at top); reversed here because barh plots first-to-last bottom-to-top.
+    models = sorted(
+        models,
+        key=lambda m: metrics[m].get(h_short, {}).get(metric, np.nan),
+        reverse=not higher_is_better,
+    )[::-1]
+
     palette = plt.cm.tab10.colors
     colors  = {m: palette[i % len(palette)] for i, m in enumerate(models)}
     ylabel  = METRIC_LABELS[metric]
 
-    fig, (ax_bar, ax_line) = plt.subplots(1, 2, figsize=(14, 5.5))
+    # Figure height must include room for the legend below the axes, not
+    # just the axes themselves — otherwise reserving that room later via
+    # tight_layout(rect=...) just squeezes an unchanged-size figure instead
+    # of actually making space, and the axes/labels end up cramped.
+    n_legend_cols = 1 if len(models) <= 6 else (2 if len(models) <= 14 else 3)
+    n_legend_rows = -(-len(models) // n_legend_cols)  # ceil
+    legend_height = 0.45 + 0.24 * n_legend_rows
+    fig_height = max(5.5, 0.32 * len(models) + 2) + legend_height
+    fig, (ax_bar, ax_line) = plt.subplots(1, 2, figsize=(14, fig_height))
     title = f"Model Evaluation Comparison — {ylabel}"
     if department:
         title = f"{department} — {title}"
+    if top_n is not None and len(metrics) > len(models):
+        title += f"  (top {len(models)} of {len(metrics)})"
     fig.suptitle(title, fontsize=14, fontweight="bold")
 
     # ------------------------------------------------------------------ #
-    # Panel 1: Grouped bar chart at h_short and h_long
+    # Panel 1: Grouped horizontal bar chart at h_short and h_long — models
+    # stack down the y-axis (comfortably fits many rows without label
+    # rotation/overlap) instead of packing names into a fixed-width x-axis.
     # ------------------------------------------------------------------ #
-    x = np.arange(len(models))
+    y = np.arange(len(models))
     width = 0.32
     vals_s = [metrics[m].get(h_short, {}).get(metric, np.nan) for m in models]
     vals_l = [metrics[m].get(h_long,  {}).get(metric, np.nan) for m in models]
 
-    bars_s = ax_bar.bar(
-        x - width / 2, vals_s, width,
+    bars_s = ax_bar.barh(
+        y + width / 2, vals_s, width,
         label=f"Horizon h={h_short}",
         color=[colors[m] for m in models],
         alpha=0.9,
         edgecolor="white",
         linewidth=0.7,
     )
-    bars_l = ax_bar.bar(
-        x + width / 2, vals_l, width,
+    bars_l = ax_bar.barh(
+        y - width / 2, vals_l, width,
         label=f"Horizon h={h_long}",
         color=[colors[m] for m in models],
         alpha=0.45,
@@ -131,33 +168,37 @@ def plot_model_comparison(
         linewidth=1.2,
     )
 
-    # Value labels above (or below for negative R²) each bar
+    # Value labels beside (or before, for negative R²) each bar
     all_vals = [v for v in vals_s + vals_l if not np.isnan(v)]
     val_range = (max(all_vals) - min(all_vals)) if all_vals else 1
     offset = val_range * 0.02 or 0.05
 
     for bar in list(bars_s) + list(bars_l):
-        h = bar.get_height()
-        if not np.isnan(h):
+        w = bar.get_width()
+        if not np.isnan(w):
             ax_bar.text(
-                bar.get_x() + bar.get_width() / 2,
-                h + offset if h >= 0 else h - offset * 3,
-                f"{h:.2f}" if metric == "r2" else f"{h:.1f}",
-                ha="center",
-                va="bottom" if h >= 0 else "top",
-                fontsize=7.5,
+                w + offset if w >= 0 else w - offset * 3,
+                bar.get_y() + bar.get_height() / 2,
+                f"{w:.2f}" if metric == "r2" else f"{w:.1f}",
+                ha="left" if w >= 0 else "right",
+                va="center",
+                fontsize=8,
             )
 
-    ax_bar.set_xticks(x)
-    ax_bar.set_xticklabels(models, rotation=25, ha="right", fontsize=9)
-    ax_bar.set_ylabel(ylabel)
+    ax_bar.set_yticks(y)
+    ax_bar.set_yticklabels(models, fontsize=9)
+    ax_bar.set_xlabel(ylabel)
     better = better_label(metric)
     ax_bar.set_title(f"h={h_short} (solid) vs h={h_long} (faded) — {better}")
-    ax_bar.yaxis.set_minor_locator(mticker.AutoMinorLocator())
-    ax_bar.grid(axis="y", alpha=0.25)
-    ax_bar.grid(axis="y", which="minor", alpha=0.12)
+    ax_bar.xaxis.set_minor_locator(mticker.AutoMinorLocator())
+    ax_bar.grid(axis="x", alpha=0.25)
+    ax_bar.grid(axis="x", which="minor", alpha=0.12)
+    ax_bar.margins(y=0.02)
     if metric in {"r2", "me"}:
-        ax_bar.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
+        ax_bar.axvline(0, color="black", lw=0.8, ls="--", alpha=0.5)
+    # No legend here — the title above already states "h=short (solid) vs
+    # h=long (faded)", so a legend would just repeat it while eating into
+    # the same space the line chart's (real, per-model) legend needs below.
 
     # ------------------------------------------------------------------ #
     # Panel 2: metric across all horizons
@@ -183,15 +224,25 @@ def plot_model_comparison(
     ax_line.set_xlabel("Forecast horizon (weeks ahead)")
     ax_line.set_ylabel(ylabel)
     ax_line.set_title(line_title)
-    legend = ax_line.legend(
-        fontsize=9, loc="upper left" if metric not in HIGHER_IS_BETTER else "lower left"
-    )
-    enable_legend_picking(fig, legend, lines_by_model)
     ax_line.grid(alpha=0.25)
     if metric in {"r2", "me"}:
         ax_line.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
 
-    fig.tight_layout()
+    # Figure-level legend (not attached to either axes) — its position is in
+    # figure fractions, so it stays clear of both panels' xlabels regardless
+    # of axes size, unlike an axes-anchored legend whose "below the axes"
+    # offset has to be re-tuned any time the axes' own height/labels change.
+    handles = [lines_by_model[m] for m in models]
+    legend = fig.legend(
+        handles, models, fontsize=8, loc="lower center", bbox_to_anchor=(0.5, 0.0),
+        ncol=n_legend_cols,
+    )
+    enable_legend_picking(fig, legend, lines_by_model)
+
+    # Reserve exactly the figure fraction the legend needs (computed in
+    # inches above, converted to a fraction of this specific fig_height) —
+    # tight_layout() has no way to know a figure-level legend needs room.
+    fig.tight_layout(rect=[0, legend_height / fig_height, 1, 1])
 
     if save_path is not None:
         save_path = Path(save_path)
@@ -250,10 +301,21 @@ def _draw_model_date_heatmap(
         # calendar date); take the last (most complete) expanding-window
         # value for that date so reindex() has a unique index to align to.
         s = model_frames[m].groupby("date")[metric].last().reindex(date_index)
+        real_dates = model_frames[m]["date"]
         if fill_method == "ffill":
             s = s.ffill()
+            # Don't let ffill extend past this model's own last real
+            # evaluation — models with different coverage (e.g. a
+            # tune_models.py trial that only has a pre-holdout range, next
+            # to one that also has its holdout confirmed) share this date
+            # axis; without this, a shorter model's last known value would
+            # visually repeat all the way to the longest model's end date,
+            # making it look like it has data (and "is fine") in a range it
+            # was never actually evaluated on.
+            s[date_index > real_dates.max()] = np.nan
         elif fill_method == "bfill":
             s = s.bfill()
+            s[date_index < real_dates.min()] = np.nan
         matrix[i] = s.to_numpy()
 
     finite = matrix[np.isfinite(matrix)]
@@ -307,6 +369,7 @@ def plot_micro_comparison(
     department: Optional[str] = None,
     save_path: Optional[Path] = None,
     show: bool = False,
+    top_n: Optional[int] = None,
 ) -> Optional[Path]:
     """
     Two-panel microaverage figure: the metric is computed once over every
@@ -328,6 +391,10 @@ def plot_micro_comparison(
         department: Optional label (e.g. department name) shown in the figure title.
         save_path:  Where to save the PNG. Returns None if not provided.
         show:       Call plt.show() after saving.
+        top_n:      If given, keep only the top_n best models (ranked by
+                    `metric`) — with many models, the full set overlaps and
+                    becomes unreadable. Both panels are restricted to the
+                    same subset.
 
     Returns:
         Path to saved PNG, or None.
@@ -345,36 +412,47 @@ def plot_micro_comparison(
         return None
 
     higher_is_better = metric in HIGHER_IS_BETTER
+    n_total = len(values)
     models  = sorted(values, key=lambda m: values[m], reverse=higher_is_better)
+    if top_n is not None and len(models) > top_n:
+        models = models[:top_n]
+    # Best → worst top-to-bottom on a horizontal bar chart reads naturally
+    # (best at top); reversed here because barh plots first-to-last bottom-to-top.
+    models = models[::-1]
     palette = plt.cm.tab10.colors
     colors  = [palette[i % len(palette)] for i in range(len(models))]
     ylabel  = METRIC_LABELS[metric]
     better  = better_label(metric)
 
+    fig_height = max(5.5, 0.32 * len(models) + 2)
     fig, (ax_bar, ax_heat) = plt.subplots(
-        1, 2, figsize=(15, 5.5), gridspec_kw={"width_ratios": [1, 1.6]}
+        1, 2, figsize=(15, fig_height), gridspec_kw={"width_ratios": [1, 1.6]}
     )
     title = f"Model Evaluation Comparison (microaverage) — {ylabel}"
     if department:
         title = f"{department} — {title}"
+    if top_n is not None and n_total > len(models):
+        title += f"  (top {len(models)} of {n_total})"
     fig.suptitle(title, fontsize=14, fontweight="bold")
 
     # ------------------------------------------------------------------ #
-    # Panel 1: bar chart — final pooled snapshot
+    # Panel 1: horizontal bar chart — final pooled snapshot. Models stack
+    # down the y-axis instead of packing names into a fixed-width x-axis.
     # ------------------------------------------------------------------ #
-    bars = ax_bar.bar(models, [values[m] for m in models], color=colors, alpha=0.85)
+    bars = ax_bar.barh(models, [values[m] for m in models], color=colors, alpha=0.85)
     fmt = "%.2f" if metric == "r2" else "%.1f"
-    ax_bar.bar_label(bars, fmt=fmt, fontsize=8.5, padding=2)
+    ax_bar.bar_label(bars, fmt=fmt, fontsize=8.5, padding=3)
 
-    ax_bar.set_ylabel(ylabel)
-    ax_bar.set_title("Final pooled snapshot — sorted best → worst")
-    ax_bar.set_xlabel(better)
-    plt.setp(ax_bar.get_xticklabels(), rotation=20, ha="right", fontsize=9)
-    ax_bar.yaxis.set_minor_locator(mticker.AutoMinorLocator())
-    ax_bar.grid(axis="y", alpha=0.25)
-    ax_bar.grid(axis="y", which="minor", alpha=0.12)
+    ax_bar.set_xlabel(ylabel)
+    ax_bar.set_title("Final pooled snapshot — best → worst, top to bottom")
+    ax_bar.tick_params(axis="y", labelsize=9)
+    ax_bar.xaxis.set_minor_locator(mticker.AutoMinorLocator())
+    ax_bar.grid(axis="x", alpha=0.25)
+    ax_bar.grid(axis="x", which="minor", alpha=0.12)
+    ax_bar.margins(y=0.02)
     if metric in {"r2", "me"}:
-        ax_bar.axhline(0, color="black", lw=0.8, ls="--", alpha=0.5)
+        ax_bar.axvline(0, color="black", lw=0.8, ls="--", alpha=0.5)
+    ax_bar.set_xlabel(f"{ylabel}  ({better})")
 
     # ------------------------------------------------------------------ #
     # Panel 2: cumulative heatmap — same models, ordered to match the bars
