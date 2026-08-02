@@ -4,8 +4,11 @@ Holt-Winters (Triple Exponential Smoothing) forecaster.
 Uses additive trend with damping + additive seasonality, which is robust for
 weekly epidemiological data with a strong annual cycle.
 
-predict() re-fits the smoothing parameters on the current data window so the
-seasonal state is always up to date — this is correct for walk-forward use.
+predict() re-estimates the level/trend/seasonal *state* on the current data
+window (so the anchoring is always up to date) but reuses the smoothing
+coefficients (alpha/beta/gamma/phi) learned in fit(), mirroring SARIMAX's
+apply(). This keeps `refit_every` meaningful: coefficients only change on a
+scheduled refit, not on every predict() call.
 """
 
 from datetime import datetime
@@ -18,6 +21,13 @@ from pneumonia.models.base import BaseForecaster
 from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
+
+# Hyperparameter search ranges (for scripts/tune_models.py)
+HOLTWINTERS_SEARCH_RANGES = {
+    "trend":        ["add", "mul"],
+    "damped_trend": [True, False],
+    "seasonal":     ["add", "mul"],
+}
 
 
 class HoltWintersForecaster(BaseForecaster):
@@ -90,17 +100,23 @@ class HoltWintersForecaster(BaseForecaster):
 
     def predict(self, data: pd.Series, steps: int = 52) -> np.ndarray:
         """
-        Re-fit on `data` and forecast `steps` ahead.
+        Re-estimate state on `data` (holding smoothing coefficients fixed)
+        and forecast `steps` ahead.
 
-        Re-fitting is necessary because HoltWinters has no apply() mechanism
-        equivalent to SARIMAX; the seasonal state must be re-estimated from
-        the current window.
+        HoltWinters has no apply() mechanism equivalent to SARIMAX, so the
+        closest analogue is: re-run fit() on the current window with the
+        smoothing coefficients (alpha/beta/gamma/phi) pinned to the values
+        learned at the last scheduled refit (optimized=False). This updates
+        the level/trend/seasonal state to the current window without
+        re-optimizing parameters on every call.
         """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before predicting")
 
         try:
-            fitted = self._build_model(data.values.astype(float))
+            fitted = self._build_model(
+                data.values.astype(float), fixed_params=self._fitted.params
+            )
             preds = np.array(fitted.forecast(steps))
             return np.maximum(0.0, preds)
         except Exception as exc:
@@ -111,15 +127,24 @@ class HoltWintersForecaster(BaseForecaster):
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_model(self, values: np.ndarray):
-        return ExponentialSmoothing(
+    def _build_model(self, values: np.ndarray, fixed_params: dict = None):
+        model = ExponentialSmoothing(
             values,
             trend=self.trend,
             damped_trend=self.damped_trend,
             seasonal=self.seasonal,
             seasonal_periods=self.seasonal_periods,
             initialization_method="estimated",
-        ).fit(optimized=True)
+        )
+        if fixed_params is None:
+            return model.fit(optimized=True)
+        return model.fit(
+            smoothing_level=fixed_params.get("smoothing_level"),
+            smoothing_trend=fixed_params.get("smoothing_trend"),
+            smoothing_seasonal=fixed_params.get("smoothing_seasonal"),
+            damping_trend=fixed_params.get("damping_trend"),
+            optimized=False,
+        )
 
     def _seasonal_naive_fallback(self, values: np.ndarray, steps: int) -> np.ndarray:
         season = values[-self.seasonal_periods:].astype(float)

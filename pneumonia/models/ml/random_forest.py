@@ -169,18 +169,15 @@ class RandomForestModel(BaseForecaster):
 
         # Infer step delta from the last two index entries
         step_delta = (data.index[-1] - data.index[-2]) if len(data) > 1 else pd.Timedelta(weeks=1)
-        trend_base = len(data)
 
         predictions: List[float] = []
 
         for step in range(steps):
             target_date = last_date + step_delta * (step + 1)
-            trend_idx   = trend_base + step
 
             x = build_step_features(
                 history=np.array(buffer),
                 target_date=target_date,
-                trend_idx=trend_idx,
                 feature_names=self.feature_names_,
                 lags=self.lags,
                 windows=self.windows,

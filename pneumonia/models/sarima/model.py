@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+from pneumonia.config import WEEKS_PER_YEAR
 from pneumonia.models.base import BaseForecaster
 from pneumonia.models.sarima.config import (
     DEFAULT_SARIMA_ORDER,
@@ -38,7 +39,7 @@ logger = setup_logger(__name__)
 # Fourier term utilities
 # ---------------------------------------------------------------------------
 
-def _fourier_terms(index: pd.DatetimeIndex, n_terms: int, period: float = 52.1775) -> np.ndarray:
+def _fourier_terms(index: pd.DatetimeIndex, n_terms: int, period: float = WEEKS_PER_YEAR) -> np.ndarray:
     """
     Build a (len(index), 2*n_terms) matrix of sin/cos Fourier regressors.
 
@@ -48,7 +49,7 @@ def _fourier_terms(index: pd.DatetimeIndex, n_terms: int, period: float = 52.177
     Args:
         index:   DatetimeIndex of the time series.
         n_terms: Number of sin/cos pairs (K).
-        period:  Seasonal period in weeks (52.1775 = average weeks per year).
+        period:  Seasonal period in weeks (defaults to WEEKS_PER_YEAR).
 
     Returns:
         NumPy array of shape (len(index), 2*n_terms).
@@ -62,7 +63,7 @@ def _fourier_terms(index: pd.DatetimeIndex, n_terms: int, period: float = 52.177
     return np.column_stack(cols)
 
 
-def _fourier_df(index: pd.DatetimeIndex, n_terms: int, period: float = 52.1775) -> pd.DataFrame:
+def _fourier_df(index: pd.DatetimeIndex, n_terms: int, period: float = WEEKS_PER_YEAR) -> pd.DataFrame:
     """Return Fourier terms as a DataFrame (column names: sin_k, cos_k)."""
     arr = _fourier_terms(index, n_terms, period)
     cols = [f"{fn}_{k}" for k in range(1, n_terms + 1) for fn in ("sin", "cos")]
@@ -70,7 +71,7 @@ def _fourier_df(index: pd.DatetimeIndex, n_terms: int, period: float = 52.1775) 
 
 
 def _future_fourier(last_index: pd.DatetimeIndex, steps: int, n_terms: int,
-                    period: float = 52.1775) -> np.ndarray:
+                    period: float = WEEKS_PER_YEAR) -> np.ndarray:
     """
     Build Fourier terms for `steps` future periods following last_index.
 
@@ -101,7 +102,8 @@ class SARIMAModel(BaseForecaster):
     order      : tuple (p, d, q)  — uses config default if None
     seasonal_order : tuple (P, D, Q, s) — ignored when use_fourier=True
     use_fourier : bool — use Fourier exog instead of SAR/SMA (default True)
-    n_fourier_terms : int — number of sin/cos pairs (default from config)
+    n_fourier_terms : int — number of sin/cos pairs; ignored when use_fourier=False
+                     (default from config)
     """
 
     def __init__(
@@ -142,11 +144,20 @@ class SARIMAModel(BaseForecaster):
         )
 
     def get_params(self) -> dict:
+        """
+        seasonal_order/n_fourier_terms are reported as their *effective* value
+        (None when the fit path ignores them — see _fit_manual/_finalize_fit),
+        not whatever was passed to __init__. Otherwise two runs that only
+        differ in an inert parameter (e.g. seasonal_order while use_fourier=True)
+        would get distinct config keys in results_unsa_ira despite fitting an
+        identical model, defeating the identical-configuration dedup in
+        pneumonia.evaluation.results_db.
+        """
         return {
             "order":           self.order,
-            "seasonal_order":  self.seasonal_order,
+            "seasonal_order":  self.seasonal_order if not self.use_fourier else None,
             "use_fourier":     self.use_fourier,
-            "n_fourier_terms": self.n_fourier_terms,
+            "n_fourier_terms": self.n_fourier_terms if self.use_fourier else None,
         }
 
     # ------------------------------------------------------------------

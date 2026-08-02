@@ -60,8 +60,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 import pandas as pd
 
-from pneumonia.config import REPORTS_PATH
-from pneumonia.evaluation.metrics import compute_all_metrics
+from pneumonia.config import COVID_EXCLUDE_PERIODS, REPORTS_PATH
+from pneumonia.evaluation.metrics import compute_all_metrics, keep_mask
 from pneumonia.evaluation.results_db_query import latest_runs, predictions_for_runs
 from pneumonia.utils import setup_logger
 from pneumonia.visualization._utils import get_output_path, read_predictions
@@ -93,13 +93,18 @@ TABLE_HEADERS = {
 # Data loading
 # ---------------------------------------------------------------------------
 
-def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
+def load_metrics(
+    reports_dir: Path, department: str, age_group: str, exclude_covid: bool = True,
+    view: str = "holdout",
+) -> dict:
     """
     Return {run_name: {horizon_int: {metric: value}}}, computed from the
     'horizon' column of *_predictions.csv — the local equivalent of
     load_metrics_from_db(), which groups by 'horizon_offset' instead.
     """
-    backtest = _load_backtest_predictions(reports_dir, department, age_group)
+    backtest = _load_backtest_predictions(
+        reports_dir, department, age_group, exclude_covid=exclude_covid, view=view
+    )
     data = {}
     for run_name, g in backtest.groupby("model"):
         by_h = {}
@@ -111,10 +116,115 @@ def load_metrics(reports_dir: Path, department: str, age_group: str) -> dict:
     return data
 
 
-def _load_backtest_predictions(
-    reports_dir: Path, department: str, age_group: str, year: int = None
+def _holdout_start_lookup(department: str, age_group: str, source: str) -> dict:
+    """
+    {run_name: holdout_start (Timestamp) or None}. A run with holdout_start
+    set was deliberately protected against model-selection bias (see
+    pneumonia.pipelines.walkforward_runner) — its stored predictions can
+    include BOTH the pre-holdout 'search' range (only ever meant to pick a
+    configuration) and the holdout range (the honest, reportable number).
+    Used to strip the search-range rows out of any comparison before pooling
+    predictions into a metric, so a search score never gets blended into —
+    or mistaken for — the protected holdout score. Runs with holdout_start
+    None (every run predating this feature, or one that opted out) are
+    unaffected: every one of their predictions counts, same as before.
+    """
+    if source == "db":
+        runs_df = latest_runs(department, age_group)
+        return {
+            row.run_name: pd.Timestamp(row.holdout_start) if row.holdout_start else None
+            for row in runs_df.itertuples()
+        }
+    out_dir = Path(REPORTS_PATH) / department / age_group
+    lookup = {}
+    for f in out_dir.glob("*_walkforward_metrics.json"):
+        with open(f, encoding="utf-8-sig") as fh:
+            j = json.load(fh)
+        holdout_start = j.get("config", {}).get("holdout_start")
+        lookup[j.get("run_name", j.get("model"))] = (
+            pd.Timestamp(holdout_start) if holdout_start else None
+        )
+    return lookup
+
+
+def _filter_by_view(
+    df: pd.DataFrame, department: str, age_group: str, source: str, view: str = "holdout",
+    model_col: str = "model",
 ) -> pd.DataFrame:
-    """Return backtest-split rows from *_predictions.csv, or raise FileNotFoundError."""
+    """
+    Restrict a predictions DataFrame to one side of each holdout-protected
+    run's boundary — runs with no holdout_start at all pass through
+    unchanged either way, since there's no boundary to split on.
+
+    view='holdout' (default) — keep only date >= holdout_start. This is the
+        honest, reportable number for a protected run — the one that should
+        go in a final comparison.
+    view='search'  — keep only date < holdout_start. Useful for inspecting
+        an individual tune_models.py trial that never got (or hasn't yet
+        gotten) a holdout confirmation — e.g. every non-winning trial only
+        ever has this range, so view='holdout' would leave it with nothing.
+    view='full'    — no filtering; both ranges pooled together (matches the
+        'full' vocabulary used by run_walkforward_for()/tune_models.py's
+        --mode). Only useful for inspecting a run's complete backtest shape,
+        never for reporting a single comparable number (mixes the two
+        ranges' meanings).
+    """
+    if view not in ("holdout", "search", "full"):
+        raise ValueError(f"view must be 'holdout', 'search', or 'full', got {view!r}")
+    if view == "full":
+        return df
+    holdout_of = _holdout_start_lookup(department, age_group, source)
+    if not any(holdout_of.values()):
+        return df
+    starts = df[model_col].map(holdout_of)
+    if view == "holdout":
+        keep = starts.isna() | (df["date"] >= starts)
+    else:
+        keep = starts.isna() | (df["date"] < starts)
+    dropped = int((~keep).sum())
+    if dropped:
+        logger.info(
+            f"view={view!r}: dropping {dropped} row(s) outside that range for "
+            f"holdout-protected runs."
+        )
+    return df[keep]
+
+
+def _filter_run_df_by_view(
+    df: pd.DataFrame, run_name: str, department: str, age_group: str, source: str,
+    view: str = "holdout",
+) -> pd.DataFrame:
+    """Same idea as _filter_by_view(), for a DataFrame already scoped to a
+    single run_name (no model/run_name column of its own to look up per-row)
+    — e.g. load_step_metrics()'s per-model DataFrames. Looks up that one
+    run's holdout_start directly instead of mapping a column."""
+    if view == "full":
+        return df
+    holdout_start = _holdout_start_lookup(department, age_group, source).get(run_name)
+    if holdout_start is None:
+        return df
+    if view == "holdout":
+        return df[df["date"] >= holdout_start]
+    return df[df["date"] < holdout_start]
+
+
+def _load_backtest_predictions(
+    reports_dir: Path, department: str, age_group: str, year: int = None,
+    exclude_covid: bool = True, source: str = "local", view: str = "holdout",
+) -> pd.DataFrame:
+    """
+    Return backtest-split rows from *_predictions.csv, or raise FileNotFoundError.
+
+    exclude_covid (default True): drop dates in [config.COVID_EXCLUDE_START,
+    COVID_EXCLUDE_END] before any metric is computed from these raw rows —
+    the shared choke point for load_metrics/load_micro_metrics/
+    compute_cumulative_micro_metrics, so all three modes apply the same
+    policy. Pass False to include them (e.g. to specifically study how models
+    behaved during the pandemic disruption).
+
+    view: see _filter_by_view() — which side of a holdout-protected run's
+    boundary to keep (default 'holdout', the honest/reportable number).
+    """
     df = read_predictions(reports_dir, department, age_group)
     if df is None:
         raise FileNotFoundError(
@@ -122,6 +232,9 @@ def _load_backtest_predictions(
             "Run scripts/run_walkforward.py first."
         )
     backtest = df[df["split"] == "backtest"]
+    backtest = _filter_by_view(backtest, department, age_group, source, view)
+    if exclude_covid:
+        backtest = backtest[keep_mask(backtest["date"], COVID_EXCLUDE_PERIODS)]
     if year is not None:
         backtest = backtest[backtest["date"].dt.year == year]
     if backtest.empty:
@@ -134,7 +247,8 @@ def _load_backtest_predictions(
 
 
 def load_micro_metrics(
-    reports_dir: Path, department: str, age_group: str, year: int = None
+    reports_dir: Path, department: str, age_group: str, year: int = None,
+    exclude_covid: bool = True, view: str = "holdout",
 ) -> dict:
     """
     Return {run_name: {metric: value}} computed once over every backtest
@@ -142,7 +256,9 @@ def load_micro_metrics(
     same underlying computation as metrics_by_horizon, just not divided by h.
     If `year` is given, restricts to backtest predictions from that calendar year.
     """
-    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
+    backtest = _load_backtest_predictions(
+        reports_dir, department, age_group, year, exclude_covid=exclude_covid, view=view
+    )
     data = {}
     for run_name, g in backtest.groupby("model"):
         data[run_name] = compute_all_metrics(
@@ -152,7 +268,8 @@ def load_micro_metrics(
 
 
 def compute_cumulative_micro_metrics(
-    reports_dir: Path, department: str, age_group: str, min_obs: int = 8, year: int = None
+    reports_dir: Path, department: str, age_group: str, min_obs: int = 8, year: int = None,
+    exclude_covid: bool = True, view: str = "holdout",
 ) -> dict:
     """
     Return {run_name: DataFrame(date, mae, rmse, me, mape, smape, mda, r2)} — one
@@ -167,7 +284,9 @@ def compute_cumulative_micro_metrics(
     points can be near zero, sending it to wild outliers that would otherwise
     dominate a shared color scale).
     """
-    backtest = _load_backtest_predictions(reports_dir, department, age_group, year)
+    backtest = _load_backtest_predictions(
+        reports_dir, department, age_group, year, exclude_covid=exclude_covid, view=view
+    )
     data = {}
     for run_name, g in backtest.groupby("model"):
         g = g.sort_values("date")
@@ -188,13 +307,20 @@ def compute_cumulative_micro_metrics(
 # ---------------------------------------------------------------------------
 
 def _load_predictions_from_db(
-    department: str, age_group: str, measure: str = "cases", year: int = None
+    department: str, age_group: str, measure: str = "cases", year: int = None,
+    exclude_covid: bool = True, view: str = "holdout",
 ) -> pd.DataFrame:
     """
     Raw predictions (joined to run_name) for the latest run of each run_name —
     the DB equivalent of _load_backtest_predictions. Not deduplicated by date:
     if a model was run with horizon > step, overlapping steps' predictions for
     the same date are all kept (see db/migrations/0001_walkforward_results).
+
+    exclude_covid (default True): same policy as _load_backtest_predictions —
+    drop config.COVID_EXCLUDE_PERIODS (2020-2021) before any downstream
+    metric is computed from these raw rows.
+
+    view: see _filter_by_view().
     """
     runs = latest_runs(department, age_group, measure)
     if runs.empty:
@@ -204,6 +330,9 @@ def _load_predictions_from_db(
         )
     preds = predictions_for_runs(runs["run_id"].tolist())
     preds = preds.merge(runs[["run_id", "run_name"]], on="run_id", how="left")
+    preds = _filter_by_view(preds, department, age_group, "db", view, model_col="run_name")
+    if exclude_covid:
+        preds = preds[keep_mask(preds["date"], COVID_EXCLUDE_PERIODS)]
     if year is not None:
         preds = preds[preds["date"].dt.year == year]
     if preds.empty:
@@ -214,9 +343,14 @@ def _load_predictions_from_db(
     return preds
 
 
-def load_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+def load_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", exclude_covid: bool = True,
+    view: str = "holdout",
+) -> dict:
     """DB equivalent of load_metrics(): {run_name: {horizon_int: {metric: value}}}."""
-    preds = _load_predictions_from_db(department, age_group, measure)
+    preds = _load_predictions_from_db(
+        department, age_group, measure, exclude_covid=exclude_covid, view=view
+    )
     data = {}
     for run_name, g in preds.groupby("run_name"):
         by_h = {}
@@ -228,9 +362,14 @@ def load_metrics_from_db(department: str, age_group: str, measure: str = "cases"
     return data
 
 
-def load_step_metrics_from_db(department: str, age_group: str, measure: str = "cases") -> dict:
+def load_step_metrics_from_db(
+    department: str, age_group: str, measure: str = "cases", exclude_covid: bool = True,
+    view: str = "holdout",
+) -> dict:
     """DB equivalent of load_step_metrics(): {run_name: DataFrame(date, step, n_obs, mae, ...)}."""
-    preds = _load_predictions_from_db(department, age_group, measure)
+    preds = _load_predictions_from_db(
+        department, age_group, measure, exclude_covid=exclude_covid, view=view
+    )
     data = {}
     for run_name, g in preds.groupby("run_name"):
         rows = []
@@ -245,10 +384,13 @@ def load_step_metrics_from_db(department: str, age_group: str, measure: str = "c
 
 
 def load_micro_metrics_from_db(
-    department: str, age_group: str, measure: str = "cases", year: int = None
+    department: str, age_group: str, measure: str = "cases", year: int = None,
+    exclude_covid: bool = True, view: str = "holdout",
 ) -> dict:
     """DB equivalent of load_micro_metrics(): {run_name: {metric: value}}."""
-    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    preds = _load_predictions_from_db(
+        department, age_group, measure, year=year, exclude_covid=exclude_covid, view=view
+    )
     data = {}
     for run_name, g in preds.groupby("run_name"):
         data[run_name] = compute_all_metrics(
@@ -258,10 +400,13 @@ def load_micro_metrics_from_db(
 
 
 def compute_cumulative_micro_metrics_from_db(
-    department: str, age_group: str, measure: str = "cases", min_obs: int = 8, year: int = None
+    department: str, age_group: str, measure: str = "cases", min_obs: int = 8, year: int = None,
+    exclude_covid: bool = True, view: str = "holdout",
 ) -> dict:
     """DB equivalent of compute_cumulative_micro_metrics()."""
-    preds = _load_predictions_from_db(department, age_group, measure, year=year)
+    preds = _load_predictions_from_db(
+        department, age_group, measure, year=year, exclude_covid=exclude_covid, view=view
+    )
     data = {}
     for run_name, g in preds.groupby("run_name"):
         g = g.sort_values("date")
@@ -324,14 +469,33 @@ def _filter_by_model_and_name(
 
 def _config_lookup(department: str, age_group: str, source: str) -> dict:
     """
-    {run_name: (train_size, window_type, step)} — the config fields that
-    determine which calendar dates get evaluated in a walk-forward backtest
-    (unlike horizon or refit_every, which don't shift the evaluated dates).
+    {run_name: (train_size, window_type, step, holdout_start, min_date, max_date)}
+    — the config fields that determine which calendar dates a walk-forward
+    backtest was SUPPOSED to evaluate (train_size/window_type/step/
+    holdout_start; horizon/refit_every don't shift the evaluated dates so
+    they're excluded), plus min_date/max_date — the dates it ACTUALLY has
+    stored.
+
+    The declared config alone isn't enough: two runs can share every one of
+    those fields and still hold genuinely different amounts of real data —
+    e.g. a tune_models.py trial that only ever got its pre-holdout range,
+    next to the winning trial that was also extended with its holdout
+    confirmation (see pneumonia.pipelines.walkforward_runner's coverage-aware
+    orchestration). Pooling their metrics together under --view full isn't
+    apples-to-apples even though their declared config matches exactly, so
+    min_date/max_date are part of the signature too.
     """
     if source == "db":
         runs_df = latest_runs(department, age_group)
+        run_ids = runs_df["run_id"].tolist()
+        preds = predictions_for_runs(run_ids) if run_ids else pd.DataFrame(columns=["run_id", "date"])
+        coverage = preds.groupby("run_id")["date"].agg(["min", "max"]) if not preds.empty else preds
         return {
-            row.run_name: (row.train_size, row.window_type, row.step)
+            row.run_name: (
+                row.train_size, row.window_type, row.step, row.holdout_start,
+                coverage.loc[row.run_id, "min"] if row.run_id in coverage.index else None,
+                coverage.loc[row.run_id, "max"] if row.run_id in coverage.index else None,
+            )
             for row in runs_df.itertuples()
         }
     out_dir = Path(REPORTS_PATH) / department / age_group
@@ -340,35 +504,63 @@ def _config_lookup(department: str, age_group: str, source: str) -> dict:
         with open(f, encoding="utf-8-sig") as fh:
             j = json.load(fh)
         cfg = j.get("config", {})
-        lookup[j.get("run_name", j.get("model"))] = (
-            cfg.get("train_size"), cfg.get("window_type"), cfg.get("step")
-        )
-    return lookup
+        run_name = j.get("run_name", j.get("model"))
+        lookup[run_name] = [
+            cfg.get("train_size"), cfg.get("window_type"), cfg.get("step"),
+            cfg.get("holdout_start"), None, None,
+        ]
+    df = read_predictions(REPORTS_PATH, department, age_group)
+    if df is not None:
+        coverage = df[df["split"] == "backtest"].groupby("model")["date"].agg(["min", "max"])
+        for run_name, sig in lookup.items():
+            if run_name in coverage.index:
+                sig[4] = coverage.loc[run_name, "min"]
+                sig[5] = coverage.loc[run_name, "max"]
+    return {k: tuple(v) for k, v in lookup.items()}
 
 
 def _filter_same_config(data: dict, department: str, age_group: str, source: str) -> dict:
     """
-    Keep only the models sharing the most common (train_size, window_type,
-    step) among the ones in `data`. Comparing metrics pooled from
-    differently-windowed backtests isn't apples-to-apples — each config
-    evaluates a different set of calendar dates — even though computing the
-    comparison doesn't error. Models with a different config are dropped,
-    with a warning listing what was excluded and why.
+    Keep only the models sharing one (train_size, window_type, step,
+    holdout_start, min_date, max_date) signature among the ones in `data` —
+    the one spanning the MOST calendar time (ties broken by how many models
+    share it), not simply the most common one. Comparing metrics pooled
+    from differently-windowed backtests — or from runs that share a config
+    but actually hold different amounts of data (see _config_lookup) —
+    isn't apples-to-apples, even though computing the comparison doesn't
+    error. Models that don't match are dropped, with a warning listing what
+    was excluded and why.
+
+    Picking by widest span rather than raw frequency matters most under
+    --view full: many tune_models.py trials typically only ever hold their
+    pre-holdout range (never confirmed — see run_walkforward_for), so
+    they're usually the majority by count, while the few models that DO
+    span the full period (the search's winner, and any baseline explicitly
+    given the same holdout_start) are typically outnumbered. Picking "most
+    common" would keep the truncated majority and silently drop exactly the
+    models a --view full request is asking to see the full period for.
     """
     if len(data) <= 1:
         return data
     config_of  = _config_lookup(department, age_group, source)
     signatures = {k: config_of.get(k) for k in data}
-    common_sig, _ = Counter(signatures.values()).most_common(1)[0]
+    counts = Counter(signatures.values())
+
+    def _span(sig):
+        min_date, max_date = sig[4], sig[5]
+        return (max_date - min_date) if (min_date is not None and max_date is not None) else pd.Timedelta(0)
+
+    common_sig = max(counts, key=lambda sig: (_span(sig), counts[sig]))
 
     kept    = {k: v for k, v in data.items() if signatures[k] == common_sig}
     dropped = {k: signatures[k] for k in data if signatures[k] != common_sig}
     if dropped:
-        train_size, window_type, step = common_sig
+        train_size, window_type, step, holdout_start, min_date, max_date = common_sig
         logger.warning(
             f"--same_config: keeping models with train_size={train_size}, "
-            f"window_type={window_type}, step={step}; dropping {dropped} "
-            "(different config)."
+            f"window_type={window_type}, step={step}, holdout_start={holdout_start}, "
+            f"data spanning {min_date}..{max_date}; dropping {dropped} "
+            "(different config or different actual coverage)."
         )
     return kept
 
@@ -453,6 +645,8 @@ def compare_macroaverage(
     models: list = None,
     run_names: list = None,
     same_config: bool = False,
+    exclude_covid: bool = True,
+    view: str = "holdout",
 ) -> None:
     """Per-step diagnostic figures (boxplot + mean, and metric evolution over time)."""
     department = department.upper()
@@ -460,9 +654,26 @@ def compare_macroaverage(
 
     try:
         if source == "db":
-            step_data = load_step_metrics_from_db(department, age_group)
+            step_data = load_step_metrics_from_db(
+                department, age_group, exclude_covid=exclude_covid, view=view
+            )
         else:
+            # *_step_metrics.csv (local) carries per-step 'metrics' as computed
+            # when the run was saved (see run_walkforward_for's recompute_metrics
+            # call) — filtering again here, the same way --year already does
+            # below, makes this mode consistent regardless of how/when that
+            # file was generated.
             step_data = load_step_metrics(REPORTS_PATH, department, age_group)
+            step_data = {
+                m: _filter_run_df_by_view(df, m, department, age_group, "local", view)
+                for m, df in step_data.items()
+            }
+            if exclude_covid:
+                step_data = {
+                    m: df[keep_mask(df["date"], COVID_EXCLUDE_PERIODS)]
+                    for m, df in step_data.items()
+                }
+            step_data = {m: df for m, df in step_data.items() if not df.empty}
     except FileNotFoundError as exc:
         logger.warning(f"Skipping step metrics for {department}: {exc}")
         return
@@ -507,6 +718,9 @@ def compare_microaverage(
     models: list = None,
     run_names: list = None,
     same_config: bool = False,
+    exclude_covid: bool = True,
+    view: str = "holdout",
+    top_n: int = None,
 ) -> None:
     """
     Model comparison pooling every backtest prediction across all steps/horizons —
@@ -519,14 +733,20 @@ def compare_microaverage(
 
     try:
         if source == "db":
-            micro_metrics = load_micro_metrics_from_db(department, age_group, year=year)
+            micro_metrics = load_micro_metrics_from_db(
+                department, age_group, year=year, exclude_covid=exclude_covid, view=view
+            )
             cumulative_metrics = compute_cumulative_micro_metrics_from_db(
-                department, age_group, year=year
+                department, age_group, year=year, exclude_covid=exclude_covid, view=view
             )
         else:
-            micro_metrics = load_micro_metrics(REPORTS_PATH, department, age_group, year=year)
+            micro_metrics = load_micro_metrics(
+                REPORTS_PATH, department, age_group, year=year, exclude_covid=exclude_covid,
+                view=view,
+            )
             cumulative_metrics = compute_cumulative_micro_metrics(
-                REPORTS_PATH, department, age_group, year=year
+                REPORTS_PATH, department, age_group, year=year, exclude_covid=exclude_covid,
+                view=view,
             )
     except FileNotFoundError as exc:
         logger.warning(f"Skipping microaverage for {department}: {exc}")
@@ -569,6 +789,7 @@ def compare_microaverage(
             department          = department,
             save_path           = fig_path,
             show                = interactive,
+            top_n               = top_n,
         )
 
 
@@ -585,25 +806,29 @@ def compare(
     models: list = None,
     run_names: list = None,
     same_config: bool = False,
+    exclude_covid: bool = True,
+    view: str = "holdout",
+    top_n: int = None,
 ) -> None:
     department = department.upper()
 
     if mode == "macroaverage":
         compare_macroaverage(
             department, age_group, metric_names, trend_window, year, interactive, source,
-            models, run_names, same_config,
+            models, run_names, same_config, exclude_covid, view,
         )
         return
     if mode == "microaverage":
         compare_microaverage(
             department, age_group, metric_names, interactive, year, source, models, run_names,
-            same_config,
+            same_config, exclude_covid, view, top_n,
         )
         return
 
     metrics = (
-        load_metrics_from_db(department, age_group) if source == "db"
-        else load_metrics(REPORTS_PATH, department, age_group)
+        load_metrics_from_db(department, age_group, exclude_covid=exclude_covid, view=view)
+        if source == "db"
+        else load_metrics(REPORTS_PATH, department, age_group, exclude_covid=exclude_covid, view=view)
     )
     metrics = _filter_by_model_and_name(metrics, department, age_group, source, models, run_names)
     if same_config:
@@ -649,6 +874,7 @@ def compare(
             department = department,
             save_path  = fig_path,
             show       = interactive,
+            top_n      = top_n,
         )
     print(f"{'='*70}\n")
 
@@ -757,6 +983,30 @@ def main():
                              "with a different config are dropped, with a warning; comparing "
                              "them anyway isn't apples-to-apples since they'd be scored on "
                              "different date ranges.")
+    parser.add_argument("--exclude_covid", action=argparse.BooleanOptionalAction, default=True,
+                        help="Exclude 2020-2021 from reported metrics (default: True). See "
+                             "pneumonia.config.COVID_EXCLUDE_START/COVID_EXCLUDE_END. Raw "
+                             "predictions/training were never affected either way; this only "
+                             "changes what counts toward the numbers shown here. Pass "
+                             "--no-exclude_covid to include them.")
+    parser.add_argument("--top_n", type=int, default=None,
+                        help="Show only the top_n best models (ranked by --metric) in the "
+                             "bar/line charts (default: all). Doesn't affect the printed/saved "
+                             "table, only the figures — useful when comparing many "
+                             "tune_models.py trials at once, where the full set overlaps and "
+                             "becomes unreadable.")
+    parser.add_argument("--view", choices=["holdout", "search", "full"], default="holdout",
+                        help="For runs with a protected holdout_start (see "
+                             "scripts/tune_models.py), which side of that boundary to use "
+                             "(default: 'holdout' — the honest, reportable number). "
+                             "'search' shows the pre-holdout range instead — needed to "
+                             "inspect individual tune_models.py trials that never got a "
+                             "holdout confirmation (only the winning trial does; every other "
+                             "trial only ever has this range, so the default 'holdout' view "
+                             "would show nothing for them). 'full' pools both ranges together "
+                             "(inspection only, not a fair single number — same vocabulary as "
+                             "run_walkforward_for()/tune_models.py's --mode). Runs with no "
+                             "holdout_start at all are unaffected by this flag either way.")
     args = parser.parse_args()
 
     departments = []
@@ -792,6 +1042,7 @@ def main():
                 mode=args.mode, trend_window=trend_window,
                 year=args.year, interactive=args.interactive, source=args.source,
                 models=args.models, run_names=args.run_names, same_config=args.same_config,
+                exclude_covid=args.exclude_covid, view=args.view, top_n=args.top_n,
             )
         except Exception as exc:
             logger.error(f"Failed to compare models for {dept}: {exc}")

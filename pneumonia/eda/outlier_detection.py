@@ -69,6 +69,14 @@ RATE_COLUMNS = [
 
 AGE_GROUPS = {"men5": "Children <5", "60mas": "Adults 60+"}
 
+REPORTS_TABLES_PATH = Path("reports") / "tables"
+
+# Years with known COVID-19 disruption to healthcare reporting in Peru
+# (strict lockdown 2020, continued strain through the Omicron wave in
+# early 2022) — flagged, not excluded, so outliers driven by the pandemic
+# can be told apart from genuine pre/post-pandemic anomalies.
+COVID_YEARS = {2020, 2021, 2022}
+
 
 def load_data(filepath=ANNUAL_DATA_PATH):
     """
@@ -499,17 +507,54 @@ def generate_outlier_report(df, columns_to_analyze=None):
         iqr_only_count = len(hybrid_outliers[hybrid_outliers["outlier_type"] == "iqr_only"])
         arima_only_count = len(hybrid_outliers[hybrid_outliers["outlier_type"] == "arima_only"])
         
+        hybrid_outliers["is_covid_period"] = hybrid_outliers["year"].isin(COVID_YEARS)
+
         report[column] = {
             "total_outliers": len(hybrid_outliers),
             "confirmed": confirmed_count,
             "iqr_only": iqr_only_count,
             "arima_only": arima_only_count,
+            "covid_period": int(hybrid_outliers["is_covid_period"].sum()),
             "outliers_df": hybrid_outliers.sort_values("severity", ascending=False),
         }
         
         logger.info(f"    Total: {len(hybrid_outliers)} | Confirmed: {confirmed_count} | IQR: {iqr_only_count} | ARIMA: {arima_only_count}")
     
     return report
+
+
+def save_outlier_report(report, output_path=None):
+    """
+    Persist the combined outlier table (all measures) to CSV so findings
+    survive past the console — nothing in this module wrote its results
+    to disk before, only plots were saved.
+
+    Args:
+        report: Dictionary from generate_outlier_report
+        output_path: Path to save CSV (default: reports/tables/outlier_report.csv)
+
+    Returns:
+        Path the report was saved to, or None if there were no outliers.
+    """
+    if output_path is None:
+        output_path = REPORTS_TABLES_PATH / "outlier_report.csv"
+    output_path = Path(output_path)
+
+    frames = []
+    for column, stats in report.items():
+        df = stats["outliers_df"].copy()
+        df.insert(0, "measure", column)
+        frames.append(df)
+
+    if not frames:
+        logger.info("No outliers detected across any measure — nothing to save")
+        return None
+
+    combined = pd.concat(frames, ignore_index=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    combined.to_csv(output_path, index=False)
+    logger.info(f"Outlier report saved to {output_path}")
+    return output_path
 
 
 def print_outlier_summary(report):
@@ -529,13 +574,15 @@ def print_outlier_summary(report):
         print(f"   ✓ Confirmed (both methods): {stats['confirmed']}")
         print(f"   ⚠ IQR only: {stats['iqr_only']}")
         print(f"   ⚠ ARIMA only: {stats['arima_only']}")
-        
+        print(f"   🦠 In COVID period ({min(COVID_YEARS)}-{max(COVID_YEARS)}): {stats['covid_period']}")
+
         if len(stats["outliers_df"]) > 0:
             print(f"\n   Top 3 most severe outliers:")
             for idx, (_, row) in enumerate(stats["outliers_df"].head(3).iterrows(), 1):
+                covid_tag = " [COVID]" if row["is_covid_period"] else ""
                 print(f"      {idx}. {row['department']} ({int(row['year'])}) = {row[column]:.2f} "
                       f"({row['outlier_type'].replace('_', ' ').title()}, "
-                      f"severity: {row['severity']:.2f}σ)")
+                      f"severity: {row['severity']:.2f}σ){covid_tag}")
 
 
 def run_outlier_detection():
@@ -562,7 +609,11 @@ def run_outlier_detection():
         
         # Print summary
         print_outlier_summary(report)
-        
+
+        # Persist findings (previously only printed, so nothing survived
+        # past this run's console output)
+        report_path = save_outlier_report(report)
+
         # Create visualizations
         logger.info("\n" + "=" * 80)
         logger.info("GENERATING VISUALIZATIONS")
@@ -593,8 +644,11 @@ def run_outlier_detection():
         print(f"✓ Processed {df['department'].nunique()} departments")
         print(f"✓ Time period: {df['year'].min()}-{df['year'].max()}")
         total_outliers = sum(stats["total_outliers"] for stats in report.values())
+        covid_outliers = sum(stats["covid_period"] for stats in report.values())
         print(f"✓ Total outliers detected: {total_outliers}")
-        print(f"✓ Output saved to: {REPORTS_FIGURES_PATH}")
+        print(f"✓ Of which in COVID period ({min(COVID_YEARS)}-{max(COVID_YEARS)}): {covid_outliers}")
+        print(f"✓ Figures saved to: {REPORTS_FIGURES_PATH}")
+        print(f"✓ Table saved to: {report_path}")
         print("=" * 80 + "\n")
         
     except Exception as e:

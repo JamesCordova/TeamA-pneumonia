@@ -73,6 +73,23 @@ N_FOURIER_TERMS = 6
    epidemiological weekly data; increase to 10 for more complex patterns)."""
 
 # =============================================================================
+# HYPERPARAMETER SEARCH RANGES (for scripts/tune_models.py)
+# =============================================================================
+# order/seasonal_order are tuples so ParameterGrid/ParameterSampler/Optuna treat
+# each one as a single categorical choice, not separate axes to cross.
+# seasonal_order is only used when use_fourier=False, and n_fourier_terms only
+# when use_fourier=True (see SARIMAModel._fit_manual) — combinations that vary
+# the inert one are harmless: run_walkforward_for()'s dedup (via get_params()
+# normalizing the inert field to None) reuses the existing run instead of
+# retraining, so the grid can include both without wasting fit time.
+SARIMA_SEARCH_RANGES = {
+    "order":           [(1, 1, 1), (2, 1, 1), (1, 1, 2), (2, 1, 2)],
+    "seasonal_order":  [(1, 1, 1, 52), (0, 1, 1, 52)],
+    "use_fourier":     [True, False],
+    "n_fourier_terms": [4, 6, 8],
+}
+
+# =============================================================================
 # DEPARTMENT-SPECIFIC OVERRIDES
 # =============================================================================
 DEPARTMENTAL_CONFIGS = {

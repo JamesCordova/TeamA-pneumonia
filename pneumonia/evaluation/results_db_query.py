@@ -35,13 +35,13 @@ def latest_runs(
     last run for that name.
 
     Returns columns: run_id, run_name, model, horizon, step, window_type,
-    train_size, refit_every, model_params, n_steps, created_at.
+    train_size, refit_every, model_params, n_steps, holdout_start, created_at.
     """
     engine = get_db_engine(database_url)
     query = text("""
         SELECT DISTINCT ON (run_name)
             run_id, run_name, model, horizon, step, window_type,
-            train_size, refit_every, model_params, n_steps, created_at
+            train_size, refit_every, model_params, n_steps, holdout_start, created_at
         FROM results_unsa_ira.walkforward_runs
         WHERE department = :department AND age_group = :age_group AND measure = :measure
         ORDER BY run_name, created_at DESC
@@ -117,7 +117,11 @@ def read_predictions_from_db(
     })
 
 
-def reconstruct_results_from_run(run_id: int, database_url: Optional[str] = None) -> dict:
+def reconstruct_results_from_run(
+    run_id: int,
+    step_idx_range: Optional[tuple] = None,
+    database_url: Optional[str] = None,
+) -> dict:
     """
     Rebuild a WalkForwardValidator.run()-shaped dict (config, model_params,
     n_steps, step_results, predictions, metrics_by_horizon) from an existing
@@ -125,17 +129,36 @@ def reconstruct_results_from_run(run_id: int, database_url: Optional[str] = None
     regenerate the local *_predictions.csv / *_step_metrics.csv / JSON files
     for a configuration that was already run, without retraining.
 
+    step_idx_range: (start, end) to reconstruct only steps with
+        start <= step_idx < end (end=None means "through the last stored
+        step"), or None for everything stored under run_id. Needed because
+        one run_id's stored predictions can cover MORE than what a given
+        request wants — e.g. a run created in mode='full' has both the
+        pre-holdout and holdout ranges, but a later mode='search' request
+        for that exact config must only ever see the pre-holdout steps, even
+        though the holdout ones are sitting right there in the same row.
+        Without this filter, tune_models.py's search scoring could
+        accidentally include holdout dates whenever a 'full' run happened
+        to exist first.
+
     step_results entries won't have 'train_start'/'train_end'/'n_train' (not
     persisted in walkforward_predictions) — set to None. Harmless: neither
     pneumonia.visualization.persistence.save_step_metrics nor
     save_walkforward_predictions reads those fields.
+
+    Metrics here are computed straight from the raw stored values, with no
+    date-based scoring policy applied — same as WalkForwardValidator.run().
+    Callers that want a policy like excluding a known reporting-shock period
+    apply pneumonia.evaluation.metrics.recompute_metrics() afterward, same as
+    for a freshly-run validator (see
+    pneumonia.pipelines.walkforward_runner.run_walkforward_for()).
     """
     engine = get_db_engine(database_url)
     with engine.connect() as conn:
         run_row = conn.execute(
             text("""
                 SELECT model, run_name, horizon, step, window_type, train_size,
-                       refit_every, model_params, n_steps
+                       refit_every, model_params, n_steps, holdout_start
                 FROM results_unsa_ira.walkforward_runs
                 WHERE run_id = :run_id
             """),
@@ -144,22 +167,30 @@ def reconstruct_results_from_run(run_id: int, database_url: Optional[str] = None
         if run_row is None:
             raise ValueError(f"run_id={run_id} not found in results_unsa_ira.walkforward_runs")
 
-        preds = pd.read_sql(
-            text("""
-                SELECT step_idx, horizon_offset, date, actual, predicted
-                FROM results_unsa_ira.walkforward_predictions
-                WHERE run_id = :run_id
-            """),
-            conn, params={"run_id": run_id}, parse_dates=["date"],
-        )
+        start, end = step_idx_range if step_idx_range is not None else (None, None)
+        query = """
+            SELECT step_idx, horizon_offset, date, actual, predicted
+            FROM results_unsa_ira.walkforward_predictions
+            WHERE run_id = :run_id
+        """
+        params = {"run_id": run_id}
+        if start is not None:
+            query += " AND step_idx >= :start"
+            params["start"] = start
+        if end is not None:
+            query += " AND step_idx < :end"
+            params["end"] = end
+
+        preds = pd.read_sql(text(query), conn, params=params, parse_dates=["date"])
 
     horizon = run_row["horizon"]
     config = {
-        "horizon":     horizon,
-        "step":        run_row["step"],
-        "window_type": run_row["window_type"],
-        "train_size":  run_row["train_size"],
-        "refit_every": run_row["refit_every"],
+        "horizon":       horizon,
+        "step":          run_row["step"],
+        "window_type":   run_row["window_type"],
+        "train_size":    run_row["train_size"],
+        "refit_every":   run_row["refit_every"],
+        "holdout_start": str(run_row["holdout_start"]) if run_row["holdout_start"] else None,
     }
 
     metrics_by_horizon = {}
@@ -208,7 +239,11 @@ def reconstruct_results_from_run(run_id: int, database_url: Optional[str] = None
     return {
         "config":             config,
         "model_params":       run_row["model_params"],
-        "n_steps":            run_row["n_steps"],
+        # Filtered reconstructions report how many steps THIS view actually
+        # has, not the underlying row's full/global count — a 'search'-only
+        # view of a row that also holds holdout steps must report its own
+        # (smaller) step count, not the whole run's.
+        "n_steps":            len(step_results) if step_idx_range is not None else run_row["n_steps"],
         "step_results":       step_results,
         "predictions":        pred_df,
         "metrics_by_horizon": metrics_by_horizon,

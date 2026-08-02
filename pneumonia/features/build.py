@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from pneumonia.config import TREND_EPOCH, WEEKS_PER_YEAR
 from pneumonia.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -63,11 +64,13 @@ def build_features(
 
     woy = series.index.isocalendar().week.astype(int)
     df['week_of_year'] = woy
-    df['sin_week']     = np.sin(2 * np.pi * woy / 52.1775)
-    df['cos_week']     = np.cos(2 * np.pi * woy / 52.1775)
+    df['sin_week']     = np.sin(2 * np.pi * woy / WEEKS_PER_YEAR)
+    df['cos_week']     = np.cos(2 * np.pi * woy / WEEKS_PER_YEAR)
     df['month']        = series.index.month
     df['quarter']      = series.index.quarter
-    df['trend']        = np.arange(len(series))
+    # Anchored to a fixed calendar epoch (not len(series)) so the value is
+    # identical across walk-forward folds regardless of window_type.
+    df['trend']        = (series.index - TREND_EPOCH).days // 7
 
     valid = df.notna().all(axis=1)
     X = df[valid].copy()
@@ -84,7 +87,6 @@ def build_features(
 def build_step_features(
     history: np.ndarray,
     target_date: pd.Timestamp,
-    trend_idx: int,
     feature_names: List[str],
     lags: List[int],
     windows: List[int],
@@ -99,7 +101,6 @@ def build_step_features(
         history: 1-D array of known values (real + previously predicted).
                  Must have at least max(max_lag, max_window) elements.
         target_date: Timestamp of the value being predicted.
-        trend_idx: Linear trend index for this step.
         feature_names: Ordered feature column names from training.
         lags: Same lag periods used during training.
         windows: Same rolling windows used during training.
@@ -120,11 +121,11 @@ def build_step_features(
     iso = target_date.isocalendar()
     woy = int(iso[1])
     values['week_of_year'] = woy
-    values['sin_week']     = float(np.sin(2 * np.pi * woy / 52.1775))
-    values['cos_week']     = float(np.cos(2 * np.pi * woy / 52.1775))
+    values['sin_week']     = float(np.sin(2 * np.pi * woy / WEEKS_PER_YEAR))
+    values['cos_week']     = float(np.cos(2 * np.pi * woy / WEEKS_PER_YEAR))
     values['month']        = int(target_date.month)
     values['quarter']      = int(target_date.quarter)
-    values['trend']        = int(trend_idx)
+    values['trend']        = int((target_date - TREND_EPOCH).days // 7)
 
     return np.array([values[name] for name in feature_names], dtype=float)
 

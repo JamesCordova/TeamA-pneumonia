@@ -129,14 +129,22 @@ def get_departmental_data(
 
     Aggregates cases across all districts for each week, enforces a regular
     7-day frequency (filling the 3 ISO week-53 gaps via linear interpolation),
-    and optionally truncates the series to a given start year.
+    and truncates the series to a given start year.
+
+    For departments with known systematic early-year under-reporting
+    (see `_SUBREGISTRO_DEPTS`), the recommended cutoff year is applied
+    automatically when `start_year` is not given. Pass an explicit
+    `start_year` to override this (e.g. an earlier year to include the
+    full history anyway, or a later year to truncate further).
 
     Args:
         department:  Department name.
         age_group:   'under5' or '60plus'.
         filepath:    Path to data file; uses default if None.
         start_year:  If provided, drop all observations before this year.
-                     Useful for departments with early-year under-reporting.
+                     If omitted, defaults to the recommended cutoff for
+                     departments with known under-reporting, or no
+                     truncation otherwise.
 
     Returns:
         pandas Series indexed by week_start with aggregated case counts
@@ -175,24 +183,28 @@ def get_departmental_data(
             f"for {department} ({age_group})"
         )
 
-    # Warn about departments with known early-year under-reporting
-    if dept_upper in _SUBREGISTRO_DEPTS and start_year is None:
+    # Auto-truncate departments with known early-year under-reporting,
+    # unless the caller passed an explicit start_year.
+    if start_year is None and dept_upper in _SUBREGISTRO_DEPTS:
         rec = _SUBREGISTRO_DEPTS[dept_upper]
         zeros_early = int((ts[ts.index.year < rec] == 0).sum())
-        print(
-            f"\n[ADVERTENCIA] {dept_upper}: se detectaron {zeros_early} semanas con cero "
-            f"casos antes de {rec}, lo que indica subregistro sistemático.\n"
-            f"  → Se recomienda usar start_year={rec} para excluir ese período.\n"
-            f"  → Ejemplo: get_departmental_data('{dept_upper}', start_year={rec})\n"
-        )
         logger.warning(
             f"{dept_upper}: {zeros_early} zero-case weeks before {rec} suggest "
-            f"under-reporting. Consider start_year={rec}."
+            f"under-reporting. Auto-truncating to start_year={rec} "
+            f"(pass start_year explicitly to override)."
         )
+        start_year = rec
 
     if start_year is not None:
         ts = ts[ts.index.year >= start_year]
         logger.info(f"Series truncated to start_year={start_year}: {len(ts)} weeks remaining")
+        if len(ts) < MIN_WEEKS_FOR_TRAINING:
+            raise ValueError(
+                f"start_year={start_year} leaves only {len(ts)} weeks of data for "
+                f"{dept_upper} ({age_group}), below the minimum of "
+                f"{MIN_WEEKS_FOR_TRAINING} required for training. Use an earlier "
+                f"start_year or check that the data covers this range."
+            )
 
     return ts
 
