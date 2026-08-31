@@ -65,6 +65,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import numpy as np
 from sklearn.model_selection import ParameterGrid, ParameterSampler
 
+import pneumonia.config as pneumonia_config
 from pneumonia.config import COVID_EXCLUDE_PERIODS, RANDOM_SEED, REPORTS_PATH
 from pneumonia.evaluation.metrics import compute_all_metrics, keep_mask
 from pneumonia.models.baselines.holt_winters import HOLTWINTERS_SEARCH_RANGES
@@ -174,11 +175,23 @@ def tune_model(
     mode: str,
     opt_horizon: int,
     walkforward_kwargs: dict,
+    random_seed: int,
 ) -> dict:
     """
     Search model_params for `model_name` on department/age_group, scoring
     each trial with `metric` aggregated per `mode` (see _score()). Returns
     {"score", "run_name", "combo", "metrics_by_horizon"} for the best trial.
+
+    random_seed drives ParameterSampler/optuna's sampling of which
+    combinations to try — always passed explicitly here rather than reading
+    the module-level RANDOM_SEED import, so a --random_seed CLI override
+    (see main()) takes effect without needing this module reloaded. It is
+    NOT the same seed as each model's own random_state (RandomForest/XGBoost
+    training noise, RNN weight init) — main() applies --random_seed to those
+    too, for a single overridable source of randomness project-wide, but
+    they remain conceptually independent: this one picks WHICH
+    hyperparameters get tried, that one picks the noise WITHIN a fixed
+    hyperparameter combo's training.
 
     Every trial (not just the best) is written to
     reports/{department}/{age_group}/tune_{model}_{search_method}_{timestamp}.json
@@ -204,7 +217,7 @@ def tune_model(
         payload = {
             "department": department, "age_group": age_group, "model": model_name,
             "search_method": search_method, "metric": metric, "mode": mode,
-            "opt_horizon": opt_horizon,
+            "opt_horizon": opt_horizon, "random_seed": random_seed,
             "walkforward_config": walkforward_kwargs,
             "best": {k: v for k, v in best.items() if k != "metrics_by_horizon"},
             "trials": trials,
@@ -243,7 +256,7 @@ def tune_model(
         else:
             total_unique = len(ParameterGrid(search_ranges))
             n = min(n_iter, total_unique)
-            combos = list(ParameterSampler(search_ranges, n_iter=n, random_state=RANDOM_SEED))
+            combos = list(ParameterSampler(search_ranges, n_iter=n, random_state=random_seed))
             logger.info(f"Random search: sampling {len(combos)} of {total_unique} combinations")
 
         for idx, combo in enumerate(combos, 1):
@@ -262,7 +275,7 @@ def tune_model(
 
         direction = "minimize" if metric in _LOWER_IS_BETTER else "maximize"
         study = optuna.create_study(
-            direction=direction, sampler=optuna.samplers.TPESampler(seed=RANDOM_SEED)
+            direction=direction, sampler=optuna.samplers.TPESampler(seed=random_seed)
         )
         logger.info(f"Optuna ({direction}): {n_iter} trials")
         study.optimize(objective, n_trials=n_iter, catch=(Exception,))
@@ -365,6 +378,18 @@ Examples:
                              "configuration using the same dates its final performance is "
                              "reported on. After the search, the winning combo is confirmed "
                              "once on dates >= this (see 'best_holdout_score' in the summary).")
+    parser.add_argument("--random_seed", type=int, default=None,
+                        help="Overrides pneumonia.config.RANDOM_SEED (default: 42) for this run "
+                             "only — controls which hyperparameter combinations "
+                             "random/optuna search sample, AND each model's own training noise "
+                             "(RandomForest/XGBoost random_state, RNN weight init), so every "
+                             "source of randomness in this run uses one consistent, recorded "
+                             "value. Omit to use the project default. The effective value is "
+                             "always saved in the summary JSON, so a search stays reproducible "
+                             "even if the project default changes later. Mainly useful for a "
+                             "deliberate robustness check — rerunning the same search with a "
+                             "different seed to see whether the winning combo holds up, or was "
+                             "just a good draw from this particular random sample.")
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress non-essential output")
@@ -384,6 +409,24 @@ def main():
     if args.opt_horizon is not None and args.mode != "horizon":
         parser.error("--opt_horizon only applies to --mode horizon")
 
+    # Resolve the effective seed once, then apply it everywhere randomness
+    # can come from — not just the search's own sampling (passed explicitly
+    # to tune_model() below), but each model's own training noise. RF/XGBoost
+    # bake random_state into a dict at import time (mutate the dict itself,
+    # not the name — reassigning pneumonia.config.RANDOM_SEED wouldn't reach
+    # an already-built dict); the RNN reads its module-level RANDOM_SEED name
+    # at fit() call time, so patching that module's attribute does reach it.
+    effective_seed = args.random_seed if args.random_seed is not None else RANDOM_SEED
+    if args.random_seed is not None:
+        pneumonia_config.RANDOM_SEED = effective_seed
+        import pneumonia.models.ml.config as ml_config
+        ml_config.RANDOM_FOREST_DEFAULT_PARAMS["random_state"] = effective_seed
+        ml_config.XGBOOST_DEFAULT_PARAMS["random_state"] = effective_seed
+        import pneumonia.models.rnn.base as rnn_base
+        rnn_base.RANDOM_SEED = effective_seed
+        logger.info(f"--random_seed={effective_seed}: overriding search sampling and every "
+                    f"model's own training randomness for this run.")
+
     walkforward_kwargs = dict(
         train_size=args.train_size, horizon=args.horizon, step=args.step,
         window_type=args.window_type, refit_every=args.refit_every,
@@ -402,7 +445,7 @@ def main():
                 department=dept, age_group=args.age_group, model_name=args.model,
                 search_method=args.search_method, n_iter=args.n_iter,
                 metric=args.metric, mode=args.mode, opt_horizon=args.opt_horizon,
-                walkforward_kwargs=walkforward_kwargs,
+                walkforward_kwargs=walkforward_kwargs, random_seed=effective_seed,
             )
         except Exception as exc:
             logger.error(f"Tuning failed for {dept}: {exc}")
