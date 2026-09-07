@@ -1,0 +1,143 @@
+{
+  "department": "AMAZONAS",
+  "model": "RandomForest",
+  "best_params": {
+    "rf_params": {
+      "n_estimators": 100,
+      "max_depth": 8
+    },
+    "lags": [
+      1,
+      2,
+      4,
+      8,
+      13
+    ],
+    "windows": [
+      4,
+      13,
+      26
+    ]
+  },
+  "best_mae_mean": 4.6068,
+  "best_cli": "--n_estimators 100 --max_depth 8 --lags 1 2 4 8 13 --windows 4 13 26",
+  "search": {
+    "n_configs": 12,
+    "wf_score_config": {
+      "initial_train_size": 520,
+      "horizon": 4,
+      "step": 4,
+      "refit_every": 13,
+      "window_type": "sliding",
+      "min_train_size": 104
+    }
+  },
+  "top5": [
+    {
+      "mae_mean": 4.6068,
+      "params": {
+        "rf_params": {
+          "n_estimators": 100,
+          "max_depth": 8
+        },
+        "lags": [
+          1,
+          2,
+          4,
+          8,
+          13
+        ],
+        "windows": [
+          4,
+          13,
+          26
+        ]
+      }
+    },
+    {
+      "mae_mean": 4.6069,
+      "params": {
+        "rf_params": {
+          "n_estimators": 300,
+          "max_depth": 8
+        },
+        "lags": [
+          1,
+          2,
+          4,
+          8,
+          13
+        ],
+        "windows": [
+          4,
+          13,
+          26
+        ]
+      }
+    },
+    {
+      "mae_mean": 4.6341,
+      "params": {
+        "rf_params": {
+          "n_estimators": 300,
+          "max_depth": 12
+        },
+        "lags": [
+          1,
+          2,
+          4,
+          8,
+          13
+        ],
+        "windows": [
+          4,
+          13,
+          26
+        ]
+      }
+    },
+    {
+      "mae_mean": 4.6415,
+      "params": {
+        "rf_params": {
+          "n_estimators": 100,
+          "max_depth": 12
+        },
+        "lags": [
+          1,
+          2,
+          4,
+          8,
+          13
+        ],
+        "windows": [
+          4,
+          13,
+          26
+        ]
+      }
+    },
+    {
+      "mae_mean": 4.6451,
+      "params": {
+        "rf_params": {
+          "n_estimators": 100,
+          "max_depth": 20
+        },
+        "lags": [
+          1,
+          2,
+          4,
+          8,
+          13
+        ],
+        "windows": [
+          4,
+          13,
+          26
+        ]
+      }
+    }
+  ],
+  "timestamp": "2026-07-07T17:12:27"
+}
