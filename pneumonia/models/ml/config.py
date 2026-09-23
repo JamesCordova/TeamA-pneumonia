@@ -5,9 +5,19 @@ This module contains default hyperparameters, search ranges, and
 department-specific configurations for XGBoost, RandomForest, and Ensemble models.
 """
 
+from pneumonia.config import RANDOM_SEED
+
 # XGBoost default hyperparameters
 # Tuned to match the example notebook (modeling_children_cases_ml_updated_final.py):
 # shallower trees (depth=4) + slower learning (lr=0.05) + high subsample (0.9)
+#
+# random_state uses the project's single shared RANDOM_SEED (pneumonia.config)
+# instead of a literal 42, so changing that one setting keeps every source of
+# randomness in the project consistent — the RNN models already read the same
+# constant (pneumonia/models/rnn/base.py). This is the model's own training
+# noise (bootstrap/row-subsampling), unrelated to and never varied alongside
+# scripts/tune_models.py's search-sampling seed — see that module's docstring
+# for why the two are kept independent.
 XGBOOST_DEFAULT_PARAMS = {
     "n_estimators": 300,
     "max_depth": 4,
@@ -15,7 +25,7 @@ XGBOOST_DEFAULT_PARAMS = {
     "subsample": 0.9,
     "colsample_bytree": 0.9,
     "objective": "reg:squarederror",
-    "random_state": 42,
+    "random_state": RANDOM_SEED,
     "n_jobs": -1,
 }
 
@@ -28,14 +38,14 @@ XGBOOST_SEARCH_RANGES = {
     "colsample_bytree": [0.6, 0.8, 1.0],
 }
 
-# RandomForest default hyperparameters
+# RandomForest default hyperparameters (random_state: see note above XGBOOST_DEFAULT_PARAMS)
 RANDOM_FOREST_DEFAULT_PARAMS = {
     "n_estimators": 100,
     "max_depth": 10,
     "min_samples_split": 5,
     "min_samples_leaf": 2,
     "max_features": "sqrt",
-    "random_state": 42,
+    "random_state": RANDOM_SEED,
     "n_jobs": -1,
 }
 
