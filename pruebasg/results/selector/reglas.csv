@@ -1,0 +1,6 @@
+id,nombre,condicion,recomienda,fundamento
+R0,Descarte de aprendizaje profundo,secuencias de entrenamiento < parámetros de la red,Excluir LSTM,Sobreparametrización verificable antes de entrenar (D.12).
+R1,Volumen alto,"media >= 40 casos/semana y F_S < 0,60",XGBoost,Ruido relativo de Poisson < 16 %: la estructura no lineal es explotable.
+R2,Estacionalidad dominante,"F_S >= 0,60",SARIMA con Fourier,La estacionalidad explica la mayor parte de la varianza; 20 parámetros bastan.
+R3,Volumen bajo,media < 10 casos/semana,SARIMA con Fourier,Ruido relativo > 32 %: los rezagos no son informativos.
+R4,Caso restante,volumen intermedio y estacionalidad moderada,Random Forest,Opción más estable del conjunto empatado.

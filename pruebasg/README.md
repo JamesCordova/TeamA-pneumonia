@@ -77,3 +77,52 @@ La grilla (`run_grid.py`) usa el producto `DEPARTMENTS × MODELS`:
   LSTM/GRU son lentos de entrenar).
 - En las tablas: MAE / RMSE / SMAPE en **casos** (menor = mejor); MDA en **%**
   (mayor = mejor). Las celdas verdes marcan el mejor valor por métrica.
+
+---
+
+# Selector automático de modelos
+
+Segunda línea de trabajo de esta carpeta, y componente de aporte de la tesis:
+un criterio que, a partir del **perfil estadístico** de una serie semanal de
+notificación obligatoria, determina qué familia de modelo corresponde emplear.
+No usa el nombre del departamento ni el de la enfermedad.
+
+El criterio completo, con su fundamento, sus reglas, su evaluación y sus
+limitaciones declaradas, está en **[`selector/CRITERIO.md`](selector/CRITERIO.md)**.
+
+## Flujo
+
+```powershell
+python pruebasg/run_profiles.py          # perfila los 25 departamentos
+python pruebasg/run_grid_selector.py     # walk-forward sobre la muestra estratificada
+python pruebasg/run_selector.py          # aplica el criterio y mide su acierto
+python pruebasg/run_shap.py              # atribución SHAP y contraste con el perfil
+python pruebasg/build_selector_report.py # informe HTML autónomo
+```
+
+Abre **`pruebasg/informe_selector.html`** con doble clic: archivo único, figuras
+incrustadas, sin servidor ni conexión.
+
+## Archivos
+
+| Archivo | Qué hace |
+|---|---|
+| `selector/profiler.py` | Metafeatures de una serie: volumen, dispersión, estacionariedad (ADF/KPSS), fuerzas de tendencia y estacionalidad por STL, autocorrelaciones, entropía espectral, estabilidad, cambios de nivel. |
+| `selector/regiones.py` | Región natural de cada departamento y la muestra estratificada. La región estratifica la muestra; **no** entra en la decisión. |
+| `selector/rules.py` | El criterio: reglas R0–R4 sobre el perfil, con su justificación y el costo estimado de cada familia. |
+| `selector/evaluate.py` | Comparación pareada por origen y **conjunto estadísticamente empatado** con el mejor modelo. |
+| `selector/shap_utils.py` | Atribución SHAP de Random Forest y XGBoost, agregada por familia de variables. |
+| `run_grid_selector.py` | Grilla walk-forward reanudable sobre la muestra estratificada (una configuración por familia). |
+| `build_selector_report.py` | Informe HTML con perfiles, evidencia, criterio, evaluación, validación fuera de muestra y SHAP. |
+
+## Lo que hay que saber antes de leer los resultados
+
+En **10 de 11 departamentos SARIMA, Random Forest y XGBoost son
+estadísticamente indistinguibles** (prueba t pareada sobre los errores por
+origen, α = 0,05). Por eso el selector no se evalúa por acertar el MAE mínimo
+—eso sería ajustarse al ruido— sino por **cobertura** (que la recomendación caiga
+dentro del conjunto empatado), **regret** y **ahorro de cómputo**.
+
+La estrategia «siempre XGBoost» iguala al selector en exactitud. La ventaja del
+criterio está en identificar dónde basta el modelo interpretable y en descartar
+el aprendizaje profundo antes de entrenarlo, no en reducir el error.

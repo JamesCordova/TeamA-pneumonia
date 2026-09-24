@@ -1,0 +1,7 @@
+estrategia,cobertura_pct,regret_medio_pct,regret_max_pct,costo_total_s
+siempre SARIMA,81.8,6.49,20.64,264.0
+siempre RandomForest,90.9,2.44,8.04,421.0
+siempre XGBoost,100.0,1.85,4.8,396.0
+siempre LSTM,9.1,49.79,86.3,898.0
+selector v1,100.0,1.8,8.44,357.0
+evaluar todo y elegir (oráculo),100.0,0.0,0.0,1979.0
