@@ -1011,5 +1011,101 @@
   },
   "razon_dim_estado": 35.67,
   "razon_tiempo": 21.4
+ },
+ "D15": {
+  "id": "D15",
+  "titulo": "Codificación circular de la semana del año",
+  "periodo": 52,
+  "filas": [
+   {
+    "semana": 50,
+    "sin": -0.2393,
+    "cos": 0.9709,
+    "distancia_circular_a_semana_1": 0.3605,
+    "distancia_ordinal_a_semana_1": 49
+   },
+   {
+    "semana": 51,
+    "sin": -0.1205,
+    "cos": 0.9927,
+    "distancia_circular_a_semana_1": 0.2411,
+    "distancia_ordinal_a_semana_1": 50
+   },
+   {
+    "semana": 52,
+    "sin": 0.0,
+    "cos": 1.0,
+    "distancia_circular_a_semana_1": 0.1208,
+    "distancia_ordinal_a_semana_1": 51
+   },
+   {
+    "semana": 1,
+    "sin": 0.1205,
+    "cos": 0.9927,
+    "distancia_circular_a_semana_1": 0.0,
+    "distancia_ordinal_a_semana_1": 0
+   },
+   {
+    "semana": 2,
+    "sin": 0.2393,
+    "cos": 0.9709,
+    "distancia_circular_a_semana_1": 0.1208,
+    "distancia_ordinal_a_semana_1": 1
+   },
+   {
+    "semana": 13,
+    "sin": 1.0,
+    "cos": -0.0,
+    "distancia_circular_a_semana_1": 1.3262,
+    "distancia_ordinal_a_semana_1": 12
+   },
+   {
+    "semana": 26,
+    "sin": -0.0,
+    "cos": -1.0,
+    "distancia_circular_a_semana_1": 1.9964,
+    "distancia_ordinal_a_semana_1": 25
+   }
+  ],
+  "distancia_52_a_1_circular": 0.1208,
+  "distancia_52_a_1_ordinal": 51,
+  "distancia_2_a_1_circular": 0.1208,
+  "coinciden_52_y_2": true,
+  "distancia_maxima_26": 1.9964
+ },
+ "D16": {
+  "id": "D16",
+  "titulo": "Efecto de la fuga de información en los estadísticos móviles",
+  "departamento": "AMAZONAS",
+  "lags": [
+   1,
+   2,
+   4,
+   8,
+   13
+  ],
+  "ventanas": [
+   4,
+   13,
+   26
+  ],
+  "correcto": {
+   "mae": 4.3405,
+   "rmse": 5.2539,
+   "n_entrenamiento": 980,
+   "n_prueba": 246,
+   "variable_mas_importante": "rolling_mean_4",
+   "importancia": 0.2242
+  },
+  "con_fuga": {
+   "mae": 3.1275,
+   "rmse": 3.9564,
+   "n_entrenamiento": 981,
+   "n_prueba": 246,
+   "variable_mas_importante": "rolling_mean_4",
+   "importancia": 0.2828
+  },
+  "reduccion_artificial_pct": 27.95,
+  "veces_menor": 1.39
  }
 }

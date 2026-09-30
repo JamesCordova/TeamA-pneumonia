@@ -806,12 +806,121 @@ def d14_walkforward() -> dict:
     }
 
 
+
+# ===========================================================================
+# D15 — Codificación circular del calendario
+# ===========================================================================
+
+def d15_codificacion_circular() -> dict:
+    """
+    Muestra por qué la semana del año no puede entrar al modelo como número
+    ordinal: las semanas 52 y 1 son consecutivas en el tiempo pero distan 51
+    unidades en esa escala. La representación en seno y coseno restituye la
+    proximidad real.
+    """
+    S = 52
+    ref = 1
+    sr, cr = np.sin(2 * np.pi * ref / S), np.cos(2 * np.pi * ref / S)
+    filas = []
+    for w in (50, 51, 52, 1, 2, 13, 26):
+        s, c = np.sin(2 * np.pi * w / S), np.cos(2 * np.pi * w / S)
+        filas.append({
+            "semana": w,
+            "sin": _r(float(s), 4),
+            "cos": _r(float(c), 4),
+            "distancia_circular_a_semana_1": _r(float(np.hypot(s - sr, c - cr)), 4),
+            "distancia_ordinal_a_semana_1": int(abs(w - ref)),
+        })
+    d52 = next(f for f in filas if f["semana"] == 52)
+    d2 = next(f for f in filas if f["semana"] == 2)
+    d26 = next(f for f in filas if f["semana"] == 26)
+    return {
+        "id": "D15",
+        "titulo": "Codificación circular de la semana del año",
+        "periodo": S,
+        "filas": filas,
+        "distancia_52_a_1_circular": d52["distancia_circular_a_semana_1"],
+        "distancia_52_a_1_ordinal": d52["distancia_ordinal_a_semana_1"],
+        "distancia_2_a_1_circular": d2["distancia_circular_a_semana_1"],
+        "coinciden_52_y_2": bool(abs(d52["distancia_circular_a_semana_1"] -
+                                     d2["distancia_circular_a_semana_1"]) < 1e-9),
+        "distancia_maxima_26": d26["distancia_circular_a_semana_1"],
+    }
+
+
+# ===========================================================================
+# D16 — Ausencia de fuga de información
+# ===========================================================================
+
+def d16_fuga_informacion() -> dict:
+    """
+    Cuantifica el efecto de construir los estadísticos móviles sin desplazar la
+    serie un periodo. Sin el desplazamiento, la media móvil de la ventana que
+    termina en t incluye y_t, es decir el valor que se quiere predecir, y el
+    error medido cae de forma artificial. Esa caída es la magnitud del
+    autoengaño que la convención del capítulo evita.
+    """
+    from sklearn.ensemble import RandomForestRegressor
+    from pneumonia.config import WEEKS_PER_YEAR
+
+    serie = _serie()
+    lags, ventanas = [1, 2, 4, 8, 13], [4, 13, 26]
+
+    def construir(con_desplazamiento: bool):
+        df = pd.DataFrame(index=serie.index)
+        for k in lags:
+            df[f"lag_{k}"] = serie.shift(k)
+        base = serie.shift(1) if con_desplazamiento else serie
+        for w in ventanas:
+            df[f"rolling_mean_{w}"] = base.rolling(w).mean()
+            df[f"rolling_std_{w}"] = base.rolling(w).std()
+        woy = serie.index.isocalendar().week.astype(int)
+        df["sin_week"] = np.sin(2 * np.pi * woy / WEEKS_PER_YEAR)
+        df["cos_week"] = np.cos(2 * np.pi * woy / WEEKS_PER_YEAR)
+        valido = df.notna().all(axis=1)
+        return df[valido], serie[valido]
+
+    resultados = {}
+    for etiqueta, desplazar in (("correcto", True), ("con_fuga", False)):
+        X, y = construir(desplazar)
+        corte = int(len(X) * 0.8)
+        modelo = RandomForestRegressor(n_estimators=200, max_depth=10,
+                                       min_samples_leaf=2, max_features="sqrt",
+                                       random_state=42, n_jobs=-1)
+        modelo.fit(X.iloc[:corte].values, y.iloc[:corte].values)
+        pred = modelo.predict(X.iloc[corte:].values)
+        real = y.iloc[corte:].values
+        imp = dict(zip(X.columns, modelo.feature_importances_))
+        top = max(imp.items(), key=lambda kv: kv[1])
+        resultados[etiqueta] = {
+            "mae": _r(float(np.abs(real - pred).mean()), 4),
+            "rmse": _r(float(np.sqrt(((real - pred) ** 2).mean())), 4),
+            "n_entrenamiento": int(corte),
+            "n_prueba": int(len(real)),
+            "variable_mas_importante": top[0],
+            "importancia": _r(float(top[1]), 4),
+        }
+
+    mae_ok = resultados["correcto"]["mae"]
+    mae_fuga = resultados["con_fuga"]["mae"]
+    return {
+        "id": "D16",
+        "titulo": "Efecto de la fuga de información en los estadísticos móviles",
+        "departamento": DEPT,
+        "lags": lags, "ventanas": ventanas,
+        "correcto": resultados["correcto"],
+        "con_fuga": resultados["con_fuga"],
+        "reduccion_artificial_pct": _r(100 * (mae_ok - mae_fuga) / mae_ok, 2),
+        "veces_menor": _r(mae_ok / mae_fuga, 2) if mae_fuga else None,
+    }
+
 DEMOSTRACIONES = {
     "D1": d1_interpolacion, "D2": d2_tasa_incidencia, "D3": d3_descomposicion,
     "D4": d4_adf, "D5": d5_acf, "D6": d6_pacf, "D7": d7_ljung_box,
     "D8": d8_sarima, "D9": d9_fourier, "D10": d10_random_forest,
     "D11": d11_xgboost, "D12": d12_lstm, "D13": d13_metricas,
-    "D14": d14_walkforward,
+    "D14": d14_walkforward, "D15": d15_codificacion_circular,
+    "D16": d16_fuga_informacion,
 }
 
 
