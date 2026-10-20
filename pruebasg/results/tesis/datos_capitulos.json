@@ -1,0 +1,1662 @@
+{
+ "perfil": [
+  {
+   "departamento": "LIMA",
+   "region": "costa",
+   "n_semanas": 1252,
+   "media_casos": 156.911,
+   "cv": 0.4242,
+   "indice_dispersion": 28.2318,
+   "prop_ceros": 0.0,
+   "fuerza_tendencia": 0.566,
+   "fuerza_estacional": 0.4605,
+   "entropia_espectral": 0.6711,
+   "acf_1": 0.8893,
+   "acf_52": 0.4245,
+   "estacionaria": true
+  },
+  {
+   "departamento": "PIURA",
+   "region": "costa",
+   "n_semanas": 1253,
+   "media_casos": 46.656,
+   "cv": 0.6812,
+   "indice_dispersion": 21.6494,
+   "prop_ceros": 0.0008,
+   "fuerza_tendencia": 0.6685,
+   "fuerza_estacional": 0.4536,
+   "entropia_espectral": 0.7537,
+   "acf_1": 0.866,
+   "acf_52": 0.5401,
+   "estacionaria": false
+  },
+  {
+   "departamento": "AREQUIPA",
+   "region": "costa",
+   "n_semanas": 1252,
+   "media_casos": 38.792,
+   "cv": 0.7231,
+   "indice_dispersion": 20.2816,
+   "prop_ceros": 0.0048,
+   "fuerza_tendencia": 0.4749,
+   "fuerza_estacional": 0.5989,
+   "entropia_espectral": 0.5893,
+   "acf_1": 0.8886,
+   "acf_52": 0.6233,
+   "estacionaria": false
+  },
+  {
+   "departamento": "LA LIBERTAD",
+   "region": "costa",
+   "n_semanas": 1252,
+   "media_casos": 25.42,
+   "cv": 0.8058,
+   "indice_dispersion": 16.5063,
+   "prop_ceros": 0.0112,
+   "fuerza_tendencia": 0.7031,
+   "fuerza_estacional": 0.2169,
+   "entropia_espectral": 0.8194,
+   "acf_1": 0.8734,
+   "acf_52": 0.5991,
+   "estacionaria": false
+  },
+  {
+   "departamento": "CALLAO",
+   "region": "costa",
+   "n_semanas": 1252,
+   "media_casos": 18.804,
+   "cv": 0.5844,
+   "indice_dispersion": 6.4221,
+   "prop_ceros": 0.0152,
+   "fuerza_tendencia": 0.5106,
+   "fuerza_estacional": 0.3538,
+   "entropia_espectral": 0.814,
+   "acf_1": 0.7102,
+   "acf_52": 0.4669,
+   "estacionaria": false
+  },
+  {
+   "departamento": "LAMBAYEQUE",
+   "region": "costa",
+   "n_semanas": 1252,
+   "media_casos": 16.154,
+   "cv": 0.8398,
+   "indice_dispersion": 11.3934,
+   "prop_ceros": 0.0112,
+   "fuerza_tendencia": 0.6694,
+   "fuerza_estacional": 0.2779,
+   "entropia_espectral": 0.8481,
+   "acf_1": 0.8108,
+   "acf_52": 0.3984,
+   "estacionaria": false
+  },
+  {
+   "departamento": "ICA",
+   "region": "costa",
+   "n_semanas": 1253,
+   "media_casos": 12.349,
+   "cv": 0.9247,
+   "indice_dispersion": 10.5599,
+   "prop_ceros": 0.0327,
+   "fuerza_tendencia": 0.7043,
+   "fuerza_estacional": 0.5423,
+   "entropia_espectral": 0.8051,
+   "acf_1": 0.7961,
+   "acf_52": 0.5746,
+   "estacionaria": false
+  },
+  {
+   "departamento": "TUMBES",
+   "region": "costa",
+   "n_semanas": 887,
+   "media_casos": 3.089,
+   "cv": 0.9858,
+   "indice_dispersion": 3.0019,
+   "prop_ceros": 0.1793,
+   "fuerza_tendencia": 0.1003,
+   "fuerza_estacional": 0.0723,
+   "entropia_espectral": 0.937,
+   "acf_1": 0.3335,
+   "acf_52": -0.0105,
+   "estacionaria": true
+  },
+  {
+   "departamento": "MOQUEGUA",
+   "region": "costa",
+   "n_semanas": 834,
+   "media_casos": 2.351,
+   "cv": 1.1338,
+   "indice_dispersion": 3.0225,
+   "prop_ceros": 0.3058,
+   "fuerza_tendencia": 0.2357,
+   "fuerza_estacional": 0.2421,
+   "entropia_espectral": 0.862,
+   "acf_1": 0.5516,
+   "acf_52": 0.2931,
+   "estacionaria": false
+  },
+  {
+   "departamento": "TACNA",
+   "region": "costa",
+   "n_semanas": 887,
+   "media_casos": 1.957,
+   "cv": 1.1965,
+   "indice_dispersion": 2.8018,
+   "prop_ceros": 0.3236,
+   "fuerza_tendencia": 0.3814,
+   "fuerza_estacional": 0.358,
+   "entropia_espectral": 0.9131,
+   "acf_1": 0.5338,
+   "acf_52": 0.3085,
+   "estacionaria": false
+  },
+  {
+   "departamento": "LORETO",
+   "region": "selva",
+   "n_semanas": 1253,
+   "media_casos": 58.824,
+   "cv": 0.6467,
+   "indice_dispersion": 24.6021,
+   "prop_ceros": 0.0008,
+   "fuerza_tendencia": 0.3936,
+   "fuerza_estacional": 0.3135,
+   "entropia_espectral": 0.7424,
+   "acf_1": 0.8356,
+   "acf_52": 0.4321,
+   "estacionaria": false
+  },
+  {
+   "departamento": "HUANUCO",
+   "region": "selva",
+   "n_semanas": 1252,
+   "media_casos": 36.882,
+   "cv": 0.8089,
+   "indice_dispersion": 24.1343,
+   "prop_ceros": 0.0088,
+   "fuerza_tendencia": 0.8292,
+   "fuerza_estacional": 0.5977,
+   "entropia_espectral": 0.7285,
+   "acf_1": 0.8985,
+   "acf_52": 0.6519,
+   "estacionaria": false
+  },
+  {
+   "departamento": "UCAYALI",
+   "region": "selva",
+   "n_semanas": 1252,
+   "media_casos": 30.077,
+   "cv": 0.6123,
+   "indice_dispersion": 11.2757,
+   "prop_ceros": 0.0008,
+   "fuerza_tendencia": 0.4923,
+   "fuerza_estacional": 0.3441,
+   "entropia_espectral": 0.8105,
+   "acf_1": 0.7789,
+   "acf_52": 0.3621,
+   "estacionaria": false
+  },
+  {
+   "departamento": "SAN MARTIN",
+   "region": "selva",
+   "n_semanas": 1253,
+   "media_casos": 17.456,
+   "cv": 0.7861,
+   "indice_dispersion": 10.7867,
+   "prop_ceros": 0.016,
+   "fuerza_tendencia": 0.5192,
+   "fuerza_estacional": 0.3222,
+   "entropia_espectral": 0.8552,
+   "acf_1": 0.7513,
+   "acf_52": 0.3738,
+   "estacionaria": false
+  },
+  {
+   "departamento": "AMAZONAS",
+   "region": "selva",
+   "n_semanas": 1252,
+   "media_casos": 17.283,
+   "cv": 0.8597,
+   "indice_dispersion": 12.7722,
+   "prop_ceros": 0.0088,
+   "fuerza_tendencia": 0.7376,
+   "fuerza_estacional": 0.362,
+   "entropia_espectral": 0.8775,
+   "acf_1": 0.8055,
+   "acf_52": 0.5149,
+   "estacionaria": false
+  },
+  {
+   "departamento": "MADRE DE DIOS",
+   "region": "selva",
+   "n_semanas": 1252,
+   "media_casos": 4.652,
+   "cv": 0.8065,
+   "indice_dispersion": 3.0258,
+   "prop_ceros": 0.0703,
+   "fuerza_tendencia": 0.2019,
+   "fuerza_estacional": 0.2156,
+   "entropia_espectral": 0.9471,
+   "acf_1": 0.3964,
+   "acf_52": 0.0656,
+   "estacionaria": false
+  },
+  {
+   "departamento": "CAJAMARCA",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 38.431,
+   "cv": 0.9844,
+   "indice_dispersion": 37.2423,
+   "prop_ceros": 0.0008,
+   "fuerza_tendencia": 0.8197,
+   "fuerza_estacional": 0.6126,
+   "entropia_espectral": 0.7188,
+   "acf_1": 0.9111,
+   "acf_52": 0.6135,
+   "estacionaria": false
+  },
+  {
+   "departamento": "CUSCO",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 37.929,
+   "cv": 0.8486,
+   "indice_dispersion": 27.3109,
+   "prop_ceros": 0.0064,
+   "fuerza_tendencia": 0.7717,
+   "fuerza_estacional": 0.6357,
+   "entropia_espectral": 0.6334,
+   "acf_1": 0.9166,
+   "acf_52": 0.6983,
+   "estacionaria": false
+  },
+  {
+   "departamento": "PUNO",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 30.758,
+   "cv": 0.8907,
+   "indice_dispersion": 24.4027,
+   "prop_ceros": 0.008,
+   "fuerza_tendencia": 0.6453,
+   "fuerza_estacional": 0.6606,
+   "entropia_espectral": 0.6004,
+   "acf_1": 0.8837,
+   "acf_52": 0.6141,
+   "estacionaria": false
+  },
+  {
+   "departamento": "JUNIN",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 25.101,
+   "cv": 0.9824,
+   "indice_dispersion": 24.2278,
+   "prop_ceros": 0.0128,
+   "fuerza_tendencia": 0.7887,
+   "fuerza_estacional": 0.5661,
+   "entropia_espectral": 0.6738,
+   "acf_1": 0.9084,
+   "acf_52": 0.6544,
+   "estacionaria": false
+  },
+  {
+   "departamento": "ANCASH",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 21.389,
+   "cv": 0.7948,
+   "indice_dispersion": 13.5117,
+   "prop_ceros": 0.0152,
+   "fuerza_tendencia": 0.7457,
+   "fuerza_estacional": 0.5246,
+   "entropia_espectral": 0.7471,
+   "acf_1": 0.8595,
+   "acf_52": 0.5872,
+   "estacionaria": false
+  },
+  {
+   "departamento": "APURIMAC",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 16.891,
+   "cv": 1.0226,
+   "indice_dispersion": 17.6639,
+   "prop_ceros": 0.0495,
+   "fuerza_tendencia": 0.8015,
+   "fuerza_estacional": 0.6379,
+   "entropia_espectral": 0.6821,
+   "acf_1": 0.8699,
+   "acf_52": 0.6733,
+   "estacionaria": false
+  },
+  {
+   "departamento": "HUANCAVELICA",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 16.667,
+   "cv": 1.2456,
+   "indice_dispersion": 25.8595,
+   "prop_ceros": 0.0599,
+   "fuerza_tendencia": 0.8221,
+   "fuerza_estacional": 0.6197,
+   "entropia_espectral": 0.6799,
+   "acf_1": 0.9087,
+   "acf_52": 0.6259,
+   "estacionaria": false
+  },
+  {
+   "departamento": "AYACUCHO",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 11.454,
+   "cv": 0.827,
+   "indice_dispersion": 7.8347,
+   "prop_ceros": 0.0319,
+   "fuerza_tendencia": 0.5887,
+   "fuerza_estacional": 0.5339,
+   "entropia_espectral": 0.7912,
+   "acf_1": 0.7616,
+   "acf_52": 0.4917,
+   "estacionaria": false
+  },
+  {
+   "departamento": "PASCO",
+   "region": "sierra",
+   "n_semanas": 1252,
+   "media_casos": 11.389,
+   "cv": 0.8006,
+   "indice_dispersion": 7.299,
+   "prop_ceros": 0.0359,
+   "fuerza_tendencia": 0.5874,
+   "fuerza_estacional": 0.4417,
+   "entropia_espectral": 0.8227,
+   "acf_1": 0.7521,
+   "acf_52": 0.5939,
+   "estacionaria": false
+  }
+ ],
+ "perfil_por_region": [
+  {
+   "region": "costa",
+   "n": 10,
+   "media_casos": 32.248,
+   "fuerza_estacional": 0.358,
+   "entropia": 0.801,
+   "acf_52": 0.422,
+   "dispersion": 12.387
+  },
+  {
+   "region": "selva",
+   "n": 6,
+   "media_casos": 27.529,
+   "fuerza_estacional": 0.359,
+   "entropia": 0.827,
+   "acf_52": 0.4,
+   "dispersion": 14.433
+  },
+  {
+   "region": "sierra",
+   "n": 9,
+   "media_casos": 23.334,
+   "fuerza_estacional": 0.581,
+   "entropia": 0.705,
+   "acf_52": 0.617,
+   "dispersion": 20.595
+  }
+ ],
+ "perfil_resumen": {
+  "n_departamentos": 25,
+  "volumen_min": 2.0,
+  "volumen_max": 156.9,
+  "dept_volumen_min": "TACNA",
+  "dept_volumen_max": "LIMA",
+  "fs_min": 0.072,
+  "fs_max": 0.661,
+  "dept_fs_max": "PUNO",
+  "n_no_estacionarias": 23,
+  "prop_ceros_max": 0.324,
+  "dept_ceros_max": "TACNA",
+  "dispersion_min": 2.8,
+  "dispersion_max": 37.24
+ },
+ "desempeno": [
+  {
+   "departamento": "LIMA",
+   "region": "costa",
+   "media_casos": 156.9,
+   "n_origenes": 183,
+   "SARIMA": 23.921,
+   "RandomForest": 21.423,
+   "XGBoost": 19.829,
+   "LSTM": 36.942,
+   "SeasonalNaive": 52.945,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost"
+   ],
+   "n_empatados": 1
+  },
+  {
+   "departamento": "PIURA",
+   "region": "costa",
+   "media_casos": 46.7,
+   "n_origenes": 184,
+   "SARIMA": 8.639,
+   "RandomForest": 7.865,
+   "XGBoost": 7.549,
+   "LSTM": 12.796,
+   "SeasonalNaive": 13.723,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest"
+   ],
+   "n_empatados": 2
+  },
+  {
+   "departamento": "AREQUIPA",
+   "region": "costa",
+   "media_casos": 38.8,
+   "n_origenes": 183,
+   "SARIMA": 6.705,
+   "RandomForest": 6.119,
+   "XGBoost": 5.99,
+   "LSTM": 10.789,
+   "SeasonalNaive": 14.749,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "LA LIBERTAD",
+   "region": "costa",
+   "media_casos": 25.4,
+   "n_origenes": 183,
+   "SARIMA": 4.598,
+   "RandomForest": 4.238,
+   "XGBoost": 4.223,
+   "LSTM": 5.788,
+   "SeasonalNaive": 7.126,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "CALLAO",
+   "region": "costa",
+   "media_casos": 18.8,
+   "n_origenes": 183,
+   "SARIMA": 4.649,
+   "RandomForest": 4.707,
+   "XGBoost": 4.841,
+   "LSTM": 6.263,
+   "SeasonalNaive": 7.77,
+   "mejor": "SARIMA",
+   "conjunto_empatado": [
+    "SARIMA",
+    "RandomForest",
+    "XGBoost"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "LAMBAYEQUE",
+   "region": "costa",
+   "media_casos": 16.2,
+   "n_origenes": 183,
+   "SARIMA": 4.075,
+   "RandomForest": 3.912,
+   "XGBoost": 4.01,
+   "LSTM": 4.589,
+   "SeasonalNaive": 6.235,
+   "mejor": "RandomForest",
+   "conjunto_empatado": [
+    "RandomForest",
+    "XGBoost",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "ICA",
+   "region": "costa",
+   "media_casos": 12.3,
+   "n_origenes": 184,
+   "SARIMA": 3.101,
+   "RandomForest": 2.938,
+   "XGBoost": 2.834,
+   "LSTM": 4.049,
+   "SeasonalNaive": 4.321,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "TUMBES",
+   "region": "costa",
+   "media_casos": 3.1,
+   "n_origenes": 92,
+   "SARIMA": 2.109,
+   "RandomForest": 2.122,
+   "XGBoost": 2.231,
+   "LSTM": 2.386,
+   "SeasonalNaive": 3.326,
+   "mejor": "SARIMA",
+   "conjunto_empatado": [
+    "SARIMA",
+    "RandomForest",
+    "XGBoost"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "MOQUEGUA",
+   "region": "costa",
+   "media_casos": 2.4,
+   "n_origenes": 79,
+   "SARIMA": 1.186,
+   "RandomForest": 0.962,
+   "XGBoost": 1.028,
+   "LSTM": 1.471,
+   "SeasonalNaive": 1.38,
+   "mejor": "RandomForest",
+   "conjunto_empatado": [
+    "RandomForest",
+    "XGBoost"
+   ],
+   "n_empatados": 2
+  },
+  {
+   "departamento": "TACNA",
+   "region": "costa",
+   "media_casos": 2.0,
+   "n_origenes": 92,
+   "SARIMA": 0.841,
+   "RandomForest": 0.902,
+   "XGBoost": 0.887,
+   "LSTM": 1.007,
+   "SeasonalNaive": 1.261,
+   "mejor": "SARIMA",
+   "conjunto_empatado": [
+    "SARIMA",
+    "XGBoost",
+    "RandomForest"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "LORETO",
+   "region": "selva",
+   "media_casos": 58.8,
+   "n_origenes": 184,
+   "SARIMA": 11.306,
+   "RandomForest": 11.529,
+   "XGBoost": 11.233,
+   "LSTM": 20.882,
+   "SeasonalNaive": 20.799,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "SARIMA",
+    "RandomForest"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "HUANUCO",
+   "region": "selva",
+   "media_casos": 36.9,
+   "n_origenes": 183,
+   "SARIMA": 6.209,
+   "RandomForest": 5.683,
+   "XGBoost": 5.613,
+   "LSTM": 8.046,
+   "SeasonalNaive": 10.268,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "UCAYALI",
+   "region": "selva",
+   "media_casos": 30.1,
+   "n_origenes": 183,
+   "SARIMA": 8.169,
+   "RandomForest": 7.842,
+   "XGBoost": 7.924,
+   "LSTM": 9.875,
+   "SeasonalNaive": 12.415,
+   "mejor": "RandomForest",
+   "conjunto_empatado": [
+    "RandomForest",
+    "XGBoost",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "SAN MARTIN",
+   "region": "selva",
+   "media_casos": 17.5,
+   "n_origenes": 184,
+   "SARIMA": 4.706,
+   "RandomForest": 4.896,
+   "XGBoost": 4.838,
+   "LSTM": 6.347,
+   "SeasonalNaive": 8.201,
+   "mejor": "SARIMA",
+   "conjunto_empatado": [
+    "SARIMA",
+    "XGBoost",
+    "RandomForest"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "AMAZONAS",
+   "region": "selva",
+   "media_casos": 17.3,
+   "n_origenes": 183,
+   "SARIMA": 4.125,
+   "RandomForest": 4.234,
+   "XGBoost": 4.254,
+   "LSTM": 4.656,
+   "SeasonalNaive": 6.448,
+   "mejor": "SARIMA",
+   "conjunto_empatado": [
+    "SARIMA",
+    "RandomForest",
+    "XGBoost",
+    "LSTM"
+   ],
+   "n_empatados": 4
+  },
+  {
+   "departamento": "MADRE DE DIOS",
+   "region": "selva",
+   "media_casos": 4.7,
+   "n_origenes": 183,
+   "SARIMA": 2.202,
+   "RandomForest": 2.209,
+   "XGBoost": 2.289,
+   "LSTM": 2.613,
+   "SeasonalNaive": 3.814,
+   "mejor": "SARIMA",
+   "conjunto_empatado": [
+    "SARIMA",
+    "RandomForest",
+    "XGBoost"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "CAJAMARCA",
+   "region": "sierra",
+   "media_casos": 38.4,
+   "n_origenes": 183,
+   "SARIMA": 6.02,
+   "RandomForest": 5.46,
+   "XGBoost": 5.445,
+   "LSTM": 9.161,
+   "SeasonalNaive": 8.765,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "CUSCO",
+   "region": "sierra",
+   "media_casos": 37.9,
+   "n_origenes": 183,
+   "SARIMA": 6.617,
+   "RandomForest": 6.321,
+   "XGBoost": 6.571,
+   "LSTM": 9.258,
+   "SeasonalNaive": 10.383,
+   "mejor": "RandomForest",
+   "conjunto_empatado": [
+    "RandomForest",
+    "XGBoost",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "PUNO",
+   "region": "sierra",
+   "media_casos": 30.8,
+   "n_origenes": 183,
+   "SARIMA": 5.989,
+   "RandomForest": 6.289,
+   "XGBoost": 6.192,
+   "LSTM": 9.582,
+   "SeasonalNaive": 12.907,
+   "mejor": "SARIMA",
+   "conjunto_empatado": [
+    "SARIMA",
+    "XGBoost",
+    "RandomForest"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "JUNIN",
+   "region": "sierra",
+   "media_casos": 25.1,
+   "n_origenes": 183,
+   "SARIMA": 5.228,
+   "RandomForest": 4.77,
+   "XGBoost": 4.629,
+   "LSTM": 7.276,
+   "SeasonalNaive": 8.421,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest"
+   ],
+   "n_empatados": 2
+  },
+  {
+   "departamento": "ANCASH",
+   "region": "sierra",
+   "media_casos": 21.4,
+   "n_origenes": 183,
+   "SARIMA": 4.901,
+   "RandomForest": 4.53,
+   "XGBoost": 4.758,
+   "LSTM": 5.349,
+   "SeasonalNaive": 7.59,
+   "mejor": "RandomForest",
+   "conjunto_empatado": [
+    "RandomForest",
+    "XGBoost"
+   ],
+   "n_empatados": 2
+  },
+  {
+   "departamento": "APURIMAC",
+   "region": "sierra",
+   "media_casos": 16.9,
+   "n_origenes": 183,
+   "SARIMA": 3.53,
+   "RandomForest": 3.377,
+   "XGBoost": 3.372,
+   "LSTM": 5.559,
+   "SeasonalNaive": 5.377,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "HUANCAVELICA",
+   "region": "sierra",
+   "media_casos": 16.7,
+   "n_origenes": 183,
+   "SARIMA": 2.926,
+   "RandomForest": 2.699,
+   "XGBoost": 2.828,
+   "LSTM": 4.374,
+   "SeasonalNaive": 4.033,
+   "mejor": "RandomForest",
+   "conjunto_empatado": [
+    "RandomForest",
+    "XGBoost",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  },
+  {
+   "departamento": "AYACUCHO",
+   "region": "sierra",
+   "media_casos": 11.5,
+   "n_origenes": 183,
+   "SARIMA": 3.533,
+   "RandomForest": 2.988,
+   "XGBoost": 2.939,
+   "LSTM": 4.404,
+   "SeasonalNaive": 4.962,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest"
+   ],
+   "n_empatados": 2
+  },
+  {
+   "departamento": "PASCO",
+   "region": "sierra",
+   "media_casos": 11.4,
+   "n_origenes": 183,
+   "SARIMA": 2.964,
+   "RandomForest": 2.822,
+   "XGBoost": 2.761,
+   "LSTM": 4.48,
+   "SeasonalNaive": 4.279,
+   "mejor": "XGBoost",
+   "conjunto_empatado": [
+    "XGBoost",
+    "RandomForest",
+    "SARIMA"
+   ],
+   "n_empatados": 3
+  }
+ ],
+ "ganadores": {
+  "XGBoost": 12,
+  "SARIMA": 7,
+  "RandomForest": 6
+ },
+ "empates": {
+  "n_con_3_o_mas": 19,
+  "n_con_ganador_unico": 1,
+  "dept_ganador_unico": [
+   "LIMA"
+  ],
+  "n_total": 25,
+  "media_empatados": 2.76
+ },
+ "pertenencia": {
+  "SARIMA": 19,
+  "RandomForest": 24,
+  "XGBoost": 25,
+  "LSTM": 1
+ },
+ "mejora_sobre_referencia": {
+  "SARIMA": 37.0,
+  "RandomForest": 40.1,
+  "XGBoost": 39.9,
+  "LSTM": 14.8
+ },
+ "criterio_en_muestra": {
+  "filas": [
+   {
+    "departamento": "LIMA",
+    "region": "costa",
+    "media_casos": 156.9,
+    "fuerza_estacional": 0.461,
+    "regla": "R1",
+    "recomendado": "XGBoost",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "PIURA",
+    "region": "costa",
+    "media_casos": 46.7,
+    "fuerza_estacional": 0.454,
+    "regla": "R1",
+    "recomendado": "XGBoost",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "LA LIBERTAD",
+    "region": "costa",
+    "media_casos": 25.4,
+    "fuerza_estacional": 0.217,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.015,
+    "regret_pct": 0.34
+   },
+   {
+    "departamento": "ICA",
+    "region": "costa",
+    "media_casos": 12.3,
+    "fuerza_estacional": 0.542,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.104,
+    "regret_pct": 3.67
+   },
+   {
+    "departamento": "LORETO",
+    "region": "selva",
+    "media_casos": 58.8,
+    "fuerza_estacional": 0.314,
+    "regla": "R1",
+    "recomendado": "XGBoost",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "UCAYALI",
+    "region": "selva",
+    "media_casos": 30.1,
+    "fuerza_estacional": 0.344,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "RandomForest",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "AMAZONAS",
+    "region": "selva",
+    "media_casos": 17.3,
+    "fuerza_estacional": 0.362,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "SARIMA",
+    "dentro": true,
+    "regret_casos": 0.109,
+    "regret_pct": 2.64
+   },
+   {
+    "departamento": "MADRE DE DIOS",
+    "region": "selva",
+    "media_casos": 4.7,
+    "fuerza_estacional": 0.216,
+    "regla": "R3",
+    "recomendado": "SARIMA",
+    "mejor_real": "SARIMA",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "CUSCO",
+    "region": "sierra",
+    "media_casos": 37.9,
+    "fuerza_estacional": 0.636,
+    "regla": "R2",
+    "recomendado": "SARIMA",
+    "mejor_real": "RandomForest",
+    "dentro": true,
+    "regret_casos": 0.296,
+    "regret_pct": 4.69
+   },
+   {
+    "departamento": "PUNO",
+    "region": "sierra",
+    "media_casos": 30.8,
+    "fuerza_estacional": 0.661,
+    "regla": "R2",
+    "recomendado": "SARIMA",
+    "mejor_real": "SARIMA",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "HUANCAVELICA",
+    "region": "sierra",
+    "media_casos": 16.7,
+    "fuerza_estacional": 0.62,
+    "regla": "R2",
+    "recomendado": "SARIMA",
+    "mejor_real": "RandomForest",
+    "dentro": true,
+    "regret_casos": 0.228,
+    "regret_pct": 8.44
+   }
+  ],
+  "estrategias": [
+   {
+    "estrategia": "siempre SARIMA",
+    "cobertura": "9/11",
+    "cobertura_pct": 81.8,
+    "regret_medio": 6.49,
+    "regret_max": 20.64
+   },
+   {
+    "estrategia": "siempre RandomForest",
+    "cobertura": "10/11",
+    "cobertura_pct": 90.9,
+    "regret_medio": 2.44,
+    "regret_max": 8.04
+   },
+   {
+    "estrategia": "siempre XGBoost",
+    "cobertura": "11/11",
+    "cobertura_pct": 100.0,
+    "regret_medio": 1.85,
+    "regret_max": 4.8
+   },
+   {
+    "estrategia": "siempre LSTM",
+    "cobertura": "1/11",
+    "cobertura_pct": 9.1,
+    "regret_medio": 49.79,
+    "regret_max": 86.3
+   },
+   {
+    "estrategia": "criterio propuesto",
+    "cobertura": "11/11",
+    "cobertura_pct": 100.0,
+    "regret_medio": 1.8,
+    "regret_max": 8.44
+   }
+  ],
+  "ahorro_pct": 81.9,
+  "n": 11
+ },
+ "criterio_fuera_muestra": {
+  "filas": [
+   {
+    "departamento": "AREQUIPA",
+    "region": "costa",
+    "media_casos": 38.8,
+    "fuerza_estacional": 0.599,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.129,
+    "regret_pct": 2.15
+   },
+   {
+    "departamento": "CALLAO",
+    "region": "costa",
+    "media_casos": 18.8,
+    "fuerza_estacional": 0.354,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "SARIMA",
+    "dentro": true,
+    "regret_casos": 0.057,
+    "regret_pct": 1.23
+   },
+   {
+    "departamento": "LAMBAYEQUE",
+    "region": "costa",
+    "media_casos": 16.2,
+    "fuerza_estacional": 0.278,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "RandomForest",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "TUMBES",
+    "region": "costa",
+    "media_casos": 3.1,
+    "fuerza_estacional": 0.072,
+    "regla": "R3",
+    "recomendado": "SARIMA",
+    "mejor_real": "SARIMA",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "MOQUEGUA",
+    "region": "costa",
+    "media_casos": 2.4,
+    "fuerza_estacional": 0.242,
+    "regla": "R3",
+    "recomendado": "SARIMA",
+    "mejor_real": "RandomForest",
+    "dentro": false,
+    "regret_casos": 0.224,
+    "regret_pct": 23.31
+   },
+   {
+    "departamento": "TACNA",
+    "region": "costa",
+    "media_casos": 2.0,
+    "fuerza_estacional": 0.358,
+    "regla": "R3",
+    "recomendado": "SARIMA",
+    "mejor_real": "SARIMA",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "HUANUCO",
+    "region": "selva",
+    "media_casos": 36.9,
+    "fuerza_estacional": 0.598,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.07,
+    "regret_pct": 1.25
+   },
+   {
+    "departamento": "SAN MARTIN",
+    "region": "selva",
+    "media_casos": 17.5,
+    "fuerza_estacional": 0.322,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "SARIMA",
+    "dentro": true,
+    "regret_casos": 0.19,
+    "regret_pct": 4.04
+   },
+   {
+    "departamento": "CAJAMARCA",
+    "region": "sierra",
+    "media_casos": 38.4,
+    "fuerza_estacional": 0.613,
+    "regla": "R2",
+    "recomendado": "SARIMA",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.575,
+    "regret_pct": 10.56
+   },
+   {
+    "departamento": "JUNIN",
+    "region": "sierra",
+    "media_casos": 25.1,
+    "fuerza_estacional": 0.566,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.141,
+    "regret_pct": 3.04
+   },
+   {
+    "departamento": "ANCASH",
+    "region": "sierra",
+    "media_casos": 21.4,
+    "fuerza_estacional": 0.525,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "RandomForest",
+    "dentro": true,
+    "regret_casos": 0.0,
+    "regret_pct": 0.0
+   },
+   {
+    "departamento": "APURIMAC",
+    "region": "sierra",
+    "media_casos": 16.9,
+    "fuerza_estacional": 0.638,
+    "regla": "R2",
+    "recomendado": "SARIMA",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.158,
+    "regret_pct": 4.69
+   },
+   {
+    "departamento": "AYACUCHO",
+    "region": "sierra",
+    "media_casos": 11.5,
+    "fuerza_estacional": 0.534,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.049,
+    "regret_pct": 1.65
+   },
+   {
+    "departamento": "PASCO",
+    "region": "sierra",
+    "media_casos": 11.4,
+    "fuerza_estacional": 0.442,
+    "regla": "R4",
+    "recomendado": "RandomForest",
+    "mejor_real": "XGBoost",
+    "dentro": true,
+    "regret_casos": 0.061,
+    "regret_pct": 2.22
+   }
+  ],
+  "estrategias": [
+   {
+    "estrategia": "siempre SARIMA",
+    "cobertura": "10/14",
+    "cobertura_pct": 71.4,
+    "regret_medio": 8.14,
+    "regret_max": 23.31
+   },
+   {
+    "estrategia": "siempre RandomForest",
+    "cobertura": "14/14",
+    "cobertura_pct": 100.0,
+    "regret_medio": 1.7,
+    "regret_max": 7.23
+   },
+   {
+    "estrategia": "siempre XGBoost",
+    "cobertura": "14/14",
+    "cobertura_pct": 100.0,
+    "regret_medio": 2.33,
+    "regret_max": 6.85
+   },
+   {
+    "estrategia": "siempre LSTM",
+    "cobertura": "0/14",
+    "cobertura_pct": 0.0,
+    "regret_medio": 44.05,
+    "regret_max": 80.13
+   },
+   {
+    "estrategia": "criterio propuesto",
+    "cobertura": "13/14",
+    "cobertura_pct": 92.9,
+    "regret_medio": 3.87,
+    "regret_max": 23.31
+   }
+  ],
+  "ahorro_pct": 81.5,
+  "n": 14
+ },
+ "fallos_fuera_muestra": [
+  {
+   "departamento": "MOQUEGUA",
+   "region": "costa",
+   "media_casos": 2.4,
+   "fuerza_estacional": 0.242,
+   "regla": "R3",
+   "recomendado": "SARIMA",
+   "mejor_real": "RandomForest",
+   "dentro": false,
+   "regret_casos": 0.224,
+   "regret_pct": 23.31
+  }
+ ],
+ "shap_familias": [
+  {
+   "departamento": "PUNO",
+   "region": "sierra",
+   "modelo": "RandomForest",
+   "media_casos": 30.8,
+   "fuerza_estacional": 0.661,
+   "calendario_estacional": 0.1541,
+   "rezago_anual": 0.0214,
+   "inercia_corta": 0.3882,
+   "memoria_media": 0.0287,
+   "ventanas_moviles": 0.3794,
+   "tendencia": 0.0282
+  },
+  {
+   "departamento": "CUSCO",
+   "region": "sierra",
+   "modelo": "RandomForest",
+   "media_casos": 37.9,
+   "fuerza_estacional": 0.636,
+   "calendario_estacional": 0.1628,
+   "rezago_anual": 0.0135,
+   "inercia_corta": 0.3631,
+   "memoria_media": 0.0222,
+   "ventanas_moviles": 0.4174,
+   "tendencia": 0.0211
+  },
+  {
+   "departamento": "HUANCAVELICA",
+   "region": "sierra",
+   "modelo": "RandomForest",
+   "media_casos": 16.7,
+   "fuerza_estacional": 0.62,
+   "calendario_estacional": 0.1587,
+   "rezago_anual": 0.0181,
+   "inercia_corta": 0.2206,
+   "memoria_media": 0.0258,
+   "ventanas_moviles": 0.4999,
+   "tendencia": 0.077
+  },
+  {
+   "departamento": "ICA",
+   "region": "costa",
+   "modelo": "RandomForest",
+   "media_casos": 12.3,
+   "fuerza_estacional": 0.542,
+   "calendario_estacional": 0.1339,
+   "rezago_anual": 0.0407,
+   "inercia_corta": 0.1533,
+   "memoria_media": 0.0255,
+   "ventanas_moviles": 0.5569,
+   "tendencia": 0.0897
+  },
+  {
+   "departamento": "LIMA",
+   "region": "costa",
+   "modelo": "RandomForest",
+   "media_casos": 156.9,
+   "fuerza_estacional": 0.46,
+   "calendario_estacional": 0.0752,
+   "rezago_anual": 0.02,
+   "inercia_corta": 0.4953,
+   "memoria_media": 0.0349,
+   "ventanas_moviles": 0.3552,
+   "tendencia": 0.0194
+  },
+  {
+   "departamento": "PIURA",
+   "region": "costa",
+   "modelo": "RandomForest",
+   "media_casos": 46.7,
+   "fuerza_estacional": 0.454,
+   "calendario_estacional": 0.0708,
+   "rezago_anual": 0.0149,
+   "inercia_corta": 0.3539,
+   "memoria_media": 0.0419,
+   "ventanas_moviles": 0.4651,
+   "tendencia": 0.0533
+  },
+  {
+   "departamento": "AMAZONAS",
+   "region": "selva",
+   "modelo": "RandomForest",
+   "media_casos": 17.3,
+   "fuerza_estacional": 0.362,
+   "calendario_estacional": 0.1788,
+   "rezago_anual": 0.0293,
+   "inercia_corta": 0.2085,
+   "memoria_media": 0.0283,
+   "ventanas_moviles": 0.5122,
+   "tendencia": 0.0429
+  },
+  {
+   "departamento": "UCAYALI",
+   "region": "selva",
+   "modelo": "RandomForest",
+   "media_casos": 30.1,
+   "fuerza_estacional": 0.344,
+   "calendario_estacional": 0.1255,
+   "rezago_anual": 0.0252,
+   "inercia_corta": 0.3025,
+   "memoria_media": 0.031,
+   "ventanas_moviles": 0.4274,
+   "tendencia": 0.0885
+  },
+  {
+   "departamento": "LORETO",
+   "region": "selva",
+   "modelo": "RandomForest",
+   "media_casos": 58.8,
+   "fuerza_estacional": 0.314,
+   "calendario_estacional": 0.1144,
+   "rezago_anual": 0.027,
+   "inercia_corta": 0.3948,
+   "memoria_media": 0.0162,
+   "ventanas_moviles": 0.4251,
+   "tendencia": 0.0225
+  },
+  {
+   "departamento": "LA LIBERTAD",
+   "region": "costa",
+   "modelo": "RandomForest",
+   "media_casos": 25.4,
+   "fuerza_estacional": 0.217,
+   "calendario_estacional": 0.083,
+   "rezago_anual": 0.028,
+   "inercia_corta": 0.3326,
+   "memoria_media": 0.0363,
+   "ventanas_moviles": 0.4704,
+   "tendencia": 0.0498
+  },
+  {
+   "departamento": "MADRE DE DIOS",
+   "region": "selva",
+   "modelo": "RandomForest",
+   "media_casos": 4.7,
+   "fuerza_estacional": 0.216,
+   "calendario_estacional": 0.1688,
+   "rezago_anual": 0.0137,
+   "inercia_corta": 0.2238,
+   "memoria_media": 0.0485,
+   "ventanas_moviles": 0.516,
+   "tendencia": 0.0292
+  },
+  {
+   "departamento": "PUNO",
+   "region": "sierra",
+   "modelo": "XGBoost",
+   "media_casos": 30.8,
+   "fuerza_estacional": 0.661,
+   "calendario_estacional": 0.1242,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.5078,
+   "memoria_media": 0.0393,
+   "ventanas_moviles": 0.2874,
+   "tendencia": 0.0412
+  },
+  {
+   "departamento": "CUSCO",
+   "region": "sierra",
+   "modelo": "XGBoost",
+   "media_casos": 37.9,
+   "fuerza_estacional": 0.636,
+   "calendario_estacional": 0.1289,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.4135,
+   "memoria_media": 0.0829,
+   "ventanas_moviles": 0.3411,
+   "tendencia": 0.0336
+  },
+  {
+   "departamento": "HUANCAVELICA",
+   "region": "sierra",
+   "modelo": "XGBoost",
+   "media_casos": 16.7,
+   "fuerza_estacional": 0.62,
+   "calendario_estacional": 0.1741,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.2001,
+   "memoria_media": 0.0247,
+   "ventanas_moviles": 0.47,
+   "tendencia": 0.1312
+  },
+  {
+   "departamento": "ICA",
+   "region": "costa",
+   "modelo": "XGBoost",
+   "media_casos": 12.3,
+   "fuerza_estacional": 0.542,
+   "calendario_estacional": 0.1801,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.1093,
+   "memoria_media": 0.0895,
+   "ventanas_moviles": 0.4848,
+   "tendencia": 0.1362
+  },
+  {
+   "departamento": "LIMA",
+   "region": "costa",
+   "modelo": "XGBoost",
+   "media_casos": 156.9,
+   "fuerza_estacional": 0.46,
+   "calendario_estacional": 0.0826,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.7187,
+   "memoria_media": 0.049,
+   "ventanas_moviles": 0.1249,
+   "tendencia": 0.0248
+  },
+  {
+   "departamento": "PIURA",
+   "region": "costa",
+   "modelo": "XGBoost",
+   "media_casos": 46.7,
+   "fuerza_estacional": 0.454,
+   "calendario_estacional": 0.0868,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.3567,
+   "memoria_media": 0.0452,
+   "ventanas_moviles": 0.396,
+   "tendencia": 0.1153
+  },
+  {
+   "departamento": "AMAZONAS",
+   "region": "selva",
+   "modelo": "XGBoost",
+   "media_casos": 17.3,
+   "fuerza_estacional": 0.362,
+   "calendario_estacional": 0.188,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.1721,
+   "memoria_media": 0.06,
+   "ventanas_moviles": 0.4811,
+   "tendencia": 0.0989
+  },
+  {
+   "departamento": "UCAYALI",
+   "region": "selva",
+   "modelo": "XGBoost",
+   "media_casos": 30.1,
+   "fuerza_estacional": 0.344,
+   "calendario_estacional": 0.1358,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.3415,
+   "memoria_media": 0.0254,
+   "ventanas_moviles": 0.3965,
+   "tendencia": 0.1008
+  },
+  {
+   "departamento": "LORETO",
+   "region": "selva",
+   "modelo": "XGBoost",
+   "media_casos": 58.8,
+   "fuerza_estacional": 0.314,
+   "calendario_estacional": 0.1158,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.4664,
+   "memoria_media": 0.0252,
+   "ventanas_moviles": 0.3516,
+   "tendencia": 0.041
+  },
+  {
+   "departamento": "LA LIBERTAD",
+   "region": "costa",
+   "modelo": "XGBoost",
+   "media_casos": 25.4,
+   "fuerza_estacional": 0.217,
+   "calendario_estacional": 0.0856,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.2879,
+   "memoria_media": 0.088,
+   "ventanas_moviles": 0.4571,
+   "tendencia": 0.0815
+  },
+  {
+   "departamento": "MADRE DE DIOS",
+   "region": "selva",
+   "modelo": "XGBoost",
+   "media_casos": 4.7,
+   "fuerza_estacional": 0.216,
+   "calendario_estacional": 0.177,
+   "rezago_anual": 0.0,
+   "inercia_corta": 0.2798,
+   "memoria_media": 0.0717,
+   "ventanas_moviles": 0.4357,
+   "tendencia": 0.0359
+  }
+ ],
+ "shap_correlaciones": [
+  {
+   "modelo": "RandomForest",
+   "familia": "inercia_corta",
+   "r_log_volumen": 0.871,
+   "r_fuerza_estacional": 0.074
+  },
+  {
+   "modelo": "RandomForest",
+   "familia": "ventanas_moviles",
+   "r_log_volumen": -0.806,
+   "r_fuerza_estacional": -0.225
+  },
+  {
+   "modelo": "RandomForest",
+   "familia": "calendario_estacional",
+   "r_log_volumen": -0.648,
+   "r_fuerza_estacional": 0.249
+  },
+  {
+   "modelo": "RandomForest",
+   "familia": "rezago_anual",
+   "r_log_volumen": -0.11,
+   "r_fuerza_estacional": -0.128
+  },
+  {
+   "modelo": "RandomForest",
+   "familia": "tendencia",
+   "r_log_volumen": -0.353,
+   "r_fuerza_estacional": 0.066
+  },
+  {
+   "modelo": "XGBoost",
+   "familia": "inercia_corta",
+   "r_log_volumen": 0.796,
+   "r_fuerza_estacional": 0.117
+  },
+  {
+   "modelo": "XGBoost",
+   "familia": "ventanas_moviles",
+   "r_log_volumen": -0.78,
+   "r_fuerza_estacional": -0.24
+  },
+  {
+   "modelo": "XGBoost",
+   "familia": "calendario_estacional",
+   "r_log_volumen": -0.781,
+   "r_fuerza_estacional": 0.094
+  },
+  {
+   "modelo": "XGBoost",
+   "familia": "tendencia",
+   "r_log_volumen": -0.329,
+   "r_fuerza_estacional": 0.111
+  }
+ ],
+ "configuracion": {
+  "train_size": 520,
+  "horizonte": 4,
+  "paso": 4,
+  "window_type": "sliding",
+  "alpha": 0.05,
+  "n_corridas": 125,
+  "n_departamentos": 25,
+  "modelos": [
+   "SARIMA",
+   "RandomForest",
+   "XGBoost",
+   "LSTM",
+   "SeasonalNaive"
+  ],
+  "costo_s": {
+   "SeasonalNaive": 8.1,
+   "SARIMA": 24.0,
+   "XGBoost": 36.0,
+   "RandomForest": 38.3,
+   "LSTM": 81.6
+  }
+ }
+}

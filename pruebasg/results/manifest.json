@@ -1,0 +1,364 @@
+[
+  {
+    "label": "SeasonalNaive (baseline)",
+    "department": "AMAZONAS",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model SeasonalNaive --age_group under5 --horizon 4 --step 4",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "amazonas-seasonalnaive-baseline\\metrics.json",
+    "pred_file": "amazonas-seasonalnaive-baseline\\predictions.csv",
+    "timestamp": "2026-07-01T09:33:25"
+  },
+  {
+    "label": "RandomForest (default)",
+    "department": "AMAZONAS",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model RandomForest --age_group under5 --horizon 4 --step 4",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "amazonas-randomforest-default\\metrics.json",
+    "pred_file": "amazonas-randomforest-default\\predictions.csv",
+    "timestamp": "2026-07-01T09:34:18"
+  },
+  {
+    "label": "RandomForest (lags+windows)",
+    "department": "AMAZONAS",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model RandomForest --age_group under5 --horizon 4 --step 4 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "amazonas-randomforest-lags-windows\\metrics.json",
+    "pred_file": "amazonas-randomforest-lags-windows\\predictions.csv",
+    "timestamp": "2026-07-01T09:35:15"
+  },
+  {
+    "label": "XGBoost (tuned)",
+    "department": "AMAZONAS",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model XGBoost --age_group under5 --horizon 4 --step 4 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "amazonas-xgboost-tuned\\metrics.json",
+    "pred_file": "amazonas-xgboost-tuned\\predictions.csv",
+    "timestamp": "2026-07-01T09:36:12"
+  },
+  {
+    "label": "SARIMA (Fourier K=10)",
+    "department": "AMAZONAS",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model SARIMA --age_group under5 --horizon 4 --step 4 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13
+    },
+    "metrics_file": "amazonas-sarima-fourier-k-10\\metrics.json",
+    "pred_file": "amazonas-sarima-fourier-k-10\\predictions.csv",
+    "timestamp": "2026-07-01T09:36:37"
+  },
+  {
+    "label": "LSTM",
+    "department": "AMAZONAS",
+    "model": "LSTM",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model LSTM --age_group under5 --horizon 4 --step 4 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52
+    },
+    "metrics_file": "amazonas-lstm\\metrics.json",
+    "pred_file": "amazonas-lstm\\predictions.csv",
+    "timestamp": "2026-07-01T09:39:19"
+  },
+  {
+    "label": "GRU",
+    "department": "AMAZONAS",
+    "model": "GRU",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model GRU --age_group under5 --horizon 4 --step 4 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52
+    },
+    "metrics_file": "amazonas-gru\\metrics.json",
+    "pred_file": "amazonas-gru\\predictions.csv",
+    "timestamp": "2026-07-01T09:42:12"
+  },
+  {
+    "label": "Prophet",
+    "department": "AMAZONAS",
+    "model": "Prophet",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model Prophet --age_group under5 --horizon 4 --step 4 --refit_every 13",
+    "returncode": 1,
+    "ok": false,
+    "timestamp": "2026-07-01T09:42:27"
+  },
+  {
+    "label": "SeasonalNaive (baseline)",
+    "department": "LIMA",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model SeasonalNaive --age_group under5 --horizon 4 --step 4",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "lima-seasonalnaive-baseline\\metrics.json",
+    "pred_file": "lima-seasonalnaive-baseline\\predictions.csv",
+    "timestamp": "2026-07-01T09:42:30"
+  },
+  {
+    "label": "RandomForest (default)",
+    "department": "LIMA",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model RandomForest --age_group under5 --horizon 4 --step 4",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "lima-randomforest-default\\metrics.json",
+    "pred_file": "lima-randomforest-default\\predictions.csv",
+    "timestamp": "2026-07-01T09:43:22"
+  },
+  {
+    "label": "RandomForest (lags+windows)",
+    "department": "LIMA",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model RandomForest --age_group under5 --horizon 4 --step 4 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "lima-randomforest-lags-windows\\metrics.json",
+    "pred_file": "lima-randomforest-lags-windows\\predictions.csv",
+    "timestamp": "2026-07-01T09:44:15"
+  },
+  {
+    "label": "XGBoost (tuned)",
+    "department": "LIMA",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model XGBoost --age_group under5 --horizon 4 --step 4 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "lima-xgboost-tuned\\metrics.json",
+    "pred_file": "lima-xgboost-tuned\\predictions.csv",
+    "timestamp": "2026-07-01T09:45:31"
+  },
+  {
+    "label": "SARIMA (Fourier K=10)",
+    "department": "LIMA",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model SARIMA --age_group under5 --horizon 4 --step 4 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13
+    },
+    "metrics_file": "lima-sarima-fourier-k-10\\metrics.json",
+    "pred_file": "lima-sarima-fourier-k-10\\predictions.csv",
+    "timestamp": "2026-07-01T09:46:19"
+  },
+  {
+    "label": "LSTM",
+    "department": "LIMA",
+    "model": "LSTM",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model LSTM --age_group under5 --horizon 4 --step 4 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52
+    },
+    "metrics_file": "lima-lstm\\metrics.json",
+    "pred_file": "lima-lstm\\predictions.csv",
+    "timestamp": "2026-07-01T09:48:35"
+  },
+  {
+    "label": "GRU",
+    "department": "LIMA",
+    "model": "GRU",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model GRU --age_group under5 --horizon 4 --step 4 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52
+    },
+    "metrics_file": "lima-gru\\metrics.json",
+    "pred_file": "lima-gru\\predictions.csv",
+    "timestamp": "2026-07-01T09:52:47"
+  },
+  {
+    "label": "Prophet",
+    "department": "LIMA",
+    "model": "Prophet",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model Prophet --age_group under5 --horizon 4 --step 4 --refit_every 13",
+    "returncode": 1,
+    "ok": false,
+    "timestamp": "2026-07-01T09:52:52"
+  },
+  {
+    "label": "RandomForest (grid-search)",
+    "department": "AMAZONAS",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model RandomForest --age_group under5 --horizon 4 --step 4 --n_estimators 100 --max_depth 8 --lags 1 2 4 8 13 --windows 4 13 26",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "amazonas-randomforest-grid-search\\metrics.json",
+    "pred_file": "amazonas-randomforest-grid-search\\predictions.csv",
+    "timestamp": "2026-07-07T17:13:30"
+  },
+  {
+    "label": "XGBoost (grid-search)",
+    "department": "AMAZONAS",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department AMAZONAS --model XGBoost --age_group under5 --horizon 4 --step 4 --n_estimators 300 --max_depth 3 --learning_rate 0.01 --colsample_bytree 0.8",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "amazonas-xgboost-grid-search\\metrics.json",
+    "pred_file": "amazonas-xgboost-grid-search\\predictions.csv",
+    "timestamp": "2026-07-07T17:18:00"
+  },
+  {
+    "label": "RandomForest (grid-search)",
+    "department": "LIMA",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model RandomForest --age_group under5 --horizon 4 --step 4 --n_estimators 300 --max_depth 12 --lags 1 2 4 8 13 --windows 4 13 26",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "lima-randomforest-grid-search\\metrics.json",
+    "pred_file": "lima-randomforest-grid-search\\predictions.csv",
+    "timestamp": "2026-07-07T17:33:32"
+  },
+  {
+    "label": "XGBoost (grid-search)",
+    "department": "LIMA",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "command": "python scripts/run_walkforward.py --department LIMA --model XGBoost --age_group under5 --horizon 4 --step 4 --n_estimators 300 --max_depth 3 --learning_rate 0.01 --colsample_bytree 0.8",
+    "returncode": 0,
+    "ok": true,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1
+    },
+    "metrics_file": "lima-xgboost-grid-search\\metrics.json",
+    "pred_file": "lima-xgboost-grid-search\\predictions.csv",
+    "timestamp": "2026-07-07T17:38:17"
+  }
+]

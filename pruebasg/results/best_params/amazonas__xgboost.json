@@ -1,0 +1,83 @@
+{
+  "department": "AMAZONAS",
+  "model": "XGBoost",
+  "best_params": {
+    "xgb_params": {
+      "n_estimators": 300,
+      "max_depth": 3,
+      "learning_rate": 0.01,
+      "colsample_bytree": 0.8
+    }
+  },
+  "best_mae_mean": 4.4923,
+  "best_cli": "--n_estimators 300 --max_depth 3 --learning_rate 0.01 --colsample_bytree 0.8",
+  "search": {
+    "n_configs": 18,
+    "wf_score_config": {
+      "initial_train_size": 520,
+      "horizon": 4,
+      "step": 4,
+      "refit_every": 13,
+      "window_type": "sliding",
+      "min_train_size": 104
+    }
+  },
+  "top5": [
+    {
+      "mae_mean": 4.4923,
+      "params": {
+        "xgb_params": {
+          "n_estimators": 300,
+          "max_depth": 3,
+          "learning_rate": 0.01,
+          "colsample_bytree": 0.8
+        }
+      }
+    },
+    {
+      "mae_mean": 4.5244,
+      "params": {
+        "xgb_params": {
+          "n_estimators": 500,
+          "max_depth": 3,
+          "learning_rate": 0.01,
+          "colsample_bytree": 0.8
+        }
+      }
+    },
+    {
+      "mae_mean": 4.642,
+      "params": {
+        "xgb_params": {
+          "n_estimators": 300,
+          "max_depth": 4,
+          "learning_rate": 0.01,
+          "colsample_bytree": 0.8
+        }
+      }
+    },
+    {
+      "mae_mean": 4.6819,
+      "params": {
+        "xgb_params": {
+          "n_estimators": 500,
+          "max_depth": 4,
+          "learning_rate": 0.01,
+          "colsample_bytree": 0.8
+        }
+      }
+    },
+    {
+      "mae_mean": 4.831,
+      "params": {
+        "xgb_params": {
+          "n_estimators": 300,
+          "max_depth": 3,
+          "learning_rate": 0.05,
+          "colsample_bytree": 0.8
+        }
+      }
+    }
+  ],
+  "timestamp": "2026-07-07T17:17:04"
+}

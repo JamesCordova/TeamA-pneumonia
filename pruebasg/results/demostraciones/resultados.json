@@ -1,0 +1,1111 @@
+{
+ "D1": {
+  "id": "D1",
+  "titulo": "Interpolación lineal de la población",
+  "departamento": "AMAZONAS",
+  "anio_censal_a": 2007,
+  "P_a": 375993.0,
+  "anio_censal_b": 2017,
+  "P_b": 417365.0,
+  "anio_objetivo": 2012,
+  "pendiente": 4137.2,
+  "P_t_por_formula": 396679.0,
+  "P_t_en_base_de_datos": 396679.0,
+  "diferencia_absoluta": 0.0,
+  "coincide": true,
+  "incrementos_anuales_del_tramo": [
+   4137,
+   4137,
+   4137,
+   4137,
+   4138,
+   4137,
+   4137,
+   4137,
+   4137,
+   4138
+  ],
+  "incremento_constante_salvo_redondeo": true,
+  "tramo": {
+   "2007": 375993,
+   "2008": 380130,
+   "2009": 384267,
+   "2010": 388404,
+   "2011": 392541,
+   "2012": 396679,
+   "2013": 400816,
+   "2014": 404953,
+   "2015": 409090,
+   "2016": 413227,
+   "2017": 417365
+  }
+ },
+ "D2": {
+  "id": "D2",
+  "titulo": "Tasa de incidencia por cien mil habitantes",
+  "departamento": "AMAZONAS",
+  "anio": 2019,
+  "casos_notificados": 504,
+  "poblacion": 422212.0,
+  "proporcion": 0.00119371,
+  "tasa_por_100k": 119.3713,
+  "error_estandar": 5.3172,
+  "ic95_inferior": 108.9496,
+  "ic95_superior": 129.7931,
+  "error_relativo_pct": 4.4544
+ },
+ "D3": {
+  "id": "D3",
+  "titulo": "Descomposición STL y verificación de la identidad aditiva",
+  "departamento": "AMAZONAS",
+  "n_semanas": 1252,
+  "error_max_identidad": 0.0,
+  "error_medio_identidad": 0.0,
+  "var_residuo": 50.8535,
+  "var_estacional_mas_residuo": 79.7132,
+  "var_tendencia_mas_residuo": 193.8266,
+  "fuerza_estacional": 0.362,
+  "fuerza_tendencia": 0.7376,
+  "tabla_primeras_semanas": [
+   [
+    "2000-01-03",
+    "38.0",
+    "62.1304",
+    "-23.7682",
+    "-0.3622",
+    "38.0"
+   ],
+   [
+    "2000-01-10",
+    "53.0",
+    "61.8703",
+    "-9.6637",
+    "0.7934",
+    "53.0"
+   ],
+   [
+    "2000-01-17",
+    "63.0",
+    "61.6103",
+    "1.5622",
+    "-0.1725",
+    "63.0"
+   ],
+   [
+    "2000-01-24",
+    "53.0",
+    "61.3504",
+    "-8.1834",
+    "-0.167",
+    "53.0"
+   ],
+   [
+    "2000-01-31",
+    "65.0",
+    "61.0908",
+    "-16.6682",
+    "20.5774",
+    "65.0"
+   ],
+   [
+    "2000-02-07",
+    "43.0",
+    "60.8314",
+    "-22.3563",
+    "4.525",
+    "43.0"
+   ]
+  ],
+  "tabla_columnas": [
+   "semana",
+   "Y_t",
+   "T_t",
+   "S_t",
+   "R_t",
+   "T+S+R"
+  ],
+  "figura": "d3_stl.png"
+ },
+ "D4": {
+  "id": "D4",
+  "titulo": "Prueba de Dickey-Fuller aumentada",
+  "departamento": "AMAZONAS",
+  "n_observaciones": 1233,
+  "rezagos_usados_p": 18,
+  "gamma_estimado": -0.061458,
+  "rho_implicito": 0.938542,
+  "t_gamma_reconstruido": -3.605642,
+  "estadistico_adf_libreria": -3.605642,
+  "diferencia": 0.0,
+  "coincide": true,
+  "p_valor": 0.005654,
+  "valores_criticos": {
+   "1%": -3.4357,
+   "5%": -2.8639,
+   "10%": -2.568
+  },
+  "decision_adf": "se rechaza la raíz unitaria",
+  "kpss_estadistico": 3.977814,
+  "kpss_p_valor": 0.01,
+  "kpss_critico_5pct": 0.463,
+  "decision_kpss": "se rechaza la estacionariedad",
+  "conclusion_conjunta": "no estacionaria: las dos pruebas no coinciden en estacionariedad, y el desacuerdo se resuelve conservadoramente hacia diferenciar",
+  "d_sugerido": 1
+ },
+ "D5": {
+  "id": "D5",
+  "titulo": "Función de autocorrelación",
+  "departamento": "AMAZONAS",
+  "n": 1252,
+  "media": 17.2827,
+  "denominador_gamma0_x_n": 276143.91,
+  "rezagos": [
+   {
+    "k": 1,
+    "rho_manual": 0.805475,
+    "rho_libreria": 0.805475,
+    "diferencia": 0.0,
+    "supera_banda": true
+   },
+   {
+    "k": 4,
+    "rho_manual": 0.769302,
+    "rho_libreria": 0.769302,
+    "diferencia": 0.0,
+    "supera_banda": true
+   },
+   {
+    "k": 52,
+    "rho_manual": 0.514894,
+    "rho_libreria": 0.514894,
+    "diferencia": 0.0,
+    "supera_banda": true
+   }
+  ],
+  "banda_bartlett": 0.055393,
+  "veces_banda_rezago_52": 9.3,
+  "figura": "d5_acf.png"
+ },
+ "D6": {
+  "id": "D6",
+  "titulo": "Función de autocorrelación parcial",
+  "departamento": "AMAZONAS",
+  "rho_1": 0.805475,
+  "rho_2": 0.784768,
+  "phi_11_formula": 0.805475,
+  "phi_11_libreria": 0.805475,
+  "phi_22_formula": 0.38717,
+  "phi_22_libreria": 0.38717,
+  "diferencia_phi22": 0.0,
+  "rho1_al_cuadrado": 0.64879,
+  "comentario_ar1": "si el proceso fuera AR(1) se cumpliría rho_2 = rho_1^2 y phi_22 sería cero"
+ },
+ "D7": {
+  "id": "D7",
+  "titulo": "Estadístico de Ljung-Box",
+  "departamento": "AMAZONAS",
+  "n": 1252,
+  "h": 52,
+  "Q_manual": 19979.4751,
+  "Q_libreria": 19979.4751,
+  "diferencia": 0.0,
+  "coincide": true,
+  "p_manual": 0.0,
+  "p_libreria": 0.0,
+  "valor_critico_chi2_95": 69.8322,
+  "primeros_terminos": [
+   {
+    "k": 1,
+    "rho_k": 0.805475,
+    "rho2_sobre_n_menos_k": 0.000518617
+   },
+   {
+    "k": 2,
+    "rho_k": 0.784768,
+    "rho2_sobre_n_menos_k": 0.000492689
+   },
+   {
+    "k": 3,
+    "rho_k": 0.765127,
+    "rho2_sobre_n_menos_k": 0.00046871
+   },
+   {
+    "k": 4,
+    "rho_k": 0.769302,
+    "rho2_sobre_n_menos_k": 0.000474219
+   },
+   {
+    "k": 5,
+    "rho_k": 0.748439,
+    "rho2_sobre_n_menos_k": 0.000449206
+   }
+  ],
+  "decision": "se rechaza la independencia: la serie tiene estructura temporal modelable"
+ },
+ "D9": {
+  "id": "D9",
+  "titulo": "Ortogonalidad de los términos de Fourier",
+  "S": 52,
+  "K": 10,
+  "n_parametros_fourier": 20,
+  "n_parametros_indicadoras": 51,
+  "reduccion_pct": 60.78,
+  "max_producto_cruzado_fuera_diagonal": 0.0,
+  "ortogonal": true,
+  "valores_diagonal_distintos": [
+   26.0
+  ],
+  "K_maximo_identificable": 26
+ },
+ "D11": {
+  "id": "D11",
+  "titulo": "Peso óptimo de hoja en XGBoost",
+  "departamento": "AMAZONAS",
+  "lambda": 1.0,
+  "base_score": 0.5,
+  "n_entrenamiento": 494,
+  "arbol_volcado": "0:[f5<10.375] yes=1,no=2,missing=1\n\t1:[f5<6.875] yes=3,no=4,missing=3\n\t\t3:leaf=5.05097103\n\t\t4:leaf=7.75\n\t2:[f13<-0.953855276] yes=5,no=6,missing=5\n\t\t5:leaf=17.6499996\n\t\t6:leaf=10.4250002",
+  "hojas": [
+   {
+    "hoja": 3,
+    "n_observaciones": 205,
+    "G_j": -1040.5,
+    "H_j": 205.0,
+    "w_formula": 5.050971,
+    "w_libreria": 5.050971,
+    "diferencia": 1.6e-07
+   },
+   {
+    "hoja": 4,
+    "n_observaciones": 161,
+    "G_j": -1255.5,
+    "H_j": 161.0,
+    "w_formula": 7.75,
+    "w_libreria": 7.75,
+    "diferencia": 0.0
+   },
+   {
+    "hoja": 5,
+    "n_observaciones": 29,
+    "G_j": -529.5,
+    "H_j": 29.0,
+    "w_formula": 17.65,
+    "w_libreria": 17.65,
+    "diferencia": 4e-07
+   },
+   {
+    "hoja": 6,
+    "n_observaciones": 99,
+    "G_j": -1042.5,
+    "H_j": 99.0,
+    "w_formula": 10.425,
+    "w_libreria": 10.425,
+    "diferencia": 2e-07
+   }
+  ],
+  "max_diferencia": 4e-07,
+  "coincide": true
+ },
+ "D12": {
+  "id": "D12",
+  "titulo": "Dimensionamiento de la red recurrente",
+  "capas": [
+   {
+    "capa": "LSTM 1",
+    "formula": "4[u(u+d)+u], u=48, d=1",
+    "teorico": 9600,
+    "keras": 9600,
+    "coincide": true
+   },
+   {
+    "capa": "LSTM 2",
+    "formula": "4[u(u+d)+u], u=24, d=48",
+    "teorico": 7008,
+    "keras": 7008,
+    "coincide": true
+   },
+   {
+    "capa": "Dense 16",
+    "formula": "24x16+16",
+    "teorico": 400,
+    "keras": 400,
+    "coincide": true
+   },
+   {
+    "capa": "Dense 4",
+    "formula": "16x4+4",
+    "teorico": 68,
+    "keras": 68,
+    "coincide": true
+   }
+  ],
+  "total_teorico": 17076,
+  "total_keras": 17076,
+  "coincide": true,
+  "ventana_entrenamiento": 520,
+  "lookback": 52,
+  "n_secuencias_entrenamiento": 468,
+  "razon_parametros_por_secuencia": 36.5,
+  "decaimiento_gradiente": [
+   {
+    "norma_W": 0.9,
+    "factor_52_pasos": 0.00417456
+   },
+   {
+    "norma_W": 0.95,
+    "factor_52_pasos": 0.06944284
+   },
+   {
+    "norma_W": 0.99,
+    "factor_52_pasos": 0.59296645
+   }
+  ]
+ },
+ "D13": {
+  "id": "D13",
+  "titulo": "Relaciones entre las métricas de error",
+  "modelo_usado": "RandomForest",
+  "horizonte": 1,
+  "n_departamentos": 25,
+  "violaciones_de_la_desigualdad": 0,
+  "filas": [
+   {
+    "departamento": "TUMBES",
+    "media_casos": 3.1,
+    "n": 92,
+    "mae": 2.122,
+    "rmse": 3.185,
+    "razon_rmse_mae": 1.501,
+    "cota_superior_raiz_n": 9.59,
+    "mape_pct": 68.0,
+    "semanas_con_cero": 20,
+    "pct_semanas_sin_mape": 21.74,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "PUNO",
+    "media_casos": 30.8,
+    "n": 183,
+    "mae": 6.289,
+    "rmse": 9.244,
+    "razon_rmse_mae": 1.47,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 48.01,
+    "semanas_con_cero": 5,
+    "pct_semanas_sin_mape": 2.73,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "LIMA",
+    "media_casos": 156.9,
+    "n": 183,
+    "mae": 21.423,
+    "rmse": 31.278,
+    "razon_rmse_mae": 1.46,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 20.85,
+    "semanas_con_cero": 0,
+    "pct_semanas_sin_mape": 0.0,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "MOQUEGUA",
+    "media_casos": 2.4,
+    "n": 79,
+    "mae": 0.962,
+    "rmse": 1.402,
+    "razon_rmse_mae": 1.457,
+    "cota_superior_raiz_n": 8.89,
+    "mape_pct": 58.19,
+    "semanas_con_cero": 36,
+    "pct_semanas_sin_mape": 45.57,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "JUNIN",
+    "media_casos": 25.1,
+    "n": 183,
+    "mae": 4.77,
+    "rmse": 6.901,
+    "razon_rmse_mae": 1.447,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 60.29,
+    "semanas_con_cero": 4,
+    "pct_semanas_sin_mape": 2.19,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "APURIMAC",
+    "media_casos": 16.9,
+    "n": 183,
+    "mae": 3.377,
+    "rmse": 4.769,
+    "razon_rmse_mae": 1.412,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 70.23,
+    "semanas_con_cero": 13,
+    "pct_semanas_sin_mape": 7.1,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "LAMBAYEQUE",
+    "media_casos": 16.2,
+    "n": 183,
+    "mae": 3.912,
+    "rmse": 5.372,
+    "razon_rmse_mae": 1.373,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 78.31,
+    "semanas_con_cero": 3,
+    "pct_semanas_sin_mape": 1.64,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "UCAYALI",
+    "media_casos": 30.1,
+    "n": 183,
+    "mae": 7.842,
+    "rmse": 10.718,
+    "razon_rmse_mae": 1.367,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 50.9,
+    "semanas_con_cero": 0,
+    "pct_semanas_sin_mape": 0.0,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "CAJAMARCA",
+    "media_casos": 38.4,
+    "n": 183,
+    "mae": 5.46,
+    "rmse": 7.459,
+    "razon_rmse_mae": 1.366,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 47.39,
+    "semanas_con_cero": 0,
+    "pct_semanas_sin_mape": 0.0,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "ICA",
+    "media_casos": 12.3,
+    "n": 184,
+    "mae": 2.938,
+    "rmse": 4.008,
+    "razon_rmse_mae": 1.364,
+    "cota_superior_raiz_n": 13.56,
+    "mape_pct": 63.15,
+    "semanas_con_cero": 11,
+    "pct_semanas_sin_mape": 5.98,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "HUANCAVELICA",
+    "media_casos": 16.7,
+    "n": 183,
+    "mae": 2.699,
+    "rmse": 3.638,
+    "razon_rmse_mae": 1.348,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 73.53,
+    "semanas_con_cero": 19,
+    "pct_semanas_sin_mape": 10.38,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "HUANUCO",
+    "media_casos": 36.9,
+    "n": 183,
+    "mae": 5.683,
+    "rmse": 7.635,
+    "razon_rmse_mae": 1.343,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 38.8,
+    "semanas_con_cero": 4,
+    "pct_semanas_sin_mape": 2.19,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "PASCO",
+    "media_casos": 11.4,
+    "n": 183,
+    "mae": 2.822,
+    "rmse": 3.787,
+    "razon_rmse_mae": 1.342,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 56.69,
+    "semanas_con_cero": 13,
+    "pct_semanas_sin_mape": 7.1,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "AYACUCHO",
+    "media_casos": 11.5,
+    "n": 183,
+    "mae": 2.988,
+    "rmse": 3.999,
+    "razon_rmse_mae": 1.339,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 51.49,
+    "semanas_con_cero": 12,
+    "pct_semanas_sin_mape": 6.56,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "TACNA",
+    "media_casos": 2.0,
+    "n": 92,
+    "mae": 0.902,
+    "rmse": 1.206,
+    "razon_rmse_mae": 1.337,
+    "cota_superior_raiz_n": 9.59,
+    "mape_pct": 49.09,
+    "semanas_con_cero": 47,
+    "pct_semanas_sin_mape": 51.09,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "ANCASH",
+    "media_casos": 21.4,
+    "n": 183,
+    "mae": 4.53,
+    "rmse": 6.027,
+    "razon_rmse_mae": 1.33,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 64.04,
+    "semanas_con_cero": 4,
+    "pct_semanas_sin_mape": 2.19,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "LORETO",
+    "media_casos": 58.8,
+    "n": 184,
+    "mae": 11.529,
+    "rmse": 15.323,
+    "razon_rmse_mae": 1.329,
+    "cota_superior_raiz_n": 13.56,
+    "mape_pct": 37.85,
+    "semanas_con_cero": 1,
+    "pct_semanas_sin_mape": 0.54,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "LA LIBERTAD",
+    "media_casos": 25.4,
+    "n": 183,
+    "mae": 4.238,
+    "rmse": 5.614,
+    "razon_rmse_mae": 1.325,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 55.95,
+    "semanas_con_cero": 3,
+    "pct_semanas_sin_mape": 1.64,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "CALLAO",
+    "media_casos": 18.8,
+    "n": 183,
+    "mae": 4.707,
+    "rmse": 6.216,
+    "razon_rmse_mae": 1.321,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 45.86,
+    "semanas_con_cero": 5,
+    "pct_semanas_sin_mape": 2.73,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "AMAZONAS",
+    "media_casos": 17.3,
+    "n": 183,
+    "mae": 4.234,
+    "rmse": 5.523,
+    "razon_rmse_mae": 1.304,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 73.32,
+    "semanas_con_cero": 5,
+    "pct_semanas_sin_mape": 2.73,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "SAN MARTIN",
+    "media_casos": 17.5,
+    "n": 184,
+    "mae": 4.896,
+    "rmse": 6.32,
+    "razon_rmse_mae": 1.291,
+    "cota_superior_raiz_n": 13.56,
+    "mape_pct": 61.88,
+    "semanas_con_cero": 5,
+    "pct_semanas_sin_mape": 2.72,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "AREQUIPA",
+    "media_casos": 38.8,
+    "n": 183,
+    "mae": 6.119,
+    "rmse": 7.889,
+    "razon_rmse_mae": 1.289,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 40.38,
+    "semanas_con_cero": 1,
+    "pct_semanas_sin_mape": 0.55,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "CUSCO",
+    "media_casos": 37.9,
+    "n": 183,
+    "mae": 6.321,
+    "rmse": 8.149,
+    "razon_rmse_mae": 1.289,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 50.04,
+    "semanas_con_cero": 4,
+    "pct_semanas_sin_mape": 2.19,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "PIURA",
+    "media_casos": 46.7,
+    "n": 184,
+    "mae": 7.865,
+    "rmse": 9.984,
+    "razon_rmse_mae": 1.269,
+    "cota_superior_raiz_n": 13.56,
+    "mape_pct": 32.58,
+    "semanas_con_cero": 1,
+    "pct_semanas_sin_mape": 0.54,
+    "cumple_desigualdad": true
+   },
+   {
+    "departamento": "MADRE DE DIOS",
+    "media_casos": 4.7,
+    "n": 183,
+    "mae": 2.209,
+    "rmse": 2.785,
+    "razon_rmse_mae": 1.261,
+    "cota_superior_raiz_n": 13.53,
+    "mape_pct": 76.69,
+    "semanas_con_cero": 24,
+    "pct_semanas_sin_mape": 13.11,
+    "cumple_desigualdad": true
+   }
+  ],
+  "razon_min": 1.261,
+  "razon_max": 1.501,
+  "mae_min": 0.902,
+  "mae_max": 21.423
+ },
+ "D14": {
+  "id": "D14",
+  "titulo": "Número de orígenes de la validación de origen móvil",
+  "filas": [
+   {
+    "departamento": "AMAZONAS",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "ANCASH",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "APURIMAC",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "AREQUIPA",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "AYACUCHO",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "CAJAMARCA",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "CALLAO",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "CUSCO",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "HUANCAVELICA",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "HUANUCO",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "ICA",
+    "n": 1253,
+    "m": 520,
+    "s": 4,
+    "K_formula": 184,
+    "K_reportado": 184,
+    "coincide": true
+   },
+   {
+    "departamento": "JUNIN",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "LA LIBERTAD",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "LAMBAYEQUE",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "LIMA",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "LORETO",
+    "n": 1253,
+    "m": 520,
+    "s": 4,
+    "K_formula": 184,
+    "K_reportado": 184,
+    "coincide": true
+   },
+   {
+    "departamento": "MADRE DE DIOS",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "MOQUEGUA",
+    "n": 834,
+    "m": 520,
+    "s": 4,
+    "K_formula": 79,
+    "K_reportado": 79,
+    "coincide": true
+   },
+   {
+    "departamento": "PASCO",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "PIURA",
+    "n": 1253,
+    "m": 520,
+    "s": 4,
+    "K_formula": 184,
+    "K_reportado": 184,
+    "coincide": true
+   },
+   {
+    "departamento": "PUNO",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   },
+   {
+    "departamento": "SAN MARTIN",
+    "n": 1253,
+    "m": 520,
+    "s": 4,
+    "K_formula": 184,
+    "K_reportado": 184,
+    "coincide": true
+   },
+   {
+    "departamento": "TACNA",
+    "n": 887,
+    "m": 520,
+    "s": 4,
+    "K_formula": 92,
+    "K_reportado": 92,
+    "coincide": true
+   },
+   {
+    "departamento": "TUMBES",
+    "n": 887,
+    "m": 520,
+    "s": 4,
+    "K_formula": 92,
+    "K_reportado": 92,
+    "coincide": true
+   },
+   {
+    "departamento": "UCAYALI",
+    "n": 1252,
+    "m": 520,
+    "s": 4,
+    "K_formula": 183,
+    "K_reportado": 183,
+    "coincide": true
+   }
+  ],
+  "todas_coinciden": true,
+  "n_departamentos": 25,
+  "reduccion_error_estandar": 13.1
+ },
+ "D10": {
+  "id": "D10",
+  "titulo": "Reducción de varianza por agregación en Random Forest",
+  "departamento": "AMAZONAS",
+  "B_referencia": 50,
+  "n_test": 104,
+  "sigma2_entre_arboles": 60.48323,
+  "rho_medio_entre_arboles": 0.36738,
+  "piso_rho_sigma2": 22.22016,
+  "curva": [
+   {
+    "B": 1,
+    "R_replicas": 20,
+    "var_empirica": 60.48323,
+    "var_teorica": 60.48323,
+    "error_rel_pct": 0.0
+   },
+   {
+    "B": 2,
+    "R_replicas": 20,
+    "var_empirica": 44.58535,
+    "var_teorica": 41.35169,
+    "error_rel_pct": 7.82
+   },
+   {
+    "B": 5,
+    "R_replicas": 20,
+    "var_empirica": 26.8647,
+    "var_teorica": 29.87277,
+    "error_rel_pct": 10.07
+   },
+   {
+    "B": 10,
+    "R_replicas": 20,
+    "var_empirica": 18.70169,
+    "var_teorica": 26.04647,
+    "error_rel_pct": 28.2
+   },
+   {
+    "B": 25,
+    "R_replicas": 20,
+    "var_empirica": 19.21635,
+    "var_teorica": 23.75068,
+    "error_rel_pct": 19.09
+   },
+   {
+    "B": 50,
+    "R_replicas": 20,
+    "var_empirica": 18.93224,
+    "var_teorica": 22.98542,
+    "error_rel_pct": 17.63
+   }
+  ],
+  "error_rel_medio_pct": 13.8,
+  "figura": "d10_varianza_rf.png"
+ },
+ "D8": {
+  "id": "D8",
+  "titulo": "Costo del período estacional largo frente a los términos de Fourier",
+  "departamento": "AMAZONAS",
+  "n_entrenamiento": 520,
+  "clasico_s52": {
+   "converge": true,
+   "dim_estado": 107,
+   "n_parametros": 5,
+   "aic": 2581.078,
+   "segundos": 13.08
+  },
+  "fourier_K10": {
+   "converge": true,
+   "dim_estado": 3,
+   "n_parametros": 23,
+   "aic": 3108.905,
+   "segundos": 0.61
+  },
+  "razon_dim_estado": 35.67,
+  "razon_tiempo": 21.4
+ },
+ "D15": {
+  "id": "D15",
+  "titulo": "Codificación circular de la semana del año",
+  "periodo": 52,
+  "filas": [
+   {
+    "semana": 50,
+    "sin": -0.2393,
+    "cos": 0.9709,
+    "distancia_circular_a_semana_1": 0.3605,
+    "distancia_ordinal_a_semana_1": 49
+   },
+   {
+    "semana": 51,
+    "sin": -0.1205,
+    "cos": 0.9927,
+    "distancia_circular_a_semana_1": 0.2411,
+    "distancia_ordinal_a_semana_1": 50
+   },
+   {
+    "semana": 52,
+    "sin": 0.0,
+    "cos": 1.0,
+    "distancia_circular_a_semana_1": 0.1208,
+    "distancia_ordinal_a_semana_1": 51
+   },
+   {
+    "semana": 1,
+    "sin": 0.1205,
+    "cos": 0.9927,
+    "distancia_circular_a_semana_1": 0.0,
+    "distancia_ordinal_a_semana_1": 0
+   },
+   {
+    "semana": 2,
+    "sin": 0.2393,
+    "cos": 0.9709,
+    "distancia_circular_a_semana_1": 0.1208,
+    "distancia_ordinal_a_semana_1": 1
+   },
+   {
+    "semana": 13,
+    "sin": 1.0,
+    "cos": -0.0,
+    "distancia_circular_a_semana_1": 1.3262,
+    "distancia_ordinal_a_semana_1": 12
+   },
+   {
+    "semana": 26,
+    "sin": -0.0,
+    "cos": -1.0,
+    "distancia_circular_a_semana_1": 1.9964,
+    "distancia_ordinal_a_semana_1": 25
+   }
+  ],
+  "distancia_52_a_1_circular": 0.1208,
+  "distancia_52_a_1_ordinal": 51,
+  "distancia_2_a_1_circular": 0.1208,
+  "coinciden_52_y_2": true,
+  "distancia_maxima_26": 1.9964
+ },
+ "D16": {
+  "id": "D16",
+  "titulo": "Efecto de la fuga de información en los estadísticos móviles",
+  "departamento": "AMAZONAS",
+  "lags": [
+   1,
+   2,
+   4,
+   8,
+   13
+  ],
+  "ventanas": [
+   4,
+   13,
+   26
+  ],
+  "correcto": {
+   "mae": 4.3405,
+   "rmse": 5.2539,
+   "n_entrenamiento": 980,
+   "n_prueba": 246,
+   "variable_mas_importante": "rolling_mean_4",
+   "importancia": 0.2242
+  },
+  "con_fuga": {
+   "mae": 3.1275,
+   "rmse": 3.9564,
+   "n_entrenamiento": 981,
+   "n_prueba": 246,
+   "variable_mas_importante": "rolling_mean_4",
+   "importancia": 0.2828
+  },
+  "reduccion_artificial_pct": 27.95,
+  "veces_menor": 1.39
+ }
+}

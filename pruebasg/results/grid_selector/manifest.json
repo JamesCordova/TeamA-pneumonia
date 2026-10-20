@@ -1,0 +1,1962 @@
+[
+  {
+    "label": "SeasonalNaive",
+    "department": "ANCASH",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department ANCASH --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.0,
+    "metrics_file": "ancash-seasonalnaive/metrics.json",
+    "pred_file": "ancash-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T12:46:17"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "ANCASH",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department ANCASH --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 22.5,
+    "metrics_file": "ancash-sarima-fourier/metrics.json",
+    "pred_file": "ancash-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T12:46:39"
+  },
+  {
+    "label": "RandomForest",
+    "department": "ANCASH",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department ANCASH --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 35.9,
+    "metrics_file": "ancash-randomforest/metrics.json",
+    "pred_file": "ancash-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T12:47:15"
+  },
+  {
+    "label": "XGBoost",
+    "department": "ANCASH",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department ANCASH --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 34.5,
+    "metrics_file": "ancash-xgboost/metrics.json",
+    "pred_file": "ancash-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T12:47:50"
+  },
+  {
+    "label": "LSTM",
+    "department": "ANCASH",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department ANCASH --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 76.7,
+    "metrics_file": "ancash-lstm/metrics.json",
+    "pred_file": "ancash-lstm/predictions.csv",
+    "timestamp": "2026-09-24T12:49:06"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "APURIMAC",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department APURIMAC --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.0,
+    "metrics_file": "apurimac-seasonalnaive/metrics.json",
+    "pred_file": "apurimac-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T12:49:15"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "APURIMAC",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department APURIMAC --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 20.4,
+    "metrics_file": "apurimac-sarima-fourier/metrics.json",
+    "pred_file": "apurimac-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T12:49:35"
+  },
+  {
+    "label": "RandomForest",
+    "department": "APURIMAC",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department APURIMAC --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 36.2,
+    "metrics_file": "apurimac-randomforest/metrics.json",
+    "pred_file": "apurimac-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T12:50:11"
+  },
+  {
+    "label": "XGBoost",
+    "department": "APURIMAC",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department APURIMAC --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 35.1,
+    "metrics_file": "apurimac-xgboost/metrics.json",
+    "pred_file": "apurimac-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T12:50:46"
+  },
+  {
+    "label": "LSTM",
+    "department": "APURIMAC",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department APURIMAC --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 80.4,
+    "metrics_file": "apurimac-lstm/metrics.json",
+    "pred_file": "apurimac-lstm/predictions.csv",
+    "timestamp": "2026-09-24T12:52:07"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "AREQUIPA",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department AREQUIPA --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.0,
+    "metrics_file": "arequipa-seasonalnaive/metrics.json",
+    "pred_file": "arequipa-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T12:52:15"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "AREQUIPA",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AREQUIPA --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 25.0,
+    "metrics_file": "arequipa-sarima-fourier/metrics.json",
+    "pred_file": "arequipa-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T12:52:40"
+  },
+  {
+    "label": "RandomForest",
+    "department": "AREQUIPA",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AREQUIPA --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 35.5,
+    "metrics_file": "arequipa-randomforest/metrics.json",
+    "pred_file": "arequipa-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T12:53:15"
+  },
+  {
+    "label": "XGBoost",
+    "department": "AREQUIPA",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AREQUIPA --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 34.1,
+    "metrics_file": "arequipa-xgboost/metrics.json",
+    "pred_file": "arequipa-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T12:53:49"
+  },
+  {
+    "label": "LSTM",
+    "department": "AREQUIPA",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AREQUIPA --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 99.3,
+    "metrics_file": "arequipa-lstm/metrics.json",
+    "pred_file": "arequipa-lstm/predictions.csv",
+    "timestamp": "2026-09-24T12:55:29"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "AYACUCHO",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department AYACUCHO --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.0,
+    "metrics_file": "ayacucho-seasonalnaive/metrics.json",
+    "pred_file": "ayacucho-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T12:55:37"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "AYACUCHO",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AYACUCHO --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 19.5,
+    "metrics_file": "ayacucho-sarima-fourier/metrics.json",
+    "pred_file": "ayacucho-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T12:55:56"
+  },
+  {
+    "label": "RandomForest",
+    "department": "AYACUCHO",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AYACUCHO --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 35.9,
+    "metrics_file": "ayacucho-randomforest/metrics.json",
+    "pred_file": "ayacucho-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T12:56:32"
+  },
+  {
+    "label": "XGBoost",
+    "department": "AYACUCHO",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AYACUCHO --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 32.9,
+    "metrics_file": "ayacucho-xgboost/metrics.json",
+    "pred_file": "ayacucho-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T12:57:05"
+  },
+  {
+    "label": "LSTM",
+    "department": "AYACUCHO",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department AYACUCHO --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 83.8,
+    "metrics_file": "ayacucho-lstm/metrics.json",
+    "pred_file": "ayacucho-lstm/predictions.csv",
+    "timestamp": "2026-09-24T12:58:29"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "CAJAMARCA",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department CAJAMARCA --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.1,
+    "metrics_file": "cajamarca-seasonalnaive/metrics.json",
+    "pred_file": "cajamarca-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T12:58:37"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "CAJAMARCA",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CAJAMARCA --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 24.7,
+    "metrics_file": "cajamarca-sarima-fourier/metrics.json",
+    "pred_file": "cajamarca-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T12:59:02"
+  },
+  {
+    "label": "RandomForest",
+    "department": "CAJAMARCA",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CAJAMARCA --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 37.7,
+    "metrics_file": "cajamarca-randomforest/metrics.json",
+    "pred_file": "cajamarca-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T12:59:39"
+  },
+  {
+    "label": "XGBoost",
+    "department": "CAJAMARCA",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CAJAMARCA --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 34.0,
+    "metrics_file": "cajamarca-xgboost/metrics.json",
+    "pred_file": "cajamarca-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:00:13"
+  },
+  {
+    "label": "LSTM",
+    "department": "CAJAMARCA",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CAJAMARCA --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 91.8,
+    "metrics_file": "cajamarca-lstm/metrics.json",
+    "pred_file": "cajamarca-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:01:45"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "CALLAO",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department CALLAO --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.4,
+    "metrics_file": "callao-seasonalnaive/metrics.json",
+    "pred_file": "callao-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:01:54"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "CALLAO",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CALLAO --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 21.5,
+    "metrics_file": "callao-sarima-fourier/metrics.json",
+    "pred_file": "callao-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:02:15"
+  },
+  {
+    "label": "RandomForest",
+    "department": "CALLAO",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CALLAO --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 36.5,
+    "metrics_file": "callao-randomforest/metrics.json",
+    "pred_file": "callao-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:02:52"
+  },
+  {
+    "label": "XGBoost",
+    "department": "CALLAO",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CALLAO --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 34.1,
+    "metrics_file": "callao-xgboost/metrics.json",
+    "pred_file": "callao-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:03:26"
+  },
+  {
+    "label": "LSTM",
+    "department": "CALLAO",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department CALLAO --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 99.6,
+    "metrics_file": "callao-lstm/metrics.json",
+    "pred_file": "callao-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:05:05"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "HUANUCO",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department HUANUCO --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.1,
+    "metrics_file": "huanuco-seasonalnaive/metrics.json",
+    "pred_file": "huanuco-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:05:13"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "HUANUCO",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department HUANUCO --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 25.9,
+    "metrics_file": "huanuco-sarima-fourier/metrics.json",
+    "pred_file": "huanuco-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:05:39"
+  },
+  {
+    "label": "RandomForest",
+    "department": "HUANUCO",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department HUANUCO --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 39.4,
+    "metrics_file": "huanuco-randomforest/metrics.json",
+    "pred_file": "huanuco-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:06:19"
+  },
+  {
+    "label": "XGBoost",
+    "department": "HUANUCO",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department HUANUCO --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 35.1,
+    "metrics_file": "huanuco-xgboost/metrics.json",
+    "pred_file": "huanuco-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:06:54"
+  },
+  {
+    "label": "LSTM",
+    "department": "HUANUCO",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department HUANUCO --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 97.3,
+    "metrics_file": "huanuco-lstm/metrics.json",
+    "pred_file": "huanuco-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:08:31"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "JUNIN",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department JUNIN --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 9.7,
+    "metrics_file": "junin-seasonalnaive/metrics.json",
+    "pred_file": "junin-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:08:41"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "JUNIN",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department JUNIN --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 22.8,
+    "metrics_file": "junin-sarima-fourier/metrics.json",
+    "pred_file": "junin-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:09:04"
+  },
+  {
+    "label": "RandomForest",
+    "department": "JUNIN",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department JUNIN --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 36.7,
+    "metrics_file": "junin-randomforest/metrics.json",
+    "pred_file": "junin-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:09:40"
+  },
+  {
+    "label": "XGBoost",
+    "department": "JUNIN",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department JUNIN --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 36.0,
+    "metrics_file": "junin-xgboost/metrics.json",
+    "pred_file": "junin-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:10:16"
+  },
+  {
+    "label": "LSTM",
+    "department": "JUNIN",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department JUNIN --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 77.3,
+    "metrics_file": "junin-lstm/metrics.json",
+    "pred_file": "junin-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:11:34"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "LAMBAYEQUE",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department LAMBAYEQUE --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.0,
+    "metrics_file": "lambayeque-seasonalnaive/metrics.json",
+    "pred_file": "lambayeque-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:11:42"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "LAMBAYEQUE",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department LAMBAYEQUE --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 23.9,
+    "metrics_file": "lambayeque-sarima-fourier/metrics.json",
+    "pred_file": "lambayeque-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:12:06"
+  },
+  {
+    "label": "RandomForest",
+    "department": "LAMBAYEQUE",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department LAMBAYEQUE --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 36.6,
+    "metrics_file": "lambayeque-randomforest/metrics.json",
+    "pred_file": "lambayeque-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:12:42"
+  },
+  {
+    "label": "XGBoost",
+    "department": "LAMBAYEQUE",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department LAMBAYEQUE --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 34.8,
+    "metrics_file": "lambayeque-xgboost/metrics.json",
+    "pred_file": "lambayeque-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:13:17"
+  },
+  {
+    "label": "LSTM",
+    "department": "LAMBAYEQUE",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department LAMBAYEQUE --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 105.0,
+    "metrics_file": "lambayeque-lstm/metrics.json",
+    "pred_file": "lambayeque-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:15:02"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "MOQUEGUA",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department MOQUEGUA --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 7.8,
+    "metrics_file": "moquegua-seasonalnaive/metrics.json",
+    "pred_file": "moquegua-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:15:10"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "MOQUEGUA",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department MOQUEGUA --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 12.9,
+    "metrics_file": "moquegua-sarima-fourier/metrics.json",
+    "pred_file": "moquegua-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:15:23"
+  },
+  {
+    "label": "RandomForest",
+    "department": "MOQUEGUA",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department MOQUEGUA --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 19.8,
+    "metrics_file": "moquegua-randomforest/metrics.json",
+    "pred_file": "moquegua-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:15:43"
+  },
+  {
+    "label": "XGBoost",
+    "department": "MOQUEGUA",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department MOQUEGUA --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 18.8,
+    "metrics_file": "moquegua-xgboost/metrics.json",
+    "pred_file": "moquegua-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:16:02"
+  },
+  {
+    "label": "LSTM",
+    "department": "MOQUEGUA",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department MOQUEGUA --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 45.4,
+    "metrics_file": "moquegua-lstm/metrics.json",
+    "pred_file": "moquegua-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:16:47"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "PASCO",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department PASCO --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.0,
+    "metrics_file": "pasco-seasonalnaive/metrics.json",
+    "pred_file": "pasco-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:16:55"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "PASCO",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department PASCO --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 19.7,
+    "metrics_file": "pasco-sarima-fourier/metrics.json",
+    "pred_file": "pasco-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:17:15"
+  },
+  {
+    "label": "RandomForest",
+    "department": "PASCO",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department PASCO --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 35.6,
+    "metrics_file": "pasco-randomforest/metrics.json",
+    "pred_file": "pasco-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:17:50"
+  },
+  {
+    "label": "XGBoost",
+    "department": "PASCO",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department PASCO --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 33.0,
+    "metrics_file": "pasco-xgboost/metrics.json",
+    "pred_file": "pasco-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:18:23"
+  },
+  {
+    "label": "LSTM",
+    "department": "PASCO",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department PASCO --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 76.0,
+    "metrics_file": "pasco-lstm/metrics.json",
+    "pred_file": "pasco-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:19:39"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "SAN MARTIN",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department SAN MARTIN --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 8.0,
+    "metrics_file": "san-martin-seasonalnaive/metrics.json",
+    "pred_file": "san-martin-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:19:47"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "SAN MARTIN",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department SAN MARTIN --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 23.7,
+    "metrics_file": "san-martin-sarima-fourier/metrics.json",
+    "pred_file": "san-martin-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:20:11"
+  },
+  {
+    "label": "RandomForest",
+    "department": "SAN MARTIN",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department SAN MARTIN --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 39.0,
+    "metrics_file": "san-martin-randomforest/metrics.json",
+    "pred_file": "san-martin-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:20:50"
+  },
+  {
+    "label": "XGBoost",
+    "department": "SAN MARTIN",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department SAN MARTIN --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 33.0,
+    "metrics_file": "san-martin-xgboost/metrics.json",
+    "pred_file": "san-martin-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:21:23"
+  },
+  {
+    "label": "LSTM",
+    "department": "SAN MARTIN",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department SAN MARTIN --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 93.7,
+    "metrics_file": "san-martin-lstm/metrics.json",
+    "pred_file": "san-martin-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:22:57"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "TACNA",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department TACNA --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 7.9,
+    "metrics_file": "tacna-seasonalnaive/metrics.json",
+    "pred_file": "tacna-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:23:05"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "TACNA",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TACNA --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 12.4,
+    "metrics_file": "tacna-sarima-fourier/metrics.json",
+    "pred_file": "tacna-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:23:17"
+  },
+  {
+    "label": "RandomForest",
+    "department": "TACNA",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TACNA --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 22.5,
+    "metrics_file": "tacna-randomforest/metrics.json",
+    "pred_file": "tacna-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:23:40"
+  },
+  {
+    "label": "XGBoost",
+    "department": "TACNA",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TACNA --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 20.0,
+    "metrics_file": "tacna-xgboost/metrics.json",
+    "pred_file": "tacna-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:24:00"
+  },
+  {
+    "label": "LSTM",
+    "department": "TACNA",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TACNA --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 52.0,
+    "metrics_file": "tacna-lstm/metrics.json",
+    "pred_file": "tacna-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:24:52"
+  },
+  {
+    "label": "SeasonalNaive",
+    "department": "TUMBES",
+    "model": "SeasonalNaive",
+    "age_group": "under5",
+    "candidato": false,
+    "command": "python scripts/run_walkforward.py --department TUMBES --model SeasonalNaive --age_group under5 --horizon 4 --step 4 --train_size 520",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 7.9,
+    "metrics_file": "tumbes-seasonalnaive/metrics.json",
+    "pred_file": "tumbes-seasonalnaive/predictions.csv",
+    "timestamp": "2026-09-24T13:24:59"
+  },
+  {
+    "label": "SARIMA-Fourier",
+    "department": "TUMBES",
+    "model": "SARIMA",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TUMBES --model SARIMA --age_group under5 --horizon 4 --step 4 --train_size 520 --n_fourier_terms 10 --refit_every 13",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 13,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 13.3,
+    "metrics_file": "tumbes-sarima-fourier/metrics.json",
+    "pred_file": "tumbes-sarima-fourier/predictions.csv",
+    "timestamp": "2026-09-24T13:25:13"
+  },
+  {
+    "label": "RandomForest",
+    "department": "TUMBES",
+    "model": "RandomForest",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TUMBES --model RandomForest --age_group under5 --horizon 4 --step 4 --train_size 520 --lags 1 2 4 8 26 52 --windows 4 13 26 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 21.8,
+    "metrics_file": "tumbes-randomforest/metrics.json",
+    "pred_file": "tumbes-randomforest/predictions.csv",
+    "timestamp": "2026-09-24T13:25:35"
+  },
+  {
+    "label": "XGBoost",
+    "department": "TUMBES",
+    "model": "XGBoost",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TUMBES --model XGBoost --age_group under5 --horizon 4 --step 4 --train_size 520 --n_estimators 500 --learning_rate 0.01 --max_depth 3 --colsample_bytree 0.7",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 1,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 19.9,
+    "metrics_file": "tumbes-xgboost/metrics.json",
+    "pred_file": "tumbes-xgboost/predictions.csv",
+    "timestamp": "2026-09-24T13:25:54"
+  },
+  {
+    "label": "LSTM",
+    "department": "TUMBES",
+    "model": "LSTM",
+    "age_group": "under5",
+    "candidato": true,
+    "command": "python scripts/run_walkforward.py --department TUMBES --model LSTM --age_group under5 --horizon 4 --step 4 --train_size 520 --epochs 40 --refit_every 52",
+    "returncode": 0,
+    "ok": true,
+    "reused": false,
+    "config": {
+      "horizon": 4,
+      "step": 4,
+      "window_type": "sliding",
+      "train_size": 520,
+      "refit_every": 52,
+      "exclude_periods": [
+        [
+          "2020-01-01",
+          "2021-12-31"
+        ]
+      ]
+    },
+    "duracion_s": 39.0,
+    "metrics_file": "tumbes-lstm/metrics.json",
+    "pred_file": "tumbes-lstm/predictions.csv",
+    "timestamp": "2026-09-24T13:26:34"
+  }
+]
