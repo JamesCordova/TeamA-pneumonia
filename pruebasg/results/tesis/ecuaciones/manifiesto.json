@@ -1,0 +1,102 @@
+{
+ "t_perfil": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_perfil.png",
+  "w": 437,
+  "h": 33
+ },
+ "t_ft": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_ft.png",
+  "w": 266,
+  "h": 45
+ },
+ "t_fs": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_fs.png",
+  "w": 267,
+  "h": 45
+ },
+ "t_disp": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_disp.png",
+  "w": 73,
+  "h": 46
+ },
+ "t_ent": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_ent.png",
+  "w": 332,
+  "h": 81
+ },
+ "t_p0": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_p0.png",
+  "w": 185,
+  "h": 65
+ },
+ "t_dif": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_dif.png",
+  "w": 346,
+  "h": 39
+ },
+ "t_t": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_t.png",
+  "w": 164,
+  "h": 51
+ },
+ "t_empate": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_empate.png",
+  "w": 312,
+  "h": 37
+ },
+ "t_selector": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_selector.png",
+  "w": 196,
+  "h": 33
+ },
+ "t_descarte": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_descarte.png",
+  "w": 430,
+  "h": 35
+ },
+ "t_poisson": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_poisson.png",
+  "w": 185,
+  "h": 51
+ },
+ "t_umbral": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_umbral.png",
+  "w": 456,
+  "h": 31
+ },
+ "t_cobertura": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_cobertura.png",
+  "w": 211,
+  "h": 68
+ },
+ "t_regret": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_regret.png",
+  "w": 302,
+  "h": 68
+ },
+ "t_ahorro": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_ahorro.png",
+  "w": 175,
+  "h": 96
+ },
+ "t_shapley": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_shapley.png",
+  "w": 421,
+  "h": 60
+ },
+ "t_shap_efic": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_shap_efic.png",
+  "w": 165,
+  "h": 75
+ },
+ "t_shap_global": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_shap_global.png",
+  "w": 132,
+  "h": 65
+ },
+ "t_shap_familia": {
+  "file": "D:/Ingenieria de Sistemas/Neumonia repo/TeamA-pneumonia/pruebasg/results/tesis/ecuaciones/t_shap_familia.png",
+  "w": 96,
+  "h": 93
+ }
+}
