@@ -45,7 +45,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from _common import RESULTS_DIR
+from _common import RESULTS_DIR, save_json
 from selector.regiones import MUESTRA_ESTRATIFICADA, region_de
 from selector.shap_utils import calcular_shap, tabla_familias
 
@@ -75,6 +75,42 @@ def _figura_beeswarm(res, ruta: Path) -> None:
     plt.close(fig)
 
 
+
+def _figura_cascada(loc: dict, ruta: Path) -> None:
+    """Gráfico de cascada: cómo cada variable mueve la predicción desde el valor base."""
+    contribs = loc["contribuciones"]
+    etiquetas = [f'{c["variable"]} = {c["valor_variable"]:g}' for c in contribs]
+    valores = [c["contribucion"] for c in contribs]
+    if loc["n_variables_restantes"]:
+        etiquetas.append(f'otras {loc["n_variables_restantes"]} variables')
+        valores.append(loc["resto_agrupado"])
+
+    fig, ax = plt.subplots(figsize=(8.6, 0.46 * len(valores) + 1.8))
+    acumulado = loc["valor_base"]
+    for i, (et, v) in enumerate(zip(etiquetas, valores)):
+        y = len(valores) - 1 - i
+        ax.barh(y, v, left=acumulado, height=0.62,
+                color="#c0504d" if v > 0 else "#4f81bd")
+        ax.text(acumulado + v + (0.6 if v > 0 else -0.6), y, f"{v:+.2f}",
+                va="center", ha="left" if v > 0 else "right", fontsize=8.5)
+        acumulado += v
+    ax.set_yticks(range(len(valores)))
+    ax.set_yticklabels(etiquetas[::-1], fontsize=9)
+    ax.axvline(loc["valor_base"], color="#555", ls="--", lw=1)
+    ax.annotate(f'valor base {loc["valor_base"]:.1f}',
+                xy=(loc["valor_base"], -0.8), fontsize=8.5, color="#555", ha="center")
+    ax.axvline(loc["prediccion"], color="#222", lw=1.4)
+    ax.annotate(f'predicción {loc["prediccion"]:.1f}',
+                xy=(loc["prediccion"], len(valores) - 0.2), fontsize=9, ha="center")
+    ax.set_xlabel("Casos semanales")
+    ax.set_title(f'{loc["departamento"]} — {loc["modelo"]} — semana del {loc["semana"]}',
+                 fontsize=11)
+    ax.grid(axis="x", alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(ruta, dpi=140)
+    plt.close(fig)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -82,6 +118,8 @@ def main() -> int:
     parser.add_argument("--modelos", nargs="+", default=["RandomForest", "XGBoost"])
     parser.add_argument("--age_group", default="under5", choices=["under5", "60plus"])
     parser.add_argument("--sin-figuras", action="store_true")
+    parser.add_argument("--local", nargs="+", default=None,
+                        help="Departamentos para la explicación local de su semana pico")
     args = parser.parse_args()
 
     logging.disable(logging.WARNING)
@@ -111,6 +149,27 @@ def main() -> int:
                 except Exception:
                     pass
             print(" ok")
+
+    # --- Explicación local: por qué el modelo pronosticó lo que pronosticó ---
+    locales = []
+    for res in resultados:
+        if args.local and res.departamento not in [d.upper() for d in args.local]:
+            continue
+        if args.local is None and res.modelo != "RandomForest":
+            continue
+        try:
+            i = int(res.X["lag_1"].values.argmax())
+            loc = res.explicacion_local(indice=i)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ! explicación local {res.departamento}: {str(exc)[:80]}")
+            continue
+        locales.append(loc)
+        if not args.sin_figuras:
+            slug = res.departamento.replace(" ", "_")
+            _figura_cascada(loc, FIG_DIR / f"{slug}_{res.modelo}_local.png")
+    if locales:
+        save_json(OUT_DIR / "explicaciones_locales.json", locales)
+        print(f"\n{len(locales)} explicaciones locales -> explicaciones_locales.json")
 
     if not resultados:
         print("Sin resultados.")

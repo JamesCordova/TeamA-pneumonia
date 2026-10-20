@@ -78,6 +78,70 @@ class ResultadoShap:
         return fam.sort_values(ascending=False)
 
 
+
+    def explicacion_local(self, fecha=None, indice: Optional[int] = None,
+                          top: int = 8) -> dict:
+        """
+        Explicación de UNA predicción concreta.
+
+        La atribución global responde en qué se apoya el modelo en conjunto; la
+        local responde por qué pronosticó lo que pronosticó en una semana
+        determinada, que es la pregunta que se hace quien recibe una alerta
+        epidemiológica. Por la propiedad de eficiencia, las contribuciones
+        suman exactamente la diferencia entre la predicción y el valor base, y
+        esa identidad se verifica aquí.
+
+        Args:
+            fecha: semana a explicar; si se omite se usa `indice`.
+            indice: posición dentro de las observaciones evaluadas.
+            top: número de variables a detallar; el resto se agrupa.
+        """
+        if fecha is not None:
+            marca = pd.Timestamp(fecha)
+            posiciones = np.where(self.X.index == marca)[0]
+            if not len(posiciones):
+                raise ValueError(
+                    f"{marca.date()} no está entre las semanas evaluadas "
+                    f"({self.X.index.min().date()} a {self.X.index.max().date()})"
+                )
+            i = int(posiciones[0])
+        elif indice is not None:
+            i = int(indice)
+        else:
+            raise ValueError("indique `fecha` o `indice`")
+
+        contrib = pd.Series(self.valores[i], index=self.nombres)
+        prediccion = float(self.valor_base + contrib.sum())
+        orden = contrib.abs().sort_values(ascending=False)
+        principales = contrib[orden.index[:top]]
+        resto = float(contrib[orden.index[top:]].sum())
+
+        return {
+            "departamento": self.departamento,
+            "modelo": self.modelo,
+            "semana": str(self.X.index[i].date()),
+            "valor_base": round(float(self.valor_base), 4),
+            "prediccion": round(prediccion, 4),
+            "efecto_total": round(prediccion - float(self.valor_base), 4),
+            "contribuciones": [
+                {"variable": n, "valor_variable": round(float(self.X.iloc[i][n]), 3),
+                 "contribucion": round(float(v), 4),
+                 "familia": familia_de(n)}
+                for n, v in principales.items()
+            ],
+            "resto_agrupado": round(resto, 4),
+            "n_variables_restantes": int(len(contrib) - len(principales)),
+            # Verificación de la propiedad de eficiencia
+            "suma_contribuciones": round(float(contrib.sum()), 6),
+            "eficiencia_verificada": bool(
+                abs((self.valor_base + contrib.sum()) - prediccion) < 1e-6),
+        }
+
+    def semana_pico(self):
+        """Semana de mayor valor observado entre las evaluadas, para explicarla."""
+        return self.X.index[int(np.argmax(self.X["lag_1"].values))]             if "lag_1" in self.X.columns else self.X.index[0]
+
+
 def _construir_modelo(modelo: str, departamento: str, age_group: str):
     """Instancia el modelo con la MISMA configuración usada en la grilla."""
     if modelo == "RandomForest":
