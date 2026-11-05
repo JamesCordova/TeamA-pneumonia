@@ -42,6 +42,31 @@ Luego abre **`pruebasg/dashboard.html`** con doble clic. Es un único archivo
 | `_common.py` | Rutas y utilidades compartidas. |
 | `results/` | Snapshots por experimento + `manifest.json`. |
 
+### Criterio de selección y tablero (tesina)
+
+| Archivo | Qué hace |
+|---|---|
+| `run_profiles.py` | Perfil estadístico de cada serie -> `results/profiles/`. |
+| `run_grid_selector.py` | Corrida comparativa de las 5 familias sobre los 25 departamentos. |
+| `run_selector.py` | Aplica el criterio y mide cobertura, exceso de error y ahorro. |
+| `run_shap.py` | Atribución SHAP global y local (muestra estratificada). |
+| `build_future.py` | Pronóstico de las 4 semanas siguientes al último dato. |
+| `build_frontend_v2.py` | Arma `frontend_neumonia_v2.html`, el tablero v2.0. |
+| `chequeo_exclusion_covid.py` | Cuantifica el efecto de excluir 2020-2021 de la puntuación. |
+| `endemico.py` | Canal endémico por cuartiles (contexto de lectura, no entra en el criterio). |
+| `selector/` | El criterio: perfilador, reglas, conjunto empatado, SHAP. |
+| `tablero/` | Piezas del tablero: geometría, datos, estilos, `app.js`, plantilla. |
+
+El tablero se genera con:
+
+```bash
+python pruebasg/build_frontend_v2.py
+```
+
+y se abre con doble clic sobre `pruebasg/frontend_neumonia_v2.html`. Es un
+único archivo de ~1 MB, sin servidor ni conexión: lleva los datos dentro y
+dibuja el mapa y los gráficos sobre SVG.
+
 ## Añadir o cambiar experimentos
 
 Edita la lista `EXPERIMENTS` en [`run_grid.py`](run_grid.py). Cada entrada:

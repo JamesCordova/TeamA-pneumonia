@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pronóstico de neumonía · Perú · prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/*__ESTILOS__*/
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <b>Neumonía · Perú</b>
+      <span>tesina · UNSA · v/*__VERSION__*/</span>
+    </div>
+    <div class="ribbon">
+      <div class="chip proto"><i class="dot"></i> Prototipo · selección automática de modelo + SHAP</div>
+      <div class="chip hist" id="chip-datos">Datos históricos</div>
+      <div class="avatar" title="Gersson Huichi Santander">GS</div>
+    </div>
+  </header>
+
+  <div class="headline" id="titulares"></div>
+
+  <div class="body">
+
+    <div class="left">
+      <div class="mapbox" id="mapa"></div>
+      <div class="ov crumb">
+        <button class="cb cur">Perú</button>
+        <span class="lvl">Nacional</span>
+      </div>
+      <div class="hint">Clic en un departamento para cambiar de serie<br>Arrastre para desplazar · + / − para acercar</div>
+      <div class="maptoggles">
+        <div class="seg mapmode">
+          <button id="mm-magnitud" class="on">Magnitud</button>
+          <button id="mm-zona">Zona</button>
+        </div>
+        <div class="valtoggle" id="mt-nombres">Nombres</div>
+        <div class="valtoggle" id="mt-valores">Valores</div>
+      </div>
+      <div class="zoomctl">
+        <button id="zoom-mas" title="Acercar">+</button>
+        <button id="zoom-menos" title="Alejar">−</button>
+      </div>
+      <div class="ov statcard" id="ficha"></div>
+      <div class="ov legend" id="leyenda"></div>
+    </div>
+
+    <div class="right">
+      <div class="panel controls" id="controles"></div>
+      <div class="panel forecast" id="panel-pronostico"></div>
+      <div class="panel context" id="panel-contexto"></div>
+    </div>
+
+  </div>
+</div>
+
+<script id="datos" type="application/json">/*__DATOS__*/</script>
+<script>
+window.__DATOS__ = JSON.parse(document.getElementById('datos').textContent);
+</script>
+<script>
+/*__APP__*/
+</script>
+</body>
+</html>

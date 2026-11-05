@@ -62,6 +62,68 @@
     "eficiencia_verificada": true
   },
   {
+    "departamento": "LIMA",
+    "modelo": "XGBoost",
+    "semana": "2018-05-28",
+    "valor_base": 151.9978,
+    "prediccion": 330.0661,
+    "efecto_total": 178.0683,
+    "contribuciones": [
+      {
+        "variable": "lag_1",
+        "valor_variable": 431.0,
+        "contribucion": 99.3438,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 378.0,
+        "contribucion": 39.7729,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 394.75,
+        "contribucion": 19.8314,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 131.607,
+        "contribucion": 8.632,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_8",
+        "valor_variable": 154.0,
+        "contribucion": 2.8634,
+        "familia": "memoria_media"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 960.0,
+        "contribucion": 2.4519,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "lag_13",
+        "valor_variable": 89.0,
+        "contribucion": 2.0669,
+        "familia": "memoria_media"
+      },
+      {
+        "variable": "sin_week",
+        "valor_variable": 0.473,
+        "contribucion": 1.1587,
+        "familia": "calendario_estacional"
+      }
+    ],
+    "resto_agrupado": 1.9472,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 178.068298,
+    "eficiencia_verificada": true
+  },
+  {
     "departamento": "PIURA",
     "modelo": "RandomForest",
     "semana": "2023-05-15",
@@ -121,6 +183,68 @@
     "resto_agrupado": 15.4585,
     "n_variables_restantes": 12,
     "suma_contribuciones": 60.225599,
+    "eficiencia_verificada": true
+  },
+  {
+    "departamento": "PIURA",
+    "modelo": "XGBoost",
+    "semana": "2023-05-15",
+    "valor_base": 27.169,
+    "prediccion": 96.0799,
+    "efecto_total": 68.9109,
+    "contribuciones": [
+      {
+        "variable": "lag_1",
+        "valor_variable": 126.0,
+        "contribucion": 18.6981,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 79.75,
+        "contribucion": 16.3785,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 64.0,
+        "contribucion": 10.7834,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 1219.0,
+        "contribucion": 6.4694,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 31.899,
+        "contribucion": 3.5656,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "week_of_year",
+        "valor_variable": 20.0,
+        "contribucion": 2.0396,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "rolling_mean_13",
+        "valor_variable": 45.231,
+        "contribucion": 2.0029,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "sin_week",
+        "valor_variable": 0.669,
+        "contribucion": 1.9897,
+        "familia": "calendario_estacional"
+      }
+    ],
+    "resto_agrupado": 6.9839,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 68.910858,
     "eficiencia_verificada": true
   },
   {
@@ -186,6 +310,68 @@
     "eficiencia_verificada": true
   },
   {
+    "departamento": "LA LIBERTAD",
+    "modelo": "XGBoost",
+    "semana": "2018-05-28",
+    "valor_base": 10.1462,
+    "prediccion": 25.2864,
+    "efecto_total": 15.1402,
+    "contribuciones": [
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 25.25,
+        "contribucion": 4.9738,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_1",
+        "valor_variable": 42.0,
+        "contribucion": 2.8742,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 24.0,
+        "contribucion": 2.5734,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 960.0,
+        "contribucion": 1.3835,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 10.638,
+        "contribucion": 0.9729,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_8",
+        "valor_variable": 9.0,
+        "contribucion": 0.7049,
+        "familia": "memoria_media"
+      },
+      {
+        "variable": "rolling_std_26",
+        "valor_variable": 9.418,
+        "contribucion": 0.4842,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 12.148,
+        "contribucion": -0.3708,
+        "familia": "ventanas_moviles"
+      }
+    ],
+    "resto_agrupado": 1.544,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 15.140154,
+    "eficiencia_verificada": true
+  },
+  {
     "departamento": "ICA",
     "modelo": "RandomForest",
     "semana": "2019-06-03",
@@ -245,6 +431,68 @@
     "resto_agrupado": 0.7773,
     "n_variables_restantes": 12,
     "suma_contribuciones": 6.441002,
+    "eficiencia_verificada": true
+  },
+  {
+    "departamento": "ICA",
+    "modelo": "XGBoost",
+    "semana": "2019-06-03",
+    "valor_base": 5.0493,
+    "prediccion": 11.4508,
+    "efecto_total": 6.4015,
+    "contribuciones": [
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 12.75,
+        "contribucion": 2.6993,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "cos_week",
+        "valor_variable": -0.932,
+        "contribucion": 0.7627,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 12.312,
+        "contribucion": 0.6573,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 1013.0,
+        "contribucion": 0.6261,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "week_of_year",
+        "valor_variable": 23.0,
+        "contribucion": 0.5278,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "lag_8",
+        "valor_variable": 8.0,
+        "contribucion": 0.3801,
+        "familia": "memoria_media"
+      },
+      {
+        "variable": "lag_4",
+        "valor_variable": 8.0,
+        "contribucion": 0.3312,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_mean_13",
+        "valor_variable": 8.615,
+        "contribucion": 0.3104,
+        "familia": "ventanas_moviles"
+      }
+    ],
+    "resto_agrupado": 0.1067,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 6.401471,
     "eficiencia_verificada": true
   },
   {
@@ -310,6 +558,68 @@
     "eficiencia_verificada": true
   },
   {
+    "departamento": "CUSCO",
+    "modelo": "XGBoost",
+    "semana": "2023-06-12",
+    "valor_base": 17.9912,
+    "prediccion": 66.2117,
+    "efecto_total": 48.2205,
+    "contribuciones": [
+      {
+        "variable": "lag_1",
+        "valor_variable": 95.0,
+        "contribucion": 21.6369,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 82.75,
+        "contribucion": 8.7503,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 86.0,
+        "contribucion": 7.6288,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 15.607,
+        "contribucion": 2.1657,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 1223.0,
+        "contribucion": 1.8469,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "week_of_year",
+        "valor_variable": 24.0,
+        "contribucion": 1.3972,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 31.181,
+        "contribucion": 1.3622,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_13",
+        "valor_variable": 9.0,
+        "contribucion": 1.2285,
+        "familia": "memoria_media"
+      }
+    ],
+    "resto_agrupado": 2.204,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 48.220482,
+    "eficiencia_verificada": true
+  },
+  {
     "departamento": "PUNO",
     "modelo": "RandomForest",
     "semana": "2023-07-03",
@@ -369,6 +679,68 @@
     "resto_agrupado": 9.9586,
     "n_variables_restantes": 12,
     "suma_contribuciones": 72.335538,
+    "eficiencia_verificada": true
+  },
+  {
+    "departamento": "PUNO",
+    "modelo": "XGBoost",
+    "semana": "2023-07-03",
+    "valor_base": 17.6816,
+    "prediccion": 96.7437,
+    "efecto_total": 79.0621,
+    "contribuciones": [
+      {
+        "variable": "lag_1",
+        "valor_variable": 114.0,
+        "contribucion": 35.7617,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 92.5,
+        "contribucion": 13.8618,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 100.0,
+        "contribucion": 9.971,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 29.466,
+        "contribucion": 5.8047,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 1226.0,
+        "contribucion": 4.037,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "cos_week",
+        "valor_variable": -0.994,
+        "contribucion": 3.4242,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "lag_4",
+        "valor_variable": 78.0,
+        "contribucion": 1.8926,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 17.692,
+        "contribucion": 1.1397,
+        "familia": "ventanas_moviles"
+      }
+    ],
+    "resto_agrupado": 3.1695,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 79.062096,
     "eficiencia_verificada": true
   },
   {
@@ -434,6 +806,68 @@
     "eficiencia_verificada": true
   },
   {
+    "departamento": "HUANCAVELICA",
+    "modelo": "XGBoost",
+    "semana": "2015-05-18",
+    "valor_base": 4.0425,
+    "prediccion": 8.7135,
+    "efecto_total": 4.671,
+    "contribuciones": [
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 13.5,
+        "contribucion": 1.6229,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 802.0,
+        "contribucion": 0.8585,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "cos_week",
+        "valor_variable": -0.818,
+        "contribucion": 0.699,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "lag_1",
+        "valor_variable": 19.0,
+        "contribucion": 0.6543,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "week_of_year",
+        "valor_variable": 21.0,
+        "contribucion": 0.4654,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 6.508,
+        "contribucion": 0.287,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_4",
+        "valor_variable": 12.0,
+        "contribucion": -0.1744,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 5.802,
+        "contribucion": 0.1735,
+        "familia": "ventanas_moviles"
+      }
+    ],
+    "resto_agrupado": 0.0849,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 4.671,
+    "eficiencia_verificada": true
+  },
+  {
     "departamento": "LORETO",
     "modelo": "RandomForest",
     "semana": "2023-05-22",
@@ -493,6 +927,68 @@
     "resto_agrupado": 11.0916,
     "n_variables_restantes": 12,
     "suma_contribuciones": 78.069322,
+    "eficiencia_verificada": true
+  },
+  {
+    "departamento": "LORETO",
+    "modelo": "XGBoost",
+    "semana": "2023-05-22",
+    "valor_base": 35.8039,
+    "prediccion": 118.1724,
+    "efecto_total": 82.3685,
+    "contribuciones": [
+      {
+        "variable": "lag_1",
+        "valor_variable": 155.0,
+        "contribucion": 35.8973,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 98.5,
+        "contribucion": 19.3962,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 1220.0,
+        "contribucion": 7.3766,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 93.0,
+        "contribucion": 6.6249,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 34.165,
+        "contribucion": 2.3541,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 39.247,
+        "contribucion": 2.2223,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "rolling_mean_13",
+        "valor_variable": 61.615,
+        "contribucion": 1.9156,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "week_of_year",
+        "valor_variable": 21.0,
+        "contribucion": 1.8356,
+        "familia": "calendario_estacional"
+      }
+    ],
+    "resto_agrupado": 4.746,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 82.3685,
     "eficiencia_verificada": true
   },
   {
@@ -558,6 +1054,68 @@
     "eficiencia_verificada": true
   },
   {
+    "departamento": "UCAYALI",
+    "modelo": "XGBoost",
+    "semana": "2018-07-02",
+    "valor_base": 20.6739,
+    "prediccion": 63.0272,
+    "efecto_total": 42.3533,
+    "contribuciones": [
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 50.0,
+        "contribucion": 11.1014,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_1",
+        "valor_variable": 81.0,
+        "contribucion": 10.9141,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 47.0,
+        "contribucion": 6.6116,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "cos_week",
+        "valor_variable": -0.994,
+        "contribucion": 4.8761,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 22.539,
+        "contribucion": 3.9178,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "trend",
+        "valor_variable": 965.0,
+        "contribucion": 3.05,
+        "familia": "tendencia"
+      },
+      {
+        "variable": "rolling_mean_26",
+        "valor_variable": 27.923,
+        "contribucion": 0.577,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "rolling_std_26",
+        "valor_variable": 14.048,
+        "contribucion": -0.5487,
+        "familia": "ventanas_moviles"
+      }
+    ],
+    "resto_agrupado": 1.8539,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 42.353279,
+    "eficiencia_verificada": true
+  },
+  {
     "departamento": "AMAZONAS",
     "modelo": "RandomForest",
     "semana": "2018-07-09",
@@ -620,6 +1178,68 @@
     "eficiencia_verificada": true
   },
   {
+    "departamento": "AMAZONAS",
+    "modelo": "XGBoost",
+    "semana": "2018-07-09",
+    "valor_base": 8.3073,
+    "prediccion": 23.017,
+    "efecto_total": 14.7098,
+    "contribuciones": [
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 37.75,
+        "contribucion": 4.7399,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_1",
+        "valor_variable": 48.0,
+        "contribucion": 3.6873,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "cos_week",
+        "valor_variable": -0.974,
+        "contribucion": 2.9111,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 32.0,
+        "contribucion": 1.7787,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 15.113,
+        "contribucion": 1.7646,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_8",
+        "valor_variable": 11.0,
+        "contribucion": -0.7641,
+        "familia": "memoria_media"
+      },
+      {
+        "variable": "lag_4",
+        "valor_variable": 38.0,
+        "contribucion": 0.649,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_mean_26",
+        "valor_variable": 11.962,
+        "contribucion": -0.5477,
+        "familia": "ventanas_moviles"
+      }
+    ],
+    "resto_agrupado": 0.491,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 14.709779,
+    "eficiencia_verificada": true
+  },
+  {
     "departamento": "MADRE DE DIOS",
     "modelo": "RandomForest",
     "semana": "2018-06-11",
@@ -679,6 +1299,68 @@
     "resto_agrupado": 0.8065,
     "n_variables_restantes": 12,
     "suma_contribuciones": 4.901919,
+    "eficiencia_verificada": true
+  },
+  {
+    "departamento": "MADRE DE DIOS",
+    "modelo": "XGBoost",
+    "semana": "2018-06-11",
+    "valor_base": 4.1559,
+    "prediccion": 9.6792,
+    "efecto_total": 5.5233,
+    "contribuciones": [
+      {
+        "variable": "lag_1",
+        "valor_variable": 19.0,
+        "contribucion": 1.3036,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "rolling_std_4",
+        "valor_variable": 6.85,
+        "contribucion": 1.043,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "rolling_mean_4",
+        "valor_variable": 9.25,
+        "contribucion": 0.9945,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "lag_2",
+        "valor_variable": 7.0,
+        "contribucion": 0.9543,
+        "familia": "inercia_corta"
+      },
+      {
+        "variable": "cos_week",
+        "valor_variable": -0.969,
+        "contribucion": 0.3516,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "week_of_year",
+        "valor_variable": 24.0,
+        "contribucion": 0.2922,
+        "familia": "calendario_estacional"
+      },
+      {
+        "variable": "rolling_std_13",
+        "valor_variable": 4.845,
+        "contribucion": 0.2094,
+        "familia": "ventanas_moviles"
+      },
+      {
+        "variable": "month",
+        "valor_variable": 6.0,
+        "contribucion": 0.1902,
+        "familia": "calendario_estacional"
+      }
+    ],
+    "resto_agrupado": 0.1843,
+    "n_variables_restantes": 9,
+    "suma_contribuciones": 5.52328,
     "eficiencia_verificada": true
   }
 ]
